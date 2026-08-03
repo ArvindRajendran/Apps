@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Psychrometric Chart</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a; --ok-soft: #dcfce7; --warn: #b45309; --warn-soft: #fef3c7;
+    --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80; --ok-soft: #143620; --warn: #fbbf24; --warn-soft: #3a2f10;
+      --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 680px; }
+  /* ---------- tab bar ---------- */
+  .tabs {
+    display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px; margin-bottom: 22px; box-shadow: var(--shadow);
+  }
+  .tabbtn {
+    flex: 1; border: none; background: none; color: var(--muted); font-size: 0.95rem;
+    font-weight: 600; padding: 10px 14px; border-radius: 9px; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .tabbtn:hover { color: var(--text); }
+  .tabbtn.active { background: var(--accent); color: #fff; }
+  .appsec[hidden] { display: none; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 20px; position: relative;
+  }
+  input[type=text] {
+    width: 100%; font-size: 1.05rem; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 10px; padding: 0 16px; font-size: 0.92rem; cursor: pointer;
+    white-space: nowrap; transition: background .15s, border-color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  button.action.small { padding: 7px 12px; font-size: 0.85rem; border-radius: 8px; }
+  .copybtn {
+    display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+    background: var(--accent); color: #fff; border: none; border-radius: 9px;
+    padding: 9px 16px; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+    transition: filter .15s;
+  }
+  .copybtn:hover { filter: brightness(1.1); }
+  .copybtn.copied { background: var(--ok); }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  kbd {
+    background: var(--bg); border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 5px; font-size: 0.75em; font-family: inherit;
+  }
+  /* ---------- journal abbreviator ---------- */
+  .inputrow { display: flex; gap: 8px; }
+  .inputbox { position: relative; flex: 1; }
+  #q { padding-right: 40px; }
+  .clearbtn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    border: none; background: none; color: var(--muted); font-size: 1.1rem;
+    cursor: pointer; padding: 4px 6px; border-radius: 6px; display: none;
+  }
+  .clearbtn:hover { color: var(--text); }
+  .suggestions {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 10;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow); max-height: 320px; overflow-y: auto; display: none;
+  }
+  .suggestions.open { display: block; }
+  .sug {
+    padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between;
+    gap: 12px; align-items: baseline; border-bottom: 1px solid var(--border);
+  }
+  .sug:last-child { border-bottom: none; }
+  .sug:hover, .sug.active { background: var(--accent-soft); }
+  .sug .name { font-size: 0.95rem; }
+  .sug .abbr { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+  .sug .cdot { color: var(--ok); font-weight: 700; margin-right: 4px; }
+  .result { margin-top: 20px; display: none; }
+  .result.show { display: block; }
+  .result .full { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
+  .abbrline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .abbrtext { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; }
+  .badge {
+    display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 3px 9px;
+    border-radius: 999px; margin-top: 10px;
+  }
+  .badge.db { background: var(--accent-soft); color: var(--accent); }
+  .badge.rule { background: var(--warn-soft); color: var(--warn); }
+  .badge.custom { background: var(--ok-soft); color: var(--ok); }
+  .options { margin-top: 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .options label { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .nores { margin-top: 20px; color: var(--muted); font-size: 0.9rem; display: none; }
+  .nores.show { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .editpanel {
+    margin-top: 18px; padding: 16px; border: 1.5px dashed var(--border);
+    border-radius: 10px; display: none;
+  }
+  .editpanel.show { display: block; }
+  .editpanel h3 { font-size: 0.95rem; margin-bottom: 12px; }
+  .editpanel .field { margin-bottom: 10px; }
+  .editpanel label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+  .editpanel input[type=text] { padding: 9px 12px; font-size: 0.95rem; }
+  .editrow { display: flex; gap: 8px; margin-top: 12px; }
+  .savebtn {
+    background: var(--ok); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 18px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  }
+  .savebtn:hover { filter: brightness(1.1); }
+  .mgrbar {
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .linklike {
+    background: none; border: none; color: var(--accent); cursor: pointer;
+    font-size: 0.85rem; padding: 0; text-decoration: underline;
+  }
+  .mgr { margin-top: 12px; display: none; }
+  .mgr.show { display: block; }
+  .mgr .hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+  .mgrlist { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
+  .mgrrow {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); font-size: 0.88rem;
+  }
+  .mgrrow:last-child { border-bottom: none; }
+  .mgrrow .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mgrrow .a { color: var(--muted); white-space: nowrap; }
+  .mgrrow button {
+    background: none; border: none; cursor: pointer; font-size: 0.85rem;
+    color: var(--accent); padding: 2px 6px;
+  }
+  .mgrrow button.del { color: var(--danger); }
+  .mgrempty { padding: 14px; color: var(--muted); font-size: 0.85rem; text-align: center; }
+  /* ---------- unit converter ---------- */
+  .examples { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .examples span { font-size: 0.78rem; color: var(--muted); }
+  .chip {
+    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+    border-radius: 999px; padding: 3px 10px; font-size: 0.78rem; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .uout { margin-top: 22px; display: none; }
+  .uout.show { display: block; }
+  .upreview {
+    font-size: 1.7rem; font-weight: 600; letter-spacing: 0.01em;
+    padding: 14px 0 4px; text-align: center;
+  }
+  .upreview sup { font-size: 0.62em; }
+  .urow { margin-top: 14px; display: flex; align-items: center; gap: 10px; }
+  .urow .label { font-size: 0.78rem; color: var(--muted); width: 74px; flex-shrink: 0; }
+  .code {
+    flex: 1; font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.92rem; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 12px; overflow-x: auto; white-space: nowrap;
+  }
+  .uerr { margin-top: 18px; color: var(--danger); font-size: 0.88rem; display: none; }
+  .uerr.show { display: block; }
+  #u_richholder { position: fixed; left: -9999px; top: 0; font-family: "Times New Roman", serif; font-size: 12pt; color: #000; background: #fff; }
+
+
+  /* ---------- psychrometric chart ---------- */
+  .wrap:has(> #app-psych:not([hidden])) { max-width: 1100px; }
+  #app-psych .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin-bottom: 14px; }
+  #app-psych .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  #app-psych .fld input[type=number] {
+    width: 86px; padding: 7px 9px; font-size: 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  #app-psych .fld input[type=number]:focus { border-color: var(--accent); }
+  #app-psych .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  #app-psych .seg button { border: none; background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+  #app-psych .seg button.on { background: var(--accent); color: #fff; }
+  #app-psych .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  #app-psych .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1.5px solid var(--border); background: var(--bg); color: var(--muted);
+    border-radius: 999px; padding: 6px 13px; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  #app-psych .pill .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+  #app-psych .pill.on { color: var(--text); border-color: var(--pc); }
+  #app-psych .pill.on .dot { background: var(--pc); }
+  #psy-cv { width: 100%; display: block; border: 1px solid var(--border); border-radius: 10px; cursor: crosshair; touch-action: none; }
+  #app-psych .read { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px; margin-top: 12px; }
+  #app-psych .read .cell { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; min-width: 0; }
+  #app-psych .read .k { font-size: 0.66rem; color: var(--muted); white-space: nowrap; }
+  #app-psych .read .v { font-size: 0.9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #app-psych .anch { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  #app-psych .anch h3 { font-size: 0.95rem; margin-bottom: 4px; }
+  #app-psych .hintline { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; }
+  #app-psych .anchrow { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-bottom: 4px; }
+  #app-psych .abbadge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%; color: #fff;
+    font-size: 0.78rem; font-weight: 700; margin-bottom: 6px;
+  }
+  #app-psych table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  #app-psych th, #app-psych td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+  #app-psych th:first-child, #app-psych td:first-child { text-align: left; color: var(--muted); font-weight: 500; }
+  #app-psych thead th { color: var(--text); font-weight: 700; }
+  #app-psych .procline { margin-top: 10px; font-size: 0.85rem; }
+  #app-psych .btnrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="appsec" id="app-psych">
+    <h2>Psychrometric Chart</h2>
+    <div class="sub">Interactive moist-air chart: hover for state-point values, click to place anchors A&ndash;D, toggle property lines.</div>
+    <div class="panel">
+      <div class="ctrls">
+        <label class="fld">Pressure (kPa)<input type="number" id="psy-p" value="101.325" step="0.5" min="10" max="200"></label>
+        <label class="fld">T min (&deg;C)<input type="number" id="psy-tmin" value="0" step="5" min="-40" max="80"></label>
+        <label class="fld">T max (&deg;C)<input type="number" id="psy-tmax" value="50" step="5" min="-20" max="99"></label>
+        <label class="fld">W max (g/kg)<input type="number" id="psy-wmax" value="35" step="5" min="2" max="100"></label>
+        <div class="fld">y-axis units
+          <div class="seg" id="psy-ymode">
+            <button class="on" data-m="w">g / kg dry air</button>
+            <button data-m="x">mole fraction</button>
+          </div>
+        </div>
+      </div>
+      <div class="pills" id="psy-pills">
+        <button class="pill on" data-k="rh" style="--pc:#10b981" title="Curves of constant relative humidity, 10&ndash;90%"><span class="dot"></span>Relative humidity (%)</button>
+        <button class="pill on" data-k="twb" style="--pc:#3b82f6" title="Lines of constant thermodynamic wet-bulb temperature"><span class="dot"></span>Wet-bulb temp (&deg;C)</button>
+        <button class="pill" data-k="v" style="--pc:#a855f7" title="Lines of constant specific volume"><span class="dot"></span>Specific volume (m&sup3;/kg d.a.)</button>
+        <button class="pill" data-k="h" style="--pc:#f59e0b" title="Lines of constant specific enthalpy"><span class="dot"></span>Enthalpy (kJ/kg d.a.)</button>
+      </div>
+      <canvas id="psy-cv"></canvas>
+      <div class="read" id="psy-read"></div>
+
+      <div class="anch">
+        <h3>Anchor points</h3>
+        <div class="hintline">Click the chart to place A, B, C, D in turn. Drag a marker to move it, or type values below. The process path chains the placed points in order.</div>
+        <div class="anchrow">
+          <span class="abbadge" style="background:#ef4444">A</span>
+          <label class="fld">T (&deg;C)<input type="number" id="psy-at" step="0.5"></label>
+          <label class="fld">RH (%)<input type="number" id="psy-arh" step="1" min="0" max="100"></label>
+          <span class="abbadge" style="background:#6366f1">B</span>
+          <label class="fld">T (&deg;C)<input type="number" id="psy-bt" step="0.5"></label>
+          <label class="fld">RH (%)<input type="number" id="psy-brh" step="1" min="0" max="100"></label>
+          <span class="abbadge" style="background:#ec4899">C</span>
+          <label class="fld">T (&deg;C)<input type="number" id="psy-ct" step="0.5"></label>
+          <label class="fld">RH (%)<input type="number" id="psy-crh" step="1" min="0" max="100"></label>
+          <span class="abbadge" style="background:#0891b2">D</span>
+          <label class="fld">T (&deg;C)<input type="number" id="psy-dt" step="0.5"></label>
+          <label class="fld">RH (%)<input type="number" id="psy-drh" step="1" min="0" max="100"></label>
+          <button class="action small" id="psy-clear" style="margin-bottom:2px">Clear points</button>
+        </div>
+        <table id="psy-tbl" hidden></table>
+        <div class="procline" id="psy-proc"></div>
+      </div>
+
+      <div class="btnrow">
+        <button class="action small" id="psy-copy">&#10697; Copy point data</button>
+        <button class="action small" id="psy-png">&#11015; Download chart PNG</button>
+        <button class="action small" id="psy-dl" title="Download this chart as its own single-file app">&#11015; Download standalone app</button>
+      </div>
+    </div>
+    <div class="footer">
+      ASHRAE-style formulations (Hyland&ndash;Wexler saturation pressure, ideal-gas moist air); properties per kg dry air.<br>
+      Works offline &mdash; single file, share freely. 
+    
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+  </section>
+</div>
+<script id="psy-script">
+/* ================= Psychrometric Chart ================= */
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $("psy-cv"); if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+  /* ---------- moist-air properties (t degC, P kPa, W kg/kg d.a.) ---------- */
+  const MW = 0.621945;
+  function psat(t) {                 /* kPa, Hyland-Wexler (water >=0, ice <0) */
+    const T = t + 273.15;
+    let ln;
+    if (t >= 0) {
+      ln = -5800.2206/T + 1.3914993 - 0.048640239*T + 4.1764768e-5*T*T
+           - 1.4452093e-8*T*T*T + 6.5459673*Math.log(T);
+    } else {
+      ln = -5674.5359/T + 6.3925247 - 0.009677843*T + 6.2215701e-7*T*T
+           + 2.0747825e-9*T*T*T - 9.484024e-13*T*T*T*T + 4.1635019*Math.log(T);
+    }
+    return Math.exp(ln) / 1000;
+  }
+  const pwFromW = (W, P) => P * W / (MW + W);
+  const wFromPw = (pw, P) => MW * pw / (P - pw);
+  const wSat = (t, P) => wFromPw(psat(t), P);
+  const enth = (t, W) => 1.006*t + W*(2501 + 1.86*t);
+  const svol = (t, W, P) => 0.287042*(t + 273.15)*(1 + 1.607858*W)/P;
+  function bisect(f, a, b) {
+    let fa = f(a), fb = f(b);
+    if (!isFinite(fa) || !isFinite(fb) || fa*fb > 0) return NaN;
+    for (let i = 0; i < 70; i++) {
+      const m = (a + b)/2, fm = f(m);
+      if (fa*fm <= 0) { b = m; fb = fm; } else { a = m; fa = fm; }
+    }
+    return (a + b)/2;
+  }
+  const dewPt = (W, P) => W > 0 ? bisect(td => psat(td) - pwFromW(W, P), -90, 95) : NaN;
+  function wFromTwb(t, ts, P) {      /* W of air at (t) with wet bulb ts */
+    const Ws = wSat(ts, P);
+    return ts >= 0
+      ? ((2501 - 2.326*ts)*Ws - 1.006*(t - ts)) / (2501 + 1.86*t - 4.186*ts)
+      : ((2830 - 0.24*ts)*Ws - 1.006*(t - ts)) / (2830 + 1.86*t - 2.1*ts);
+  }
+  const wetBulb = (t, W, P) => bisect(ts => wFromTwb(t, ts, P) - W, -80, t);
+  function props(t, W, P) {
+    const pw = pwFromW(W, P);
+    return { t, w: W*1000, y: pw/P, rh: 100*pw/psat(t), twb: wetBulb(t, W, P),
+             tdp: dewPt(W, P), h: enth(t, W), v: svol(t, W, P), pw, W };
+  }
+
+  /* ---------- state ---------- */
+  const st = { P: 101.325, tMin: 0, tMax: 50, wMax: 0.035, yMode: "w",
+               show: { rh: true, twb: true, v: false, h: false },
+               A: null, B: null, C: null, D: null, hover: null, drag: null };
+  const COL = { rh: "#10b981", sat: "#059669", twb: "#3b82f6", v: "#a855f7",
+                h: "#f59e0b", A: "#ef4444", B: "#6366f1", C: "#ec4899", D: "#0891b2" };
+  const PTS = ["A", "B", "C", "D"];
+  const PAIRS = [["A", "psy-at", "psy-arh"], ["B", "psy-bt", "psy-brh"],
+                 ["C", "psy-ct", "psy-crh"], ["D", "psy-dt", "psy-drh"]];
+  const LSKEY = "psy_v1";
+  function saveLS() {
+    try { localStorage.setItem(LSKEY, JSON.stringify({
+      P: st.P, tMin: st.tMin, tMax: st.tMax, wMax: st.wMax,
+      yMode: st.yMode, show: st.show,
+      A: st.A, B: st.B, C: st.C, D: st.D })); } catch (e) {}
+  }
+  function loadLS() {
+    try {
+      const s = JSON.parse(localStorage.getItem(LSKEY));
+      if (!s) return;
+      if (isFinite(s.P) && s.P >= 10 && s.P <= 200) st.P = s.P;
+      if (isFinite(s.tMin) && isFinite(s.tMax) && s.tMax - s.tMin >= 5) { st.tMin = s.tMin; st.tMax = s.tMax; }
+      if (isFinite(s.wMax) && s.wMax >= 0.002 && s.wMax <= 0.1) st.wMax = s.wMax;
+      if (s.yMode === "w" || s.yMode === "x") st.yMode = s.yMode;
+      if (s.show) for (const k of ["rh","twb","v","h"]) if (typeof s.show[k] === "boolean") st.show[k] = s.show[k];
+      for (const k of PTS) if (s[k] && isFinite(s[k].t) && isFinite(s[k].W)) st[k] = { t: s[k].t, W: s[k].W };
+    } catch (e) {}
+  }
+
+  /* ---------- formatting ---------- */
+  const fmt = (x, d = 1) => isFinite(x) ? x.toFixed(d) : "—";
+  function decsOf(s) { for (let d = 0; d <= 6; d++) if (Math.abs(s*10**d - Math.round(s*10**d)) < 1e-9) return d; return 6; }
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const p = 10 ** Math.floor(Math.log10(raw));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m*p >= raw) return m*p;
+    return 10*p;
+  }
+
+  /* ---------- canvas geometry ---------- */
+  let dpr = 1, cw = 0, ch = 0;
+  const M = { l: 16, r: 84, t: 18, b: 48 };
+  function sizeCanvas() {
+    const w = cv.getBoundingClientRect().width;
+    if (w < 50) { cw = 0; return; }
+    cw = w;
+    ch = Math.max(380, Math.min(w * 0.6, 620));
+    cv.style.height = ch + "px";
+    dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(cw * dpr);
+    cv.height = Math.round(ch * dpr);
+  }
+  const x2p = t => M.l + (t - st.tMin)/(st.tMax - st.tMin)*(cw - M.l - M.r);
+  const y2p = W => ch - M.b - (W/st.wMax)*(ch - M.t - M.b);
+  const p2t = px => st.tMin + (px - M.l)/(cw - M.l - M.r)*(st.tMax - st.tMin);
+  const p2w = py => (ch - M.b - py)/(ch - M.t - M.b)*st.wMax;
+
+  function themeCols() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return { card: g("--card"), border: g("--border"), text: g("--text"),
+             muted: g("--muted"), accent: g("--accent") };
+  }
+
+  /* ---------- drawing ---------- */
+  function draw() {
+    if (cw < 50) return;
+    const th = themeCols(), P = st.P;
+    const N = 240, sat = [];
+    for (let i = 0; i <= N; i++) {
+      const t = st.tMin + (st.tMax - st.tMin)*i/N;
+      sat.push([t, wSat(t, P)]);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = th.card;
+    ctx.fillRect(0, 0, cw, ch);
+
+    function line(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+    function halo(txt, x, y, ang, color) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang || 0);
+      ctx.font = "10.5px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3; ctx.strokeStyle = th.card; ctx.strokeText(txt, 0, -8);
+      ctx.fillStyle = color; ctx.fillText(txt, 0, -8); ctx.restore();
+    }
+
+    /* grid + tick labels */
+    ctx.font = "11px " + FONT;
+    ctx.strokeStyle = th.border; ctx.lineWidth = 1; ctx.fillStyle = th.muted;
+    const tStep = niceStep((st.tMax - st.tMin)/10), tDec = decsOf(tStep);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let t = Math.ceil(st.tMin/tStep)*tStep; t <= st.tMax + 1e-9; t += tStep) {
+      const x = x2p(t);
+      line(x, M.t, x, ch - M.b);
+      ctx.fillText(fmt(t, tDec), x, ch - M.b + 6);
+    }
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    if (st.yMode === "w") {
+      const wStep = niceStep(st.wMax*1000/8)/1000, wDec = decsOf(wStep*1000);
+      for (let W = 0; W <= st.wMax + 1e-12; W += wStep) {
+        const y = y2p(W);
+        line(M.l, y, cw - M.r, y);
+        ctx.fillText(fmt(W*1000, wDec), cw - M.r + 8, y);
+      }
+    } else {
+      const yMax = pwFromW(st.wMax, P)/P, yStep = niceStep(yMax/8), yDec = decsOf(yStep);
+      for (let yv = 0; yv <= yMax + 1e-12; yv += yStep) {
+        const y = y2p(wFromPw(yv*P, P));
+        if (y < M.t - 1) break;
+        line(M.l, y, cw - M.r, y);
+        ctx.fillText(fmt(yv, yDec), cw - M.r + 8, y);
+      }
+    }
+
+    /* axis titles */
+    ctx.fillStyle = th.text; ctx.font = "12px " + FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("Dry-bulb temperature (°C)", M.l + (cw - M.l - M.r)/2, ch - 10);
+    ctx.save();
+    ctx.translate(cw - 12, M.t + (ch - M.t - M.b)/2);
+    ctx.rotate(Math.PI/2);
+    ctx.fillText(st.yMode === "w" ? "Humidity ratio, W (g water / kg dry air)"
+                                  : "Water mole fraction, y (mol/mol)", 0, 0);
+    ctx.restore();
+
+    /* clip region = below saturation, inside plot */
+    const region = new Path2D();
+    region.moveTo(x2p(st.tMin), y2p(0));
+    region.lineTo(x2p(st.tMax), y2p(0));
+    for (let i = N; i >= 0; i--)
+      region.lineTo(x2p(sat[i][0]), y2p(Math.min(sat[i][1], st.wMax)));
+    region.closePath();
+
+    function plotFn(Wof) {
+      ctx.beginPath(); let first = true;
+      for (let i = 0; i <= N; i++) {
+        const W = Wof(sat[i][0]);
+        if (!isFinite(W)) { first = true; continue; }
+        const x = x2p(sat[i][0]), y = y2p(W);
+        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    const inRegion = (Wof, i) => {
+      const W = Wof(sat[i][0]);
+      return isFinite(W) && W >= 0 && W <= Math.min(sat[i][1], st.wMax)*0.995;
+    };
+    function labelIdx(Wof, mode) {          /* 'start' | 'mid' | 'end' */
+      let idx = -1;
+      if (mode === "start") {
+        for (let i = 0; i <= N; i++) if (inRegion(Wof, i)) { idx = i; break; }
+        if (idx >= 0) { let j = Math.min(idx + 8, N); if (inRegion(Wof, j)) idx = j; }
+      } else if (mode === "end") {
+        for (let i = N; i >= 0; i--) if (inRegion(Wof, i)) { idx = i; break; }
+        if (idx >= 0) { let j = Math.max(idx - 5, 0); if (inRegion(Wof, j)) idx = j; }
+      } else {
+        for (let i = 0; i <= N; i++) {
+          if (!inRegion(Wof, i)) continue;
+          idx = i;
+          if (Wof(sat[i][0]) >= 0.6*st.wMax) break;
+        }
+      }
+      return idx;
+    }
+    function labelOn(Wof, mode, txt, color) {
+      const i = labelIdx(Wof, mode);
+      if (i < 0) return;
+      const i0 = Math.max(0, i - 2), i1 = Math.min(N, i + 2);
+      const ang = Math.atan2(y2p(Wof(sat[i1][0])) - y2p(Wof(sat[i0][0])),
+                             x2p(sat[i1][0]) - x2p(sat[i0][0]));
+      halo(txt, x2p(sat[i][0]), y2p(Wof(sat[i][0])), ang, color);
+    }
+
+    /* property-line families, clipped to the valid region */
+    ctx.save();
+    ctx.clip(region);
+    if (st.show.rh) {
+      ctx.strokeStyle = COL.rh; ctx.lineWidth = 1;
+      for (let rh = 10; rh < 99; rh += 10)
+        plotFn(t => { const pw = rh/100*psat(t); return pw < P*0.98 ? wFromPw(pw, P) : NaN; });
+    }
+    if (st.show.twb) {
+      ctx.strokeStyle = COL.twb; ctx.lineWidth = 1;
+      const step = (st.tMax - st.tMin) <= 25 ? 2.5 : 5;
+      for (let tw = Math.ceil(st.tMin/step)*step; tw <= st.tMax + 1e-9; tw += step)
+        plotFn(t => t >= tw ? wFromTwb(t, tw, P) : NaN);
+    }
+    if (st.show.v) {
+      ctx.strokeStyle = COL.v; ctx.lineWidth = 1;
+      const vmin = svol(st.tMin, 0, P);
+      const vmax = svol(st.tMax, Math.min(wSat(st.tMax, P), st.wMax), P);
+      const step = niceStep((vmax - vmin)/8);
+      for (let v = Math.ceil(vmin/step)*step; v <= vmax + 1e-9; v += step)
+        plotFn(t => (v*P/(0.287042*(t + 273.15)) - 1)/1.607858);
+    }
+    if (st.show.h) {
+      ctx.strokeStyle = COL.h; ctx.lineWidth = 1;
+      const hmin = enth(st.tMin, 0);
+      const hmax = enth(st.tMax, Math.min(wSat(st.tMax, P), st.wMax));
+      const step = niceStep((hmax - hmin)/10);
+      for (let h = Math.ceil(hmin/step)*step; h <= hmax + 1e-9; h += step)
+        plotFn(t => (h - 1.006*t)/(2501 + 1.86*t));
+    }
+    ctx.restore();
+
+    /* fog (supersaturated) shading above saturation */
+    ctx.save();
+    ctx.globalAlpha = 0.07; ctx.fillStyle = th.muted;
+    const fog = new Path2D();
+    fog.moveTo(x2p(st.tMin), y2p(Math.min(sat[0][1], st.wMax)));
+    for (let i = 0; i <= N; i++)
+      fog.lineTo(x2p(sat[i][0]), y2p(Math.min(sat[i][1], st.wMax)));
+    fog.lineTo(x2p(st.tMax), M.t); fog.lineTo(x2p(st.tMin), M.t);
+    fog.closePath(); ctx.fill(fog);
+    ctx.restore();
+
+    /* saturation curve (stop where it exits the top) */
+    ctx.strokeStyle = COL.sat; ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i <= N; i++) {
+      const [t, W] = sat[i];
+      if (W > st.wMax) {
+        if (started && i > 0) {
+          const [t0, W0] = sat[i - 1], f = (st.wMax - W0)/(W - W0);
+          ctx.lineTo(x2p(t0 + f*(t - t0)), y2p(st.wMax));
+        }
+        break;
+      }
+      const x = x2p(t), y = y2p(W);
+      if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
+    }
+    if (started) ctx.stroke();
+
+    /* family labels (unclipped, with halo) */
+    if (st.show.rh)
+      for (let rh = 10; rh < 99; rh += 10)
+        labelOn(t => { const pw = rh/100*psat(t); return pw < P*0.98 ? wFromPw(pw, P) : NaN; },
+                "mid", rh + "%", COL.rh);
+    if (st.show.twb) {
+      const step = (st.tMax - st.tMin) <= 25 ? 2.5 : 5;
+      for (let tw = Math.ceil(st.tMin/step)*step; tw <= st.tMax + 1e-9; tw += step)
+        labelOn(t => t >= tw ? wFromTwb(t, tw, P) : NaN, "start", fmt(tw, decsOf(step)), COL.twb);
+    }
+    if (st.show.v) {
+      const vmin = svol(st.tMin, 0, P);
+      const vmax = svol(st.tMax, Math.min(wSat(st.tMax, P), st.wMax), P);
+      const step = niceStep((vmax - vmin)/8), d = decsOf(step);
+      for (let v = Math.ceil(vmin/step)*step; v <= vmax + 1e-9; v += step)
+        labelOn(t => (v*P/(0.287042*(t + 273.15)) - 1)/1.607858, "end", fmt(v, d), COL.v);
+    }
+    if (st.show.h) {
+      const hmin = enth(st.tMin, 0);
+      const hmax = enth(st.tMax, Math.min(wSat(st.tMax, P), st.wMax));
+      const step = niceStep((hmax - hmin)/10), d = decsOf(step);
+      for (let h = Math.ceil(hmin/step)*step; h <= hmax + 1e-9; h += step)
+        labelOn(t => (h - 1.006*t)/(2501 + 1.86*t), "start", fmt(h, d), COL.h);
+    }
+    labelOn(t => wSat(t, P)*0.999, "mid", "100% RH (saturation)", COL.sat);
+
+    /* plot frame */
+    ctx.strokeStyle = th.border; ctx.lineWidth = 1;
+    ctx.strokeRect(M.l, M.t, cw - M.l - M.r, ch - M.t - M.b);
+
+    /* process path chaining the placed anchors in order */
+    const chain = PTS.filter(k => st[k]);
+    for (let i = 0; i + 1 < chain.length; i++) {
+      const a = st[chain[i]], b = st[chain[i + 1]];
+      const x1 = x2p(a.t), y1 = y2p(a.W), x2 = x2p(b.t), y2 = y2p(b.W);
+      ctx.save();
+      ctx.strokeStyle = th.text; ctx.globalAlpha = 0.65; ctx.lineWidth = 1.6;
+      ctx.setLineDash([6, 4]); line(x1, y1, x2, y2); ctx.setLineDash([]);
+      const ang = Math.atan2(y2 - y1, x2 - x1);
+      ctx.translate((x1 + x2)/2, (y1 + y2)/2); ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-4, -4.5); ctx.lineTo(-4, 4.5);
+      ctx.closePath(); ctx.fillStyle = th.text; ctx.fill();
+      ctx.restore();
+    }
+    /* anchor markers */
+    for (const k of PTS) {
+      const a = st[k];
+      if (!a) continue;
+      const x = x2p(a.t), y = y2p(a.W);
+      ctx.beginPath(); ctx.arc(x, y, 8, 0, 2*Math.PI);
+      ctx.fillStyle = COL[k]; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = th.card; ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.font = "bold 10px " + FONT;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(k, x, y);
+    }
+
+    /* crosshair */
+    if (st.hover) {
+      const x = x2p(st.hover.t), y = y2p(st.hover.W);
+      ctx.save();
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = th.muted; ctx.lineWidth = 1;
+      line(x, M.t, x, ch - M.b); line(M.l, y, cw - M.r, y);
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 2*Math.PI);
+      ctx.fillStyle = th.accent; ctx.fill();
+    }
+  }
+
+  let raf = 0;
+  function requestDraw() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); }
+
+  /* ---------- readout chips ---------- */
+  const CH = [
+    ["t",  "T dry-bulb (°C)", 1], ["w",  "W (g/kg d.a.)", 2],
+    ["y",  "y H₂O (mol/mol)", 4], ["rh", "RH (%)", 1],
+    ["twb","T wet-bulb (°C)", 1], ["tdp","T dew point (°C)", 1],
+    ["h",  "h (kJ/kg d.a.)", 1],      ["v",  "v (m³/kg d.a.)", 4],
+    ["pw", "pᵥ (kPa)", 3]
+  ];
+  const readEl = $("psy-read");
+  readEl.innerHTML = CH.map(c =>
+    '<div class="cell"><div class="k">' + c[1] + '</div><div class="v" id="psy-rd-' + c[0] + '">—</div></div>').join("");
+  function updateRead(p) {
+    for (const [k, , d] of CH) {
+      let txt = "—";
+      if (p) {
+        txt = fmt(p[k], d);
+        if (k === "rh" && isFinite(p.rh) && p.rh > 100.05) txt = fmt(p.rh, d) + " (fog)";
+      }
+      $("psy-rd-" + k).textContent = txt;
+    }
+  }
+
+  /* ---------- anchors ---------- */
+  function clampPt(t, W) {
+    t = Math.min(Math.max(t, st.tMin), st.tMax);
+    W = Math.min(Math.max(W, 0), Math.min(wSat(t, st.P), st.wMax));
+    return { t, W };
+  }
+  function syncAnchorInputs() {
+    for (const [k, ti, ri] of PAIRS) {
+      const a = st[k];
+      $(ti).value = a ? fmt(a.t, 1) : "";
+      $(ri).value = a ? fmt(Math.min(100, props(a.t, a.W, st.P).rh), 1) : "";
+    }
+  }
+  function segStats(a, b) {          /* a, b: anchor keys */
+    const pa = props(st[a].t, st[a].W, st.P), pb = props(st[b].t, st[b].W, st.P);
+    const dh = pb.h - pa.h;
+    const shr = Math.abs(dh) > 1e-6 ? (1.006 + 1.86*st[a].W)*(pb.t - pa.t)/dh : NaN;
+    return { dt: pb.t - pa.t, dw: pb.w - pa.w, dh, shr };
+  }
+  function updateTable() {
+    const tbl = $("psy-tbl"), proc = $("psy-proc");
+    const def = PTS.filter(k => st[k]);
+    if (!def.length) { tbl.hidden = true; proc.textContent = ""; return; }
+    const pp = {};
+    def.forEach(k => pp[k] = props(st[k].t, st[k].W, st.P));
+    let html = "<thead><tr><th>Property</th>" +
+      def.map(k => "<th>" + k + "</th>").join("") + "</tr></thead><tbody>";
+    for (const [k, lab, d] of CH)
+      html += "<tr><td>" + lab + "</td>" +
+        def.map(q => "<td>" + fmt(pp[q][k], d) + "</td>").join("") + "</tr>";
+    tbl.innerHTML = html + "</tbody>";
+    tbl.hidden = false;
+    const lines = [];
+    for (let i = 0; i + 1 < def.length; i++) {
+      const s = segStats(def[i], def[i + 1]);
+      lines.push(def[i] + " → " + def[i + 1] + ": ΔT = <b>" + fmt(s.dt, 1) +
+        " °C</b>, ΔW = <b>" + fmt(s.dw, 2) + " g/kg</b>, Δh = <b>" + fmt(s.dh, 1) +
+        " kJ/kg d.a.</b>, SHR = <b>" + fmt(s.shr, 2) + "</b>");
+    }
+    proc.innerHTML = lines.join("<br>");
+  }
+  function setAnchor(k, pt) {
+    st[k] = pt;
+    syncAnchorInputs(); updateTable(); saveLS(); requestDraw();
+  }
+  function anchorFromInputs(k, ti, ri) {
+    const t = parseFloat($(ti).value), rh = parseFloat($(ri).value);
+    if (!isFinite(t) || !isFinite(rh)) return;
+    const pw = Math.min(rh, 100)/100 * psat(t);
+    if (pw >= st.P) return;
+    setAnchor(k, clampPt(t, wFromPw(pw, st.P)));
+  }
+  for (const [k, ti, ri] of PAIRS) {
+    $(ti).addEventListener("change", () => anchorFromInputs(k, ti, ri));
+    $(ri).addEventListener("change", () => anchorFromInputs(k, ti, ri));
+  }
+  $("psy-clear").addEventListener("click", () => {
+    for (const k of PTS) st[k] = null;
+    syncAnchorInputs(); updateTable(); saveLS(); requestDraw();
+  });
+
+  /* ---------- pointer interaction ---------- */
+  function evtPt(e) {
+    const r = cv.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    return { px, py, t: p2t(px), W: p2w(py) };
+  }
+  function nearAnchor(px, py) {
+    for (const k of PTS) {
+      const a = st[k];
+      if (!a) continue;
+      const dx = px - x2p(a.t), dy = py - y2p(a.W);
+      if (dx*dx + dy*dy <= 196) return k;
+    }
+    return null;
+  }
+  cv.addEventListener("pointerdown", e => {
+    if (cw < 50) return;
+    e.preventDefault();
+    const p = evtPt(e), k = nearAnchor(p.px, p.py);
+    if (k) { st.drag = k; cv.setPointerCapture(e.pointerId); return; }
+    const pt = clampPt(p.t, p.W);
+    const free = PTS.find(q => !st[q]);
+    if (free) setAnchor(free, pt);
+  });
+  cv.addEventListener("pointermove", e => {
+    if (cw < 50) return;
+    const p = evtPt(e);
+    if (st.drag) {
+      const pt = clampPt(p.t, p.W);
+      st[st.drag] = pt;
+      syncAnchorInputs(); updateTable();
+      updateRead(props(pt.t, pt.W, st.P));
+      requestDraw();
+      return;
+    }
+    const t = Math.min(Math.max(p.t, st.tMin), st.tMax);
+    const W = Math.min(Math.max(p.W, 0), st.wMax);
+    st.hover = { t, W };
+    updateRead(props(t, W, st.P));
+    requestDraw();
+  });
+  const endDrag = () => { if (st.drag) { st.drag = null; saveLS(); } };
+  cv.addEventListener("pointerup", endDrag);
+  cv.addEventListener("pointercancel", endDrag);
+  cv.addEventListener("pointerleave", () => {
+    st.hover = null; updateRead(null); requestDraw();
+  });
+
+  /* ---------- controls ---------- */
+  function reclampAnchors() {
+    for (const k of PTS) if (st[k]) st[k] = clampPt(st[k].t, st[k].W);
+    syncAnchorInputs(); updateTable();
+  }
+  function applyRanges() {
+    let P = parseFloat($("psy-p").value), t0 = parseFloat($("psy-tmin").value),
+        t1 = parseFloat($("psy-tmax").value), wm = parseFloat($("psy-wmax").value);
+    if (isFinite(P)) st.P = Math.min(Math.max(P, 10), 200);
+    if (isFinite(t0)) st.tMin = Math.min(Math.max(t0, -40), 80);
+    if (isFinite(t1)) st.tMax = Math.min(Math.max(t1, -20), 99);
+    if (st.tMax - st.tMin < 5) st.tMax = st.tMin + 5;
+    if (isFinite(wm)) st.wMax = Math.min(Math.max(wm, 2), 100)/1000;
+    $("psy-p").value = st.P; $("psy-tmin").value = st.tMin;
+    $("psy-tmax").value = st.tMax; $("psy-wmax").value = st.wMax*1000;
+    reclampAnchors(); saveLS(); requestDraw();
+  }
+  for (const id of ["psy-p", "psy-tmin", "psy-tmax", "psy-wmax"])
+    $(id).addEventListener("change", applyRanges);
+
+  $("psy-ymode").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.yMode = b.dataset.m;
+    [...$("psy-ymode").children].forEach(x => x.classList.toggle("on", x === b));
+    saveLS(); requestDraw();
+  });
+  $("psy-pills").addEventListener("click", e => {
+    const b = e.target.closest(".pill");
+    if (!b) return;
+    const k = b.dataset.k;
+    st.show[k] = !st.show[k];
+    b.classList.toggle("on", st.show[k]);
+    saveLS(); requestDraw();
+  });
+
+  /* ---------- copy / export ---------- */
+  function flashLocal(btn) {
+    const old = btn.innerHTML;
+    btn.innerHTML = "✓ Done";
+    setTimeout(() => { btn.innerHTML = old; }, 1400);
+  }
+  function copyLocal(txt, btn) {
+    const done = () => flashLocal(btn);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done).catch(() => {
+        const ta = document.createElement("textarea");
+        ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta); done();
+      });
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta); done();
+    }
+  }
+  $("psy-copy").addEventListener("click", e => {
+    const def = PTS.filter(k => st[k]);
+    const pp = {};
+    def.forEach(k => pp[k] = props(st[k].t, st[k].W, st.P));
+    const L = ["Psychrometric point data\tP = " + fmt(st.P, 3) + " kPa",
+               "Property\t" + def.join("\t")];
+    for (const [k, lab, d] of CH)
+      L.push(lab + "\t" + def.map(q => fmt(pp[q][k], d)).join("\t"));
+    for (let i = 0; i + 1 < def.length; i++) {
+      const s = segStats(def[i], def[i + 1]);
+      L.push(def[i] + "->" + def[i + 1] + "\tdT = " + fmt(s.dt, 1) + " C\tdW = " +
+        fmt(s.dw, 2) + " g/kg\tdh = " + fmt(s.dh, 1) + " kJ/kg\tSHR = " + fmt(s.shr, 3));
+    }
+    copyLocal(L.join("\n"), e.currentTarget);
+  });
+  $("psy-png").addEventListener("click", () => {
+    cv.toBlob(b => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      a.download = "psychrometric-chart.png";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  });
+  $("psy-dl").addEventListener("click", () => {
+    const css = [...document.head.querySelectorAll("style")].map(s => s.textContent).join("\n");
+    const sec = $("app-psych").cloneNode(true);
+    sec.removeAttribute("hidden");
+    const link = sec.querySelector("#psy-applink");
+    if (link) link.remove();
+    const js = $("psy-script").textContent;
+    const html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+      '<title>Psychrometric Chart</title>\n<style>' + css + '<\/style>\n</head>\n<body>\n' +
+      '<div class="wrap">\n' + sec.outerHTML + '\n</div>\n' +
+      '<script id="psy-script">' + js + '<\/script>\n</body>\n</html>\n';
+    const blob = new Blob([html], { type: "text/html" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "PsychrometricChart.html";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+
+  /* ---------- init ---------- */
+  loadLS();
+  $("psy-p").value = st.P; $("psy-tmin").value = st.tMin;
+  $("psy-tmax").value = st.tMax; $("psy-wmax").value = st.wMax*1000;
+  [...$("psy-ymode").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.yMode));
+  [...$("psy-pills").children].forEach(b => b.classList.toggle("on", !!st.show[b.dataset.k]));
+  syncAnchorInputs(); updateTable(); updateRead(null);
+  const ro = new ResizeObserver(() => { sizeCanvas(); draw(); });
+  ro.observe(cv.parentElement);
+  window.addEventListener("resize", () => { sizeCanvas(); draw(); });
+  if (window.matchMedia)
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => requestDraw());
+  sizeCanvas(); draw();
+})();
+</script>
+</body>
+</html>

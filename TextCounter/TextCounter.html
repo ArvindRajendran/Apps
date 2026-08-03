@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text Counter</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a; --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80; --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 48px 16px;
+  }
+  .wrap { width: 100%; max-width: 720px; }
+  h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin: 6px 0 20px; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 520px) { .stats { grid-template-columns: 1fr; } }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 14px 16px; text-align: center;
+  }
+  .stat .num {
+    font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums; color: var(--accent);
+  }
+  .stat .lbl { margin-top: 2px; color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 16px;
+  }
+  textarea {
+    width: 100%; min-height: 300px; resize: vertical;
+    font-size: 1rem; line-height: 1.55; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); outline: none;
+    font-family: inherit; transition: border-color .15s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .btns { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 9px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    transition: filter .15s;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.secondary {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  }
+  button.secondary:hover { filter: none; border-color: var(--accent); color: var(--accent); }
+  button.flash { background: var(--ok); color: #fff; border-color: transparent; }
+  .note { margin-left: auto; align-self: center; color: var(--muted); font-size: 0.78rem; }
+
+  .extras {
+    margin-top: 12px; display: flex; gap: 18px; flex-wrap: wrap;
+    color: var(--muted); font-size: 0.82rem;
+  }
+  .extras b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Text Counter</h1>
+  <div class="sub">Paste or type text &mdash; counts update live as you edit.</div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="nWords">0</div><div class="lbl">Words</div></div>
+    <div class="stat"><div class="num" id="nWith">0</div><div class="lbl">Characters<br>(including spaces)</div></div>
+    <div class="stat"><div class="num" id="nWithout">0</div><div class="lbl">Characters<br>(excluding spaces)</div></div>
+  </div>
+
+  <div class="panel">
+    <textarea id="txt" placeholder="Paste your text here (Ctrl/Cmd+V) or start typing&hellip;" autofocus spellcheck="true"></textarea>
+    <div class="btns">
+      <button id="pasteBtn">&#128203; Paste from clipboard</button>
+      <button id="copyBtn" class="secondary">&#10697; Copy text</button>
+      <button id="clearBtn" class="secondary">&#10006; Clear</button>
+      <span class="note" id="selNote"></span>
+    </div>
+    <div class="extras">
+      <span>Sentences: <b id="nSent">0</b></span>
+      <span>Paragraphs: <b id="nPara">0</b></span>
+      <span>Lines: <b id="nLines">0</b></span>
+      <span>Reading time: <b id="nRead">&ndash;</b></span>
+    </div>
+  </div>
+
+  <div class="footer">
+    Counts follow the Microsoft Word convention: words are whitespace-separated,
+    line breaks are not counted as characters.<br>
+    Select part of the text to count just the selection.
+    Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script>
+const $txt = document.getElementById("txt");
+const $w = document.getElementById("nWords"), $with = document.getElementById("nWith"),
+      $without = document.getElementById("nWithout"), $sent = document.getElementById("nSent"),
+      $para = document.getElementById("nPara"), $lines = document.getElementById("nLines"),
+      $read = document.getElementById("nRead"), $selNote = document.getElementById("selNote");
+
+function counts(text) {
+  // normalize line endings, count in Unicode code points
+  const t = text.replace(/\r\n?/g, "\n");
+  const chars = Array.from(t);
+  const newlines = chars.filter(c => c === "\n").length;
+  const withSpaces = chars.length - newlines;                 // Word: line breaks not counted
+  const withoutSpaces = chars.filter(c => !/\s/.test(c)).length;
+  const words = (t.match(/\S+/g) || []).length;
+  const sentences = (t.match(/[.!?…]+(?=\s|$)/g) || []).length;
+  const paragraphs = (t.split(/\n\s*\n/).filter(p => p.trim()).length);
+  const lines = t.trim() ? t.trim().split("\n").length : 0;
+  return { words, withSpaces, withoutSpaces, sentences, paragraphs, lines };
+}
+
+const fmt = n => n.toLocaleString("en-US");
+
+function readingTime(words) {
+  if (!words) return "–";
+  const min = words / 200;                                    // ~200 wpm
+  if (min < 1) return Math.max(1, Math.round(min * 60)) + " s";
+  return Math.round(min) + " min";
+}
+
+function render() {
+  const selStart = $txt.selectionStart, selEnd = $txt.selectionEnd;
+  const hasSel = selEnd > selStart;
+  const text = hasSel ? $txt.value.slice(selStart, selEnd) : $txt.value;
+  const c = counts(text);
+  $w.textContent = fmt(c.words);
+  $with.textContent = fmt(c.withSpaces);
+  $without.textContent = fmt(c.withoutSpaces);
+  $sent.textContent = fmt(c.sentences);
+  $para.textContent = fmt(c.paragraphs);
+  $lines.textContent = fmt(c.lines);
+  $read.textContent = readingTime(c.words);
+  $selNote.textContent = hasSel ? "Counting selection only" : "";
+}
+
+$txt.addEventListener("input", render);
+document.addEventListener("selectionchange", () => {
+  if (document.activeElement === $txt) render();
+});
+
+function flash(btn, label) {
+  const orig = btn.innerHTML;
+  btn.innerHTML = "✓ " + label;
+  btn.classList.add("flash");
+  setTimeout(() => { btn.innerHTML = orig; btn.classList.remove("flash"); }, 1300);
+}
+
+document.getElementById("pasteBtn").addEventListener("click", async e => {
+  const btn = e.currentTarget;
+  try {
+    const clip = await navigator.clipboard.readText();
+    if (clip) {
+      // insert at cursor / replace selection, like a native paste
+      const s = $txt.selectionStart, en = $txt.selectionEnd;
+      $txt.setRangeText(clip, s, en, "end");
+      render();
+      flash(btn, "Pasted");
+    }
+    $txt.focus();
+  } catch (err) {
+    $selNote.textContent = "Clipboard blocked — use Ctrl/Cmd+V instead";
+    $txt.focus();
+  }
+});
+
+document.getElementById("copyBtn").addEventListener("click", e => {
+  const btn = e.currentTarget;
+  if (!$txt.value) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText($txt.value).then(() => flash(btn, "Copied"));
+  } else {
+    $txt.select(); document.execCommand("copy"); flash(btn, "Copied");
+  }
+});
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  $txt.value = ""; render(); $txt.focus();
+});
+
+render();
+</script>
+</body>
+</html>

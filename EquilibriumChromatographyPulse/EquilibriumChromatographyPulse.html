@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Equilibrium Theory &mdash; Pulse Chromatography</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1150px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative;
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld input[type=number], .fld input[type=text] {
+    padding: 7px 9px; font-size: 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .fld input[type=number] { width: 92px; }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  #eq-expr { width: 340px; max-width: 70vw; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+  .err { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  .summary { margin-top: 12px; font-size: 0.84rem; line-height: 1.6; color: var(--muted); }
+  .summary b { color: var(--text); }
+  .formula {
+    margin-top: 12px; font-size: 0.98rem; display: flex; align-items: center;
+    gap: 7px; flex-wrap: wrap; font-family: Georgia, "Times New Roman", serif; font-style: italic;
+  }
+  .formula .frac { display: inline-flex; flex-direction: column; text-align: center; line-height: 1.2; }
+  .formula .frac .fn { border-bottom: 1.2px solid currentColor; padding: 0 5px; }
+  .formula .frac .fd { padding: 0 5px; }
+  .hintd { font-size: 0.78rem; color: var(--muted); margin: 10px 0 6px; }
+  #eq-data {
+    width: 280px; min-height: 116px; resize: vertical;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem;
+    padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  #eq-data:focus { border-color: var(--accent); }
+  .zbt { display: inline-flex; gap: 4px; }
+  .zbt button { padding: 1px 8px; font-size: 0.8rem; border-radius: 6px; }
+  #eq-iso { cursor: grab; touch-action: none; }
+  details.rh { margin-top: 12px; font-size: 0.8rem; color: var(--muted); }
+  details.rh summary { cursor: pointer; font-weight: 600; }
+  details.rh .ctrls { margin-top: 10px; }
+  .plots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 860px) { .plots { grid-template-columns: 1fr; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  #eq-phys { cursor: crosshair; touch-action: none; }
+  .pcard .pfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .pcard .pfoot button { font-size: 0.75rem; padding: 4px 9px; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Equilibrium Theory of Chromatography &mdash; Pulse Injection</h2>
+  <div class="sub">Finite pulse (injection then purge) by wavefront tracking: the loading and desorption fans interact &mdash; shocks decay along curved paths, collisions are re-resolved by envelope construction. Hover the physical plane for profiles; click to pin.</div>
+
+  <div class="panel">
+    <div class="ctrls">
+      <label class="fld"><span>Column length L (m)</span><input type="number" id="eq-L" step="0.001" value="0.016"></label>
+      <label class="fld"><span>Interstitial velocity v<sub>i</sub> (m/s)</span><input type="number" id="eq-v" step="0.01" value="0.16"></label>
+      <label class="fld"><span>Voidage &epsilon; (&ndash;)</span><input type="number" id="eq-eps" step="0.01" min="0.05" max="0.95" value="0.37"></label>
+      <label class="fld"><span>Initial state c<sub>I</sub> (mol/L)</span><input type="number" id="eq-ci" step="0.05" value="0"></label>
+      <label class="fld"><span>Feed state c<sub>F</sub> (mol/L)</span><input type="number" id="eq-cf" step="0.05" value="1"></label>
+      <label class="fld"><span id="eq-tinjlab">Injection &tau;<sub>inj</sub> (&ndash;)</span><input type="number" id="eq-tinj" step="0.25" min="0.001" value="1"></label>
+      <button class="action" id="eq-swap" style="margin-bottom:1px" title="Swap cI and cF (positive ↔ negative pulse)">&#8645; Swap</button>
+      <div class="fld">Axes
+        <div class="seg" id="eq-units">
+          <button class="on" data-m="nd">&xi;, &tau; (dimensionless)</button>
+          <button data-m="dim">z (m), t (s)</button>
+        </div>
+      </div>
+    </div>
+    <div class="ctrls">
+      <label class="fld">Isotherm q = f(c)
+        <select id="eq-model"></select>
+      </label>
+      <span id="eq-params" style="display:contents"></span>
+      <label class="fld" id="eq-exprfld" style="display:none">f(c) expression &mdash; e.g. 5*c/(1+10*c) + 8*(2.5*c)^6/(1+(2.5*c)^6)
+        <input type="text" id="eq-expr" value="5*c/(1+10*c)" spellcheck="false" autocomplete="off">
+      </label>
+    </div>
+    <div id="eq-datafld" style="display:none">
+      <div class="hintd">Paste two columns &mdash; <b>c</b> then <b>q</b> &mdash; one pair per row, separated by tab, comma, semicolon or space.
+        Copying two columns straight from Excel works as-is. Header rows and blank lines are ignored automatically.
+        The data must span the c<sub>I</sub>&ndash;c<sub>F</sub> range.</div>
+      <div class="ctrls" style="align-items:flex-start">
+        <textarea id="eq-data" spellcheck="false" placeholder="c&#9;q&#10;0&#9;0&#10;0.1&#9;2.4&#10;0.3&#9;3.6&#10;0.6&#9;4.2&#10;1&#9;4.6"></textarea>
+        <label class="fld">&hellip;or load a file (.csv / .txt)
+          <input type="file" id="eq-datafile" accept=".csv,.txt,.tsv,.dat">
+        </label>
+        <div class="fld">Interpolation
+          <div class="seg" id="eq-datamode">
+            <button class="on" data-m="raw">use data as-is</button>
+            <button data-m="smooth">smoothen</button>
+          </div>
+        </div>
+        <label class="fld" id="eq-bwfld" style="display:none"><span>Smoothing: <span id="eq-bwval">8</span>% of c-range</span>
+          <input type="range" id="eq-bw" min="1" max="25" step="0.5" value="8" style="width:160px">
+        </label>
+        <span class="fld" id="eq-datainfo" style="justify-content:center"></span>
+      </div>
+    </div>
+    <div class="formula" id="eq-formula"></div>
+    <div class="err" id="eq-err"></div>
+    <div class="summary" id="eq-summary"></div>
+    <details class="rh" id="eq-evwrap">
+      <summary>Interaction events (<span id="eq-evcount">0</span>)</summary>
+      <div style="max-height:230px;overflow-y:auto;margin-top:8px">
+        <table id="eq-evtbl" style="width:100%;border-collapse:collapse;font-size:0.78rem;font-variant-numeric:tabular-nums"></table>
+      </div>
+    </details>
+    <details class="rh">
+      <summary>RH &harr; c helper (water vapour)</summary>
+      <div class="ctrls">
+        <label class="fld">T (&deg;C)<input type="number" id="eq-rht" step="1" value="30"></label>
+        <label class="fld">RH initial (%)<input type="number" id="eq-rhi" step="5" min="0" max="100" value="0"></label>
+        <label class="fld">RH feed (%)<input type="number" id="eq-rhf" step="5" min="0" max="100" value="80"></label>
+        <button class="action" id="eq-rhapply" style="margin-bottom:1px">Set c<sub>I</sub> &amp; c<sub>F</sub></button>
+        <span class="fld" id="eq-rhout" style="justify-content:center"></span>
+      </div>
+    </details>
+  </div>
+
+  <div class="plots">
+    <div class="pcard">
+      <div class="phead"><h3>Physical plane</h3><span class="pinfo" id="eq-physinfo">hover to explore &middot; click to pin</span></div>
+      <canvas id="eq-phys"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Isotherm &amp; envelope</h3><span class="pinfo" id="eq-isoinfo"></span>
+        <span class="zbt">
+          <button class="action" id="eq-zo" title="Zoom out">&minus;</button>
+          <button class="action" id="eq-zi" title="Zoom in">+</button>
+          <button class="action" id="eq-zr" title="Reset view (or double-click the plot)">&#10226;</button>
+        </span>
+      </div>
+      <canvas id="eq-iso" title="Drag the cI/cF points to change the states. Scroll to zoom, drag elsewhere to pan, double-click to reset"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Column profile</h3><span class="pinfo" id="eq-profinfo"></span></div>
+      <canvas id="eq-prof"></canvas>
+      <div class="pfoot"><button class="action" id="eq-profpng">&#11015; PNG</button></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Breakthrough curve</h3><span class="pinfo" id="eq-btinfo"></span></div>
+      <canvas id="eq-bt"></canvas>
+      <div class="pfoot"><button class="action" id="eq-btpng">&#11015; PNG</button></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Equilibrium theory: &part;c/&part;&tau; + &sigma;(c)&thinsp;&part;c/&part;&xi; = 0 with &sigma;(c) = 1/(1 + &nu;&thinsp;f&prime;(c)), &nu; = (1&minus;&epsilon;)/&epsilon;.
+    Loading uses the lower convex envelope of f(c), desorption the upper concave envelope (Oleinik);
+    envelope arcs = simple waves, chords = shocks.<br>
+    Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script id="eq-script">
+/* ============ Equilibrium theory of chromatography ============ */
+(() => {
+  const $ = id => document.getElementById(id);
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const COL = { wave: "#3b82f6", shock: "#ef4444", curve0: "#94a3b8" };
+
+  /* ---------- safe expression parser (numbers, c, + - * / ^, funcs) ---------- */
+  const FN1 = { exp: Math.exp, log: Math.log, ln: Math.log, log10: Math.log10,
+                sqrt: Math.sqrt, abs: Math.abs, tanh: Math.tanh, sinh: Math.sinh,
+                cosh: Math.cosh, sin: Math.sin, cos: Math.cos, atan: Math.atan };
+  const FN2 = { pow: Math.pow, min: Math.min, max: Math.max };
+  function compileExpr(src) {
+    const toks = [];
+    let i = 0;
+    while (i < src.length) {
+      const ch = src[i];
+      if (ch === " " || ch === "\t") { i++; continue; }
+      if (/[0-9.]/.test(ch)) {
+        let j = i;
+        while (j < src.length && /[0-9.eE]/.test(src[j])) {
+          if ((src[j] === "e" || src[j] === "E") && (src[j+1] === "+" || src[j+1] === "-")) j++;
+          j++;
+        }
+        const v = parseFloat(src.slice(i, j));
+        if (!isFinite(v)) throw "Bad number near '" + src.slice(i, j) + "'";
+        toks.push({ t: "n", v }); i = j; continue;
+      }
+      if (/[a-zA-Z_]/.test(ch)) {
+        let j = i;
+        while (j < src.length && /[a-zA-Z0-9_]/.test(src[j])) j++;
+        toks.push({ t: "id", v: src.slice(i, j) }); i = j; continue;
+      }
+      if ("+-*/^(),".includes(ch)) { toks.push({ t: ch }); i++; continue; }
+      throw "Unexpected character '" + ch + "'";
+    }
+    const out = [], ops = [];
+    const prec = { "+": 1, "-": 1, "*": 2, "/": 2, "u-": 3, "^": 4 };
+    const rassoc = { "^": 1, "u-": 1 };
+    let prev = null;                       /* null|'v'|op */
+    const unaryCtx = () => prev === null || ["+", "-", "*", "/", "^", "u-", "(", ","].includes(prev);
+    for (const tk of toks) {
+      if (tk.t === "n") { out.push(tk); prev = "v"; }
+      else if (tk.t === "id") {
+        if (tk.v === "c") out.push({ t: "c" });
+        else if (tk.v === "pi") out.push({ t: "n", v: Math.PI });
+        else if (FN1[tk.v] || FN2[tk.v]) { ops.push({ t: "f", v: tk.v }); prev = "("; continue; }
+        else throw "Unknown symbol '" + tk.v + "' — use c, numbers, and exp/log/sqrt/…";
+        prev = "v";
+      }
+      else if (tk.t === "(") { ops.push(tk); prev = "("; }
+      else if (tk.t === ",") {
+        while (ops.length && ops[ops.length-1].t !== "(") out.push(ops.pop());
+        if (!ops.length) throw "Misplaced comma";
+        prev = ",";
+      }
+      else if (tk.t === ")") {
+        while (ops.length && ops[ops.length-1].t !== "(") out.push(ops.pop());
+        if (!ops.length) throw "Unbalanced ')'";
+        ops.pop();
+        if (ops.length && ops[ops.length-1].t === "f") out.push(ops.pop());
+        prev = "v";
+      }
+      else {
+        let op = tk.t;
+        if (op === "-" && unaryCtx()) op = "u-";
+        else if (op === "+" && unaryCtx()) continue;
+        while (ops.length) {
+          const top = ops[ops.length-1];
+          if (top.t === "(" || top.t === "f") break;
+          if (prec[top.t] > prec[op] || (prec[top.t] === prec[op] && !rassoc[op])) out.push(ops.pop());
+          else break;
+        }
+        ops.push({ t: op }); prev = op;
+      }
+    }
+    while (ops.length) {
+      const top = ops.pop();
+      if (top.t === "(") throw "Unbalanced '('";
+      out.push(top);
+    }
+    if (!out.length) throw "Empty expression";
+    const f = c => {
+      const st = [];
+      for (const tk of out) {
+        if (tk.t === "n") st.push(tk.v);
+        else if (tk.t === "c") st.push(c);
+        else if (tk.t === "u-") st.push(-st.pop());
+        else if (tk.t === "f") {
+          if (FN1[tk.v]) st.push(FN1[tk.v](st.pop()));
+          else { const b = st.pop(), a = st.pop(); st.push(FN2[tk.v](a, b)); }
+        } else {
+          const b = st.pop(), a = st.pop();
+          st.push(tk.t === "+" ? a + b : tk.t === "-" ? a - b :
+                  tk.t === "*" ? a * b : tk.t === "/" ? a / b : Math.pow(a, b));
+        }
+      }
+      if (st.length !== 1) throw "Malformed expression";
+      return st[0];
+    };
+    f(0.123);                              /* smoke test: throws on stack errors */
+    return f;
+  }
+
+  /* ---------- isotherm models ---------- */
+  const MODELS = {
+    langmuir: { label: "Langmuir", params: [["qs", "q<sub>s</sub>", 5], ["b", "b", 10]],
+      make: p => c => p.qs*p.b*c/(1 + p.b*c) },
+    antilang: { label: "Anti-Langmuir", params: [["qs", "q<sub>s</sub>", 1], ["b", "b", 0.5]],
+      make: p => c => p.qs*p.b*c/(1 - p.b*c) },
+    linear: { label: "Linear", params: [["H", "H", 3]], make: p => c => p.H*c },
+    sips: { label: "Sips / Hill", params: [["qs", "q<sub>s</sub>", 5], ["b", "b", 10], ["n", "n", 0.7]],
+      make: p => c => { const t = Math.pow(Math.max(p.b*c, 0), p.n); return p.qs*t/(1 + t); } },
+    quad: { label: "Quadratic", params: [["qs", "q<sub>s</sub>", 3], ["b1", "b<sub>1</sub>", 5], ["b2", "b<sub>2</sub>", 10]],
+      make: p => c => p.qs*c*(p.b1 + 2*p.b2*c)/(1 + p.b1*c + p.b2*c*c) },
+    typev: { label: "Type V (Langmuir + Hill step)",
+      params: [["qs1", "q<sub>s1</sub>", 1], ["b1", "b<sub>1</sub>", 5],
+               ["qs2", "q<sub>s2</sub>", 8], ["b2", "b<sub>2</sub>", 2.5], ["n", "n", 6]],
+      make: p => c => { const t = Math.pow(Math.max(p.b2*c, 0), p.n);
+        return p.qs1*p.b1*c/(1 + p.b1*c) + p.qs2*t/(1 + t); } },
+    bet: { label: "BET (Type II/III)",
+      params: [["qs", "q<sub>s</sub>", 2], ["bs", "b<sub>s</sub>", 30], ["bl", "b<sub>l</sub>", 0.8]],
+      make: p => c => p.qs*p.bs*c/((1 - p.bl*c)*(1 - p.bl*c + p.bs*c)) },
+    dsl: { label: "Dual-site Langmuir",
+      params: [["qs1", "q<sub>s1</sub>", 3], ["b1", "b<sub>1</sub>", 50],
+               ["qs2", "q<sub>s2</sub>", 4], ["b2", "b<sub>2</sub>", 1]],
+      make: p => c => p.qs1*p.b1*c/(1 + p.b1*c) + p.qs2*p.b2*c/(1 + p.b2*c) },
+    custom: { label: "Custom f(c) …", params: [], make: null },
+    data: { label: "Data table (paste / upload)", params: [], make: null }
+  };
+
+  /* ---------- tabular data: parsing + interpolators ---------- */
+  let dataPts = [];
+  function parseData(txt) {
+    const rows = [];
+    for (const line of (txt || "").split(/[\r\n]+/)) {
+      const toks = line.trim().split(/[\t,; ]+/).filter(x => x !== "");
+      if (toks.length < 2) continue;
+      const c = parseFloat(toks[0]), q = parseFloat(toks[1]);
+      if (isFinite(c) && isFinite(q)) rows.push({ c, q });
+    }
+    rows.sort((a, b) => a.c - b.c);
+    const out = [];
+    for (const r of rows) {                /* average duplicate c values */
+      const last = out[out.length-1];
+      if (last && Math.abs(r.c - last.c) < 1e-12) last.q = (last.q + r.q)/2;
+      else out.push(r);
+    }
+    return out;
+  }
+  function linInterpF(pts) {
+    const n = pts.length;
+    return c => {
+      if (c <= pts[0].c) return pts[0].q;
+      if (c >= pts[n-1].c) return pts[n-1].q;
+      let lo = 0, hi = n - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].c <= c) lo = m; else hi = m; }
+      const f = (c - pts[lo].c)/(pts[hi].c - pts[lo].c || 1);
+      return pts[lo].q + f*(pts[hi].q - pts[lo].q);
+    };
+  }
+  function nwF(pts, bwPct) {               /* Gaussian kernel smoother */
+    const span = pts[pts.length-1].c - pts[0].c;
+    const h = Math.max(1e-12, (bwPct/100)*span);
+    const lin = linInterpF(pts);
+    return c => {
+      let sw = 0, swq = 0;
+      for (const p of pts) {
+        const u = (c - p.c)/h;
+        if (u > 38 || u < -38) continue;
+        const w = Math.exp(-0.5*u*u);
+        sw += w; swq += w*p.q;
+      }
+      return sw > 1e-300 ? swq/sw : lin(c);
+    };
+  }
+
+  /* ---------- state ---------- */
+  const st = { L: 0.016, v: 0.16, eps: 0.37, cI: 0, cF: 1, tauInj: 1,
+               model: "langmuir", pvals: {}, expr: "5*c/(1+10*c)",
+               dataText: "", dataMode: "raw", dataBW: 8, isoView: null,
+               units: "nd", cross: null, pinned: false };
+  let sol = null;                          /* current solution */
+  const LSKEY = "eqpulse_v1";
+  function saveLS() {
+    try { localStorage.setItem(LSKEY, JSON.stringify({
+      L: st.L, v: st.v, eps: st.eps, cI: st.cI, cF: st.cF, tauInj: st.tauInj,
+      model: st.model, pvals: st.pvals, expr: st.expr, units: st.units,
+      dataText: (st.dataText || "").slice(0, 200000),
+      dataMode: st.dataMode, dataBW: st.dataBW })); } catch (e) {}
+  }
+
+  /* ---------- envelopes (Andrew monotone chain on sampled isotherm) ---------- */
+  function hull(C, Q, lower) {
+    const idx = [];
+    for (let i = 0; i < C.length; i++) {
+      while (idx.length >= 2) {
+        const a = idx[idx.length-2], b = idx[idx.length-1];
+        const cr = (C[b]-C[a])*(Q[i]-Q[a]) - (Q[b]-Q[a])*(C[i]-C[a]);
+        if (lower ? cr <= 0 : cr >= 0) idx.pop(); else break;
+      }
+      idx.push(i);
+    }
+    return idx;
+  }
+
+  /* ---------- Riemann building block (envelope construction) ---------- */
+  function riemann(f, nu, cBehind, cAhead, dc) {
+    const cmin = Math.min(cBehind, cAhead), cmax = Math.max(cBehind, cAhead);
+    const range = cmax - cmin;
+    if (range < 1e-14) return { cBehind, cAhead, segs: [] };
+    const N = Math.max(200, Math.min(4000, Math.round(range/dc*8)));
+    const C = new Float64Array(N + 1), Q = new Float64Array(N + 1);
+    for (let i = 0; i <= N; i++) {
+      const c = cmin + range*i/N;
+      const q = f(c);
+      if (!isFinite(q)) throw "f(c) is not finite over [" + fmt(cmin, 4) + ", " + fmt(cmax, 4) + "] — check parameters (singularity in range?).";
+      C[i] = c; Q[i] = q;
+    }
+    const loading = cBehind > cAhead;
+    const H = hull(C, Q, loading);
+    const segsC = [];
+    for (let k = 1; k < H.length; k++) {
+      const i0 = H[k-1], i1 = H[k];
+      if (i1 - i0 === 1) {
+        const last = segsC[segsC.length-1];
+        if (last && last.type === "wave" && last.i1 === i0) last.i1 = i1;
+        else segsC.push({ type: "wave", i0, i1 });
+      } else segsC.push({ type: "shock", i0, i1 });
+    }
+    /* orient back(cBehind) -> front(cAhead) */
+    const ordered = loading ? [...segsC].reverse() : segsC;
+    const stepN = Math.max(1, Math.round(N*dc/range));
+    const segs = [];
+    for (const s of ordered) {
+      if (s.type === "shock") {
+        const m = (Q[s.i1] - Q[s.i0])/(C[s.i1] - C[s.i0]);
+        const cBack = loading ? C[s.i1] : C[s.i0];
+        const cFront = loading ? C[s.i0] : C[s.i1];
+        segs.push({ type: "shock", cBack, cFront, s: 1/(1 + nu*m),
+                    q1: loading ? Q[s.i1] : Q[s.i0], q2: loading ? Q[s.i0] : Q[s.i1] });
+      } else {
+        const idx = [];
+        for (let i = s.i0; i < s.i1; i += stepN) idx.push(i);
+        idx.push(s.i1);
+        if (loading) idx.reverse();
+        segs.push({ type: "wave", cs: idx.map(i => C[i]), qs: idx.map(i => Q[i]) });
+      }
+    }
+    return { cBehind, cAhead, loading, segs };
+  }
+
+  /* ---------- wavefront tracking (Holden–Risebro) ----------
+     Rarefactions discretized into ~dc jumps; every front is a straight line
+     separating two constant states; each collision is re-resolved by the
+     envelope Riemann solver above. Exactly conservative; converges as dc->0. */
+  function frontize(res, nu, f, x0, t0) {
+    const out = [];
+    let cur = res.cBehind, curQ = f(cur);
+    for (const s of res.segs) {
+      if (s.type === "shock") {
+        out.push({ x0, t0, s: s.s, cL: cur, cR: s.cFront, shock: true, t1: Infinity, x1: null });
+        cur = s.cFront; curQ = s.q2;
+      } else {
+        for (let i = 1; i < s.cs.length; i++) {
+          const c2 = s.cs[i], q2 = s.qs[i];
+          if (Math.abs(c2 - cur) < 1e-15) { cur = c2; curQ = q2; continue; }
+          const sp = 1/(1 + nu*(q2 - curQ)/(c2 - cur));
+          out.push({ x0, t0, s: sp, cL: cur, cR: c2, shock: false, t1: Infinity, x1: null });
+          cur = c2; curQ = q2;
+        }
+      }
+    }
+    for (const fr of out) if (!isFinite(fr.s) || fr.s <= 0)
+      throw "Non-physical wave speed (1 + ν·Δq/Δc ≤ 0 somewhere in range) — check the isotherm.";
+    for (let i = 1; i < out.length; i++) if (out[i].s < out[i-1].s) out[i].s = out[i-1].s;
+    return out;
+  }
+  function buildPulse() {
+    const nu = (1 - st.eps)/st.eps;
+    const f = currentF();
+    const cI = st.cI, cF = st.cF, tinj = st.tauInj;
+    if (!isFinite(cI) || !isFinite(cF)) throw "Enter numeric cI and cF.";
+    if (Math.abs(cF - cI) < 1e-12) throw "cI = cF — nothing is injected. Change one of the states.";
+    if (!(tinj > 0)) throw "Injection duration must be positive.";
+    const cmin = Math.min(cI, cF), cmax = Math.max(cI, cF);
+    const dc = (cmax - cmin)/140;
+    const R1 = riemann(f, nu, cF, cI, dc);   /* loading fan, born at (0, 0)    */
+    const R2 = riemann(f, nu, cI, cF, dc);   /* purge fan,   born at (0, tinj) */
+    const fronts = [], act = [];
+    for (const fr of frontize(R2, nu, f, 0, tinj)) { fronts.push(fr); act.push(fr); }
+    for (const fr of frontize(R1, nu, f, 0, 0)) { fronts.push(fr); act.push(fr); }
+    /* act ordered left->right: the purge fan (born later at x=0) is behind the loading fan */
+    const events = [];
+    const XCAP = 1.06, EVCAP = 30000;
+    let guard = 0;
+    while (guard++ < EVCAP) {
+      let bi = -1, bt = Infinity, bx = 0;
+      for (let i = 0; i + 1 < act.length; i++) {
+        const a = act[i], b = act[i+1];
+        if (a.s <= b.s + 1e-14) continue;
+        const t = ((b.x0 - b.s*b.t0) - (a.x0 - a.s*a.t0))/(a.s - b.s);
+        if (t < Math.max(a.t0, b.t0) - 1e-12 || t >= bt) continue;
+        const x = a.x0 + a.s*(t - a.t0);
+        if (x > XCAP) continue;              /* interaction beyond the column exit */
+        bt = t; bi = i; bx = x;
+      }
+      if (bi < 0) break;
+      const a = act[bi], b = act[bi+1];
+      a.t1 = bt; a.x1 = bx; b.t1 = bt; b.x1 = bx;
+      let born = [];
+      if (Math.abs(a.cL - b.cR) > 1e-12) {
+        const res = riemann(f, nu, a.cL, b.cR, dc);
+        born = frontize(res, nu, f, bx, bt);
+      }
+      for (const fr of born) fronts.push(fr);
+      act.splice(bi, 2, ...born);
+      events.push({ t: bt, x: bx, a: a.shock, b: b.shock,
+                    cL: a.cL, cM: a.cR, cR: b.cR, nOut: born.length });
+    }
+    if (guard >= EVCAP)
+      throw "Interaction limit exceeded — reduce the isotherm's complexity, smooth the data, or shorten the pulse.";
+    let tExit = tinj*1.25;
+    for (const fr of fronts) {
+      if (fr.x0 >= 1) continue;
+      const tc = fr.t0 + (1 - fr.x0)/fr.s;
+      if (isFinite(tc) && tc < fr.t1) tExit = Math.max(tExit, tc);
+    }
+    const tauMax = Math.min(2000, tExit*1.06);
+    return { f, nu, cI, cF, tauInj: tinj, cmin, cmax, dc, R1, R2, fronts, events, tauMax };
+  }
+  function frontsAt(tau) {                 /* alive fronts, sorted by position */
+    const out = [];
+    for (const fr of sol.fronts)
+      if (fr.t0 <= tau && tau < fr.t1)
+        out.push({ x: fr.x0 + fr.s*(tau - fr.t0), cL: fr.cL, cR: fr.cR });
+    out.sort((p, q) => p.x - q.x);
+    return out;
+  }
+  function cAt(xi, tau) {
+    if (!sol) return NaN;
+    if (tau <= 0) return sol.cI;
+    const fs = frontsAt(tau);
+    let cur = fs.length ? fs[0].cL : sol.cI;
+    for (const fr of fs) { if (fr.x <= xi) cur = fr.cR; else break; }
+    return cur;
+  }
+
+  /* ---------- formatting ---------- */
+  const fmt = (x, d = 3) => isFinite(x) ? (+x.toFixed(d)).toString() : "—";
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const p = 10 ** Math.floor(Math.log10(raw));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m*p >= raw) return m*p;
+    return 10*p;
+  }
+  const t0 = () => st.L/st.v;              /* s */
+  const dim = () => st.units === "dim";
+  const xLab = () => dim() ? "z (m)" : "ξ (–)";
+  const tLab = () => dim() ? "t (s)" : "τ (–)";
+  const xVal = xi => dim() ? xi*st.L : xi;
+  const tVal = tau => dim() ? tau*t0() : tau;
+
+  /* ---------- viridis colormap ---------- */
+  const VIR = [[68,1,84],[72,36,117],[65,68,135],[53,95,141],[42,120,142],
+               [33,145,140],[34,168,132],[68,191,112],[122,209,81],[189,223,38],[253,231,37]];
+  function vir(u) {
+    u = Math.min(1, Math.max(0, u));
+    const x = u*(VIR.length - 1), i = Math.min(VIR.length - 2, Math.floor(x)), fq = x - i;
+    return [VIR[i][0] + fq*(VIR[i+1][0]-VIR[i][0]),
+            VIR[i][1] + fq*(VIR[i+1][1]-VIR[i][1]),
+            VIR[i][2] + fq*(VIR[i+1][2]-VIR[i][2])];
+  }
+
+  /* ---------- plot scaffolding ---------- */
+  function themeCols() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return { card: g("--card"), border: g("--border"), text: g("--text"),
+             muted: g("--muted"), accent: g("--accent") };
+  }
+  const CV = { phys: $("eq-phys"), iso: $("eq-iso"), prof: $("eq-prof"), bt: $("eq-bt") };
+  const G = {};                            /* per-canvas geometry */
+  function sizeCanvas(cv, ratio) {
+    const w = cv.getBoundingClientRect().width;
+    if (w < 40) return null;
+    const h = Math.round(w*ratio);
+    cv.style.height = h + "px";
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+    return { w, h, dpr };
+  }
+  function axes(ctx, g, th, x0, x1, y0, y1, xlab, ylab) {
+    /* returns mapping fns; draws grid+ticks+labels */
+    const M = { l: 46, r: 12, t: 10, b: 34 };
+    const X = x => M.l + (x - x0)/(x1 - x0)*(g.w - M.l - M.r);
+    const Y = y => g.h - M.b - (y - y0)/(y1 - y0)*(g.h - M.t - M.b);
+    ctx.font = "10px " + FONT; ctx.strokeStyle = th.border; ctx.lineWidth = 1;
+    ctx.fillStyle = th.muted;
+    const xs = niceStep((x1 - x0)/6), ys = niceStep((y1 - y0)/5);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let x = Math.ceil(x0/xs)*xs; x <= x1 + 1e-9; x += xs) {
+      ctx.beginPath(); ctx.moveTo(X(x), M.t); ctx.lineTo(X(x), g.h - M.b); ctx.stroke();
+      ctx.fillText(fmt(x, 6), X(x), g.h - M.b + 4);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let y = Math.ceil(y0/ys)*ys; y <= y1 + 1e-9; y += ys) {
+      ctx.beginPath(); ctx.moveTo(M.l, Y(y)); ctx.lineTo(g.w - M.r, Y(y)); ctx.stroke();
+      ctx.fillText(fmt(y, 6), M.l - 5, Y(y));
+    }
+    ctx.fillStyle = th.text; ctx.font = "11px " + FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(xlab, M.l + (g.w - M.l - M.r)/2, g.h - 6);
+    ctx.save(); ctx.translate(11, M.t + (g.h - M.t - M.b)/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(ylab, 0, 0); ctx.restore();
+    ctx.strokeStyle = th.border;
+    ctx.strokeRect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b);
+    return { X, Y, M };
+  }
+
+  /* ---------- physical plane ---------- */
+  function drawPhys() {
+    const cv = CV.phys, g = sizeCanvas(cv, 0.78);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    const tmax = sol.tauMax;
+    const A = axes(ctx, g, th, 0, dim() ? st.L : 1, 0, dim() ? tmax*t0() : tmax, xLab(), tLab());
+    const { X, Y, M } = A;
+    const px0 = Math.round(M.l) + 1, px1 = Math.round(g.w - M.r) - 1;
+    const py0 = Math.round(M.t) + 1, py1 = Math.round(g.h - M.b) - 1;
+    /* concentration colour map (per pixel in device coords for crispness) */
+    const dw = Math.round((px1 - px0)*g.dpr), dh = Math.round((py1 - py0)*g.dpr);
+    const img = ctx.createImageData(dw, dh);
+    const cminV = sol.cmin, dcr = sol.cmax - sol.cmin || 1;
+    for (let py = 0; py < dh; py++) {
+      const tau = tmax*(1 - (py + 0.5)/dh);
+      const fs = tau > 0 ? frontsAt(tau) : [];
+      let k = 0, cur = fs.length ? fs[0].cL : sol.cI;
+      const rowOff = 4*py*dw;
+      for (let px = 0; px < dw; px++) {
+        const xi = (px + 0.5)/dw;
+        while (k < fs.length && fs[k].x <= xi) { cur = fs[k].cR; k++; }
+        const [r, gg, b] = vir((cur - cminV)/dcr);
+        const o = rowOff + 4*px;
+        img.data[o] = r; img.data[o+1] = gg; img.data[o+2] = b; img.data[o+3] = 255;
+      }
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.putImageData(img, Math.round(px0*g.dpr), Math.round(py0*g.dpr));
+    ctx.restore();
+    /* tracked fronts: waves thin, shocks bold (width scales with strength) */
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    const drawFront = fr => {
+      const tEnd = Math.min(isFinite(fr.t1) ? fr.t1 : tmax, tmax);
+      if (tEnd <= fr.t0) return;
+      ctx.beginPath();
+      ctx.moveTo(X(xVal(fr.x0)), Y(tVal(fr.t0)));
+      ctx.lineTo(X(xVal(fr.x0 + fr.s*(tEnd - fr.t0))), Y(tVal(tEnd)));
+      ctx.stroke();
+    };
+    ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1;
+    for (const fr of sol.fronts) if (!fr.shock) drawFront(fr);
+    const rng = sol.cmax - sol.cmin || 1;
+    ctx.strokeStyle = COL.shock;
+    for (const fr of sol.fronts) if (fr.shock) {
+      ctx.lineWidth = 1 + 2.2*Math.abs(fr.cR - fr.cL)/rng;
+      drawFront(fr);
+    }
+    ctx.restore();
+    /* region labels */
+    const lbl = (txt, x, y) => {
+      ctx.font = "11px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.45)";
+      ctx.strokeText(txt, x, y); ctx.fillStyle = "#fff"; ctx.fillText(txt, x, y);
+    };
+    lbl("cI", X(xVal(0.86)), Y(tVal(tmax*0.06)));
+    if (sol.tauInj*0.5 < tmax*0.92)
+      lbl("cF", X(xVal(0.05)), Y(tVal(sol.tauInj*0.5)));
+    if (sol.tauInj < tmax*0.8)
+      lbl("cI", X(xVal(0.07)), Y(tVal(sol.tauInj + (tmax - sol.tauInj)*0.5)));
+    /* crosshair */
+    const cr = st.cross;
+    if (cr) {
+      const cx = X(xVal(cr.xi)), cy = Y(tVal(cr.tau));
+      ctx.save();
+      ctx.strokeStyle = st.pinned ? th.accent : "rgba(255,255,255,0.85)";
+      ctx.lineWidth = st.pinned ? 1.6 : 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(cx, M.t); ctx.lineTo(cx, g.h - M.b); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(M.l, cy); ctx.lineTo(g.w - M.r, cy); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI);
+      ctx.fillStyle = st.pinned ? th.accent : "#fff"; ctx.fill();
+      ctx.restore();
+    }
+    G.phys = A; G.physG = g;
+  }
+
+  /* ---------- isotherm plot (zoomable) ---------- */
+  function isoAutoView() {                 /* default: both axes anchored at 0 */
+    let c0 = 0, c1 = 1, lo = Infinity, hi = -Infinity;
+    if (sol) {
+      c0 = Math.min(0, sol.cmin);
+      c1 = sol.cmax + 0.08*(sol.cmax - sol.cmin || 1);
+      for (let i = 0; i <= 200; i++) {
+        const c = sol.cmin + (sol.cmax - sol.cmin)*i/200;
+        let q; try { q = sol.f(c); } catch (e) { q = NaN; }
+        if (isFinite(q)) { lo = Math.min(lo, q); hi = Math.max(hi, q); }
+      }
+    }
+    if (st.model === "data" && dataPts && dataPts.length) {
+      for (const p of dataPts) {
+        c0 = Math.min(c0, p.c); c1 = Math.max(c1, p.c);
+        lo = Math.min(lo, p.q); hi = Math.max(hi, p.q);
+      }
+      c1 += 0.06*(c1 - c0 || 1);
+    }
+    if (!isFinite(lo)) { lo = 0; hi = 1; }
+    const qp = 0.08*(hi - lo || 1);
+    return { c0, c1, q0: Math.min(0, lo), q1: hi + qp };
+  }
+  function drawIso() {
+    const cv = CV.iso, g = sizeCanvas(cv, 0.78);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    const v = st.isoView || isoAutoView();
+    const A = axes(ctx, g, th, v.c0, v.c1, v.q0, v.q1, "c (mol/L)", "q = f(c)");
+    const { X, Y, M } = A;
+    G.iso = { A, g, v };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    if (sol) {
+      /* full curve, muted, sampled over the visible window */
+      const nn = 400;
+      ctx.strokeStyle = COL.curve0; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      let first = true;
+      for (let i = 0; i <= nn; i++) {
+        const c = v.c0 + (v.c1 - v.c0)*i/nn;
+        let q; try { q = sol.f(c); } catch (e) { q = NaN; }
+        if (!isFinite(q)) { first = true; continue; }
+        const x = X(c), y = Y(q);
+        first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        first = false;
+      }
+      ctx.stroke();
+      /* envelopes of both fans: loading solid, purge dashed */
+      const fan = (segs, dashed) => {
+        ctx.setLineDash(dashed ? [5, 4] : []);
+        for (const sgm of segs) {
+          if (sgm.type === "wave") {
+            ctx.strokeStyle = COL.wave; ctx.lineWidth = dashed ? 2.2 : 3;
+            ctx.beginPath();
+            sgm.cs.forEach((c, i) => {
+              const x = X(c), y = Y(sgm.qs[i]);
+              i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            });
+            ctx.stroke();
+          } else {
+            ctx.strokeStyle = COL.shock; ctx.lineWidth = dashed ? 1.6 : 2;
+            ctx.beginPath();
+            ctx.moveTo(X(sgm.cBack), Y(sgm.q1));
+            ctx.lineTo(X(sgm.cFront), Y(sgm.q2));
+            ctx.stroke();
+          }
+        }
+        ctx.setLineDash([]);
+      };
+      fan(sol.R1.segs, false);
+      fan(sol.R2.segs, true);
+    }
+    /* raw data points */
+    if (st.model === "data" && dataPts && dataPts.length) {
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = th.text;
+      for (const p of dataPts) {
+        ctx.beginPath(); ctx.arc(X(p.c), Y(p.q), 3, 0, 2*Math.PI); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    /* state markers (only when inside the view) */
+    if (sol)
+      for (const [c, name, key] of (G.iso.markers = [], [[sol.cI, "cI", "ci"], [sol.cF, "cF", "cf"]])) {
+        let q; try { q = sol.f(c); } catch (e) { q = NaN; }
+        if (!isFinite(q) || c < v.c0 || c > v.c1 || q < v.q0 || q > v.q1) continue;
+        const x = X(c), y = Y(q);
+        G.iso.markers.push({ key, px: x, py: y });
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, 2*Math.PI);
+        ctx.fillStyle = th.text; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = th.card; ctx.stroke();
+        ctx.font = "bold 10.5px " + FONT; ctx.fillStyle = th.text;
+        ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+        ctx.fillText(name, x, y - 8);
+      }
+    $("eq-isoinfo").innerHTML =
+      "<span style='color:" + COL.wave + "'>—</span> wave&nbsp; <span style='color:" + COL.shock + "'>—</span> shock &middot; drag c<sub>I</sub>/c<sub>F</sub>" +
+      "&nbsp; solid: loading&nbsp; dashed: purge" +
+      (st.model === "data" ? "&nbsp; ● data" : "");
+  }
+
+  /* ---------- profile & breakthrough (staircase from tracked fronts) ---------- */
+  function profilePts(tau) {               /* [{x: xi, y: c}] over [0,1] */
+    const fs = frontsAt(tau);
+    let cur = fs.length ? fs[0].cL : sol.cI;
+    const pts = [{ x: 0, y: cur }];
+    for (const fr of fs) {
+      if (fr.x < 0) { cur = fr.cR; pts[0].y = cur; continue; }
+      if (fr.x > 1) break;
+      pts.push({ x: fr.x, y: cur });
+      cur = fr.cR;
+      pts.push({ x: fr.x, y: cur });
+    }
+    pts.push({ x: 1, y: cur });
+    return pts;
+  }
+  function btSeries(xi) {                  /* front crossings of xi, time-ordered */
+    const cross = [];
+    for (const fr of sol.fronts) {
+      if (fr.s <= 0 || xi < fr.x0 - 1e-12) continue;
+      const t = fr.t0 + (xi - fr.x0)/fr.s;
+      if (t >= fr.t0 - 1e-12 && t < fr.t1) cross.push({ t, c: fr.cL });
+    }
+    cross.sort((a, b) => a.t - b.t);
+    return cross;
+  }
+  function breakthroughPts(xi) {           /* [{x: tau, y: c}] over [0, tauMax] */
+    const cross = btSeries(xi);
+    let cur = sol.cI;
+    const pts = [{ x: 0, y: cur }];
+    for (const cr of cross) {
+      if (cr.t > sol.tauMax) break;
+      pts.push({ x: cr.t, y: cur });
+      cur = cr.c;
+      pts.push({ x: cr.t, y: cur });
+    }
+    pts.push({ x: sol.tauMax, y: cur });
+    return pts;
+  }
+  function exitMetrics() {                 /* peak, width, elution window, mass balance at xi=1 */
+    const pts = breakthroughPts(1);
+    const sgn = sol.cF > sol.cI ? 1 : -1;
+    const thr = 0.005*Math.abs(sol.cF - sol.cI);
+    let area = 0, peakC = sol.cI, tPeak = 0, tStart = NaN, tEnd = NaN;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const dt = pts[i+1].x - pts[i].x;
+      if (dt <= 0) continue;
+      const y = pts[i].y, dev = (y - sol.cI)*sgn;
+      area += (y - sol.cI)*dt;
+      if (dev > (peakC - sol.cI)*sgn) { peakC = y; tPeak = pts[i].x; }
+      if (dev > thr) { if (!isFinite(tStart)) tStart = pts[i].x; tEnd = pts[i+1].x; }
+    }
+    const halfDev = Math.abs(peakC - sol.cI)/2;
+    let t1 = NaN, t2 = NaN;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      if (pts[i+1].x - pts[i].x <= 0) continue;
+      if ((pts[i].y - sol.cI)*sgn >= halfDev) {
+        if (!isFinite(t1)) t1 = pts[i].x;
+        t2 = pts[i+1].x;
+      }
+    }
+    return { area, ratio: area/((sol.cF - sol.cI)*sol.tauInj),
+             peakC, tPeak, tStart, tEnd, w50: t2 - t1 };
+  }
+  function drawLine(name, cvEl, pts, x0, x1, xlab, info, ratio) {
+    const g = sizeCanvas(cvEl, ratio);
+    if (!g) return;
+    const ctx = cvEl.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    const pad = 0.07*(sol.cmax - sol.cmin || 1);
+    const A = axes(ctx, g, th, x0, x1, sol.cmin - pad, sol.cmax + pad, xlab, "c (mol/L)");
+    const { X, Y, M } = A;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    /* subtle fill under curve */
+    ctx.beginPath();
+    ctx.moveTo(X(pts[0].x), Y(sol.cmin - pad));
+    for (const p of pts) ctx.lineTo(X(p.x), Y(p.y));
+    ctx.lineTo(X(pts[pts.length-1].x), Y(sol.cmin - pad));
+    ctx.closePath();
+    ctx.fillStyle = th.accent + "22"; ctx.fill();
+    ctx.strokeStyle = th.accent; ctx.lineWidth = 2.2;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)));
+    ctx.stroke();
+    ctx.restore();
+    /* in-canvas caption (so PNG is self-describing) */
+    ctx.font = "10.5px " + FONT; ctx.fillStyle = th.muted;
+    ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillText(info, g.w - M.r - 4, M.t + 4);
+  }
+  function crossVals() {
+    const cr = st.cross || { xi: 1, tau: sol ? sol.tauMax/2 : 1 };
+    return { xi: Math.min(1, Math.max(0.001, cr.xi)), tau: Math.max(1e-6, cr.tau) };
+  }
+  function drawProfile() {
+    if (!sol) return;
+    const { tau } = crossVals();
+    const info = dim() ? "t = " + fmt(tau*t0(), 4) + " s" : "τ = " + fmt(tau, 3);
+    const pts = profilePts(tau).map(p => ({ x: xVal(Math.min(p.x, 1.0)), y: p.y }));
+    drawLine("prof", CV.prof, pts, 0, dim() ? st.L : 1, xLab(), info, 0.55);
+    $("eq-profinfo").textContent = "c vs " + (dim() ? "z" : "ξ") + " at " + info;
+  }
+  function drawBT() {
+    if (!sol) return;
+    const { xi } = crossVals();
+    const info = dim() ? "z = " + fmt(xi*st.L, 5) + " m" : "ξ = " + fmt(xi, 3);
+    const tmax = sol.tauMax;
+    const pts = breakthroughPts(xi).map(p => ({ x: tVal(Math.min(p.x, tmax)), y: p.y }));
+    drawLine("bt", CV.bt, pts, 0, dim() ? tmax*t0() : tmax, tLab(), info, 0.55);
+    $("eq-btinfo").textContent = "c vs " + (dim() ? "t" : "τ") + " at " + info;
+  }
+  function drawAll() { drawPhys(); drawIso(); drawProfile(); drawBT(); }
+
+  /* ---------- summary + event table ---------- */
+  function describe(segs) {                /* front -> back arrival order */
+    const parts = [];
+    for (let i = segs.length - 1; i >= 0; i--) {
+      const s = segs[i];
+      if (s.type === "shock")
+        parts.push("<b>shock</b> " + fmt(s.cFront, 3) + "→" + fmt(s.cBack, 3));
+      else
+        parts.push("<b>wave</b> " + fmt(s.cs[s.cs.length-1], 3) + "→" + fmt(s.cs[0], 3));
+    }
+    return parts.join(" ⟶ ");
+  }
+  function updateSummary() {
+    if (!sol) return;
+    const m = exitMetrics();
+    const ev = sol.events;
+    $("eq-summary").innerHTML =
+      "<b>Pulse</b>: c<sub>I</sub> = " + fmt(sol.cI, 4) + " → c<sub>F</sub> = " + fmt(sol.cF, 4) +
+      " for τ<sub>inj</sub> = " + fmt(sol.tauInj, 4) + " (t<sub>inj</sub> = " + fmt(sol.tauInj*t0(), 4) +
+      " s) · ν = " + fmt(sol.nu, 4) + " · t₀ = " + fmt(t0(), 4) + " s<br>" +
+      "Front fan: " + describe(sol.R1.segs) + " &nbsp;·&nbsp; Rear fan: " + describe(sol.R2.segs) +
+      " &nbsp;·&nbsp; <b>" + ev.length + "</b> interactions" +
+      (ev.length ? " (first at τ = " + fmt(ev[0].t, 4) + ", ξ = " + fmt(ev[0].x, 4) + ")" : "") + "<br>" +
+      "Exit (ξ=1): elution τ = " + fmt(m.tStart, 4) + " → " + fmt(m.tEnd, 4) +
+      " (t = " + fmt(m.tStart*t0(), 3) + " → " + fmt(m.tEnd*t0(), 3) + " s)" +
+      " · peak c = <b>" + fmt(m.peakC, 4) + "</b> at τ = <b>" + fmt(m.tPeak, 4) + "</b>" +
+      " · W<sub>½</sub> = " + fmt(m.w50, 4) +
+      " · mass balance = <b>" + fmt(m.ratio, 4) + "</b>";
+    $("eq-evcount").textContent = ev.length;
+    const rows = ev.slice(0, 400).map((e, i) =>
+      "<tr><td>" + (i + 1) + "</td><td>" + fmt(e.t, 4) + "</td><td>" + fmt(e.x, 4) +
+      "</td><td>" + (e.a ? "shock" : "wave") + " + " + (e.b ? "shock" : "wave") +
+      " → " + e.nOut + " front" + (e.nOut === 1 ? "" : "s") +
+      "</td><td>" + fmt(e.cL, 3) + " | " + fmt(e.cM, 3) + " | " + fmt(e.cR, 3) + "</td></tr>").join("");
+    $("eq-evtbl").innerHTML =
+      "<tr><th>#</th><th>τ</th><th>ξ</th><th>collision</th><th>c<sub>left</sub> | c<sub>mid</sub> | c<sub>right</sub></th></tr>" +
+      rows + (ev.length > 400 ? "<tr><td colspan='5'>… " + (ev.length - 400) + " more</td></tr>" : "");
+  }
+
+  /* ---------- isotherm plumbing ---------- */
+  function currentF() {
+    if (st.model === "custom") return compileExpr(st.expr);
+    if (st.model === "data") {
+      if (!dataPts || dataPts.length < 3)
+        throw "Paste at least 3 data rows (c and q columns) in the data box.";
+      const d0 = dataPts[0].c, d1 = dataPts[dataPts.length-1].c;
+      const lo = Math.min(st.cI, st.cF), hi = Math.max(st.cI, st.cF);
+      const tol = 1e-3*(d1 - d0 || 1);
+      if (lo < d0 - tol || hi > d1 + tol)
+        throw "Data cover c ∈ [" + fmt(d0, 4) + ", " + fmt(d1, 4) + "] but the problem needs [" +
+              fmt(lo, 4) + ", " + fmt(hi, 4) + "] — add data or adjust cI/cF.";
+      return st.dataMode === "smooth" ? nwF(dataPts, st.dataBW) : linInterpF(dataPts);
+    }
+    const m = MODELS[st.model];
+    const p = {};
+    for (const [k, , d] of m.params) {
+      const v = parseFloat($("eq-p-" + k) ? $("eq-p-" + k).value : d);
+      p[k] = isFinite(v) ? v : d;
+      st.pvals[st.model + "." + k] = p[k];
+    }
+    return m.make(p);
+  }
+  function buildParamFields() {
+    const m = MODELS[st.model];
+    $("eq-params").innerHTML = m.params.map(([k, lab, d]) => {
+      const saved = st.pvals[st.model + "." + k];
+      return '<label class="fld"><span>' + lab +
+        '</span><input type="number" id="eq-p-' + k + '" step="any" value="' +
+        (saved !== undefined ? saved : d) + '"></label>';
+    }).join("");
+    for (const [k] of m.params)
+      $("eq-p-" + k).addEventListener("change", recompute);
+    $("eq-exprfld").style.display = st.model === "custom" ? "" : "none";
+    $("eq-datafld").style.display = st.model === "data" ? "" : "none";
+  }
+
+  /* ---------- live formula display ---------- */
+  const FR = (n, d) => '<span class="frac"><span class="fn">' + n + '</span><span class="fd">' + d + '</span></span>';
+  const gnum = v => (+(+v).toPrecision(5)).toString();
+  function pget() {
+    const m = MODELS[st.model], p = {};
+    for (const [k, , d] of m.params) {
+      const el = $("eq-p-" + k);
+      const v = el ? parseFloat(el.value) : NaN;
+      p[k] = isFinite(v) ? v : d;
+    }
+    return p;
+  }
+  function updateFormula() {
+    const p = pget(), g = gnum;
+    let h = "q(c)&nbsp;=&nbsp;";
+    switch (st.model) {
+      case "linear": h += g(p.H) + "·c"; break;
+      case "langmuir":
+        h += FR(g(p.qs) + "·" + g(p.b) + "·c", "1 + " + g(p.b) + "·c"); break;
+      case "antilang":
+        h += FR(g(p.qs) + "·" + g(p.b) + "·c", "1 − " + g(p.b) + "·c"); break;
+      case "sips":
+        h += FR(g(p.qs) + "·(" + g(p.b) + "·c)<sup>" + g(p.n) + "</sup>",
+                "1 + (" + g(p.b) + "·c)<sup>" + g(p.n) + "</sup>"); break;
+      case "quad":
+        h += FR(g(p.qs) + "·c·(" + g(p.b1) + " + 2·" + g(p.b2) + "·c)",
+                "1 + " + g(p.b1) + "·c + " + g(p.b2) + "·c<sup>2</sup>"); break;
+      case "typev":
+        h += FR(g(p.qs1) + "·" + g(p.b1) + "·c", "1 + " + g(p.b1) + "·c") +
+             "&nbsp;+&nbsp;" +
+             FR(g(p.qs2) + "·(" + g(p.b2) + "·c)<sup>" + g(p.n) + "</sup>",
+                "1 + (" + g(p.b2) + "·c)<sup>" + g(p.n) + "</sup>"); break;
+      case "bet":
+        h += FR(g(p.qs) + "·" + g(p.bs) + "·c",
+                "(1 − " + g(p.bl) + "·c)·(1 − " + g(p.bl) + "·c + " + g(p.bs) + "·c)"); break;
+      case "dsl":
+        h += FR(g(p.qs1) + "·" + g(p.b1) + "·c", "1 + " + g(p.b1) + "·c") +
+             "&nbsp;+&nbsp;" +
+             FR(g(p.qs2) + "·" + g(p.b2) + "·c", "1 + " + g(p.b2) + "·c"); break;
+      case "custom": {
+        let e = st.expr.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        e = e.replace(/\*/g, "·")
+             .replace(/\^\(([^)]+)\)/g, "<sup>$1</sup>")
+             .replace(/\^([0-9.]+)/g, "<sup>$1</sup>");
+        h += e; break;
+      }
+      case "data":
+        h += dataPts && dataPts.length
+          ? (st.dataMode === "smooth"
+              ? "Gaussian-smoothed data (bandwidth " + st.dataBW + "% of c-range, " + dataPts.length + " points)"
+              : "piecewise-linear through " + dataPts.length + " data points")
+          : "… paste data below";
+        break;
+    }
+    $("eq-formula").innerHTML = h;
+  }
+
+  /* ---------- recompute ---------- */
+  function recompute() {
+    st.L = parseFloat($("eq-L").value) || st.L;
+    st.v = parseFloat($("eq-v").value) || st.v;
+    const e = parseFloat($("eq-eps").value);
+    if (isFinite(e) && e > 0.02 && e < 0.98) st.eps = e;
+    st.cI = parseFloat($("eq-ci").value);
+    st.cF = parseFloat($("eq-cf").value);
+    st.expr = $("eq-expr").value;
+    const tv = parseFloat($("eq-tinj").value);
+    if (isFinite(tv) && tv > 0) st.tauInj = dim() ? tv/t0() : tv;
+    st.dataText = $("eq-data").value;
+    dataPts = parseData(st.dataText);
+    if (st.model === "data")
+      $("eq-datainfo").textContent = dataPts.length
+        ? dataPts.length + " points · c ∈ [" + fmt(dataPts[0].c, 4) + ", " +
+          fmt(dataPts[dataPts.length-1].c, 4) + "]"
+        : "no data yet";
+    const errEl = $("eq-err");
+    try {
+      sol = buildPulse();
+      errEl.classList.remove("show");
+    } catch (msg) {
+      sol = null;
+      errEl.textContent = "⚠ " + (msg && msg.message ? msg.message : msg);
+      errEl.classList.add("show");
+      $("eq-summary").innerHTML = "";
+    }
+    window.__eq = sol;                     /* debug/verification hook */
+    if (sol) updateSummary();
+    updateFormula();
+    saveLS(); drawAll();
+  }
+
+  /* ---------- crosshair interaction ---------- */
+  function physEvt(e) {
+    const r = CV.phys.getBoundingClientRect();
+    if (!G.phys || !sol) return null;
+    const { X, Y, M } = G.phys, g = G.physG;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    if (px < M.l || px > g.w - M.r || py < M.t || py > g.h - M.b) return null;
+    const xi = (px - M.l)/(g.w - M.l - M.r);
+    const tau = sol.tauMax*(1 - (py - M.t)/(g.h - M.t - M.b));
+    return { xi, tau };
+  }
+  CV.phys.addEventListener("pointermove", e => {
+    if (st.pinned) return;
+    const p = physEvt(e);
+    if (!p) return;
+    st.cross = p;
+    updatePhysInfo();
+    drawPhys(); drawProfile(); drawBT();
+  });
+  CV.phys.addEventListener("pointerleave", () => {
+    if (st.pinned) return;
+    st.cross = null;
+    updatePhysInfo();
+    drawPhys(); drawProfile(); drawBT();
+  });
+  CV.phys.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    const p = physEvt(e);
+    if (!p) return;
+    if (st.pinned) { st.pinned = false; st.cross = p; }
+    else { st.pinned = true; st.cross = p; }
+    updatePhysInfo();
+    drawPhys(); drawProfile(); drawBT();
+  });
+  function updatePhysInfo() {
+    const el = $("eq-physinfo");
+    if (!st.cross) { el.textContent = "hover to explore · click to pin"; return; }
+    const c = sol ? cAt(st.cross.xi, st.cross.tau) : NaN;
+    el.textContent =
+      (dim() ? "z = " + fmt(st.cross.xi*st.L, 5) + " m, t = " + fmt(st.cross.tau*t0(), 4) + " s"
+             : "ξ = " + fmt(st.cross.xi, 3) + ", τ = " + fmt(st.cross.tau, 3)) +
+      ", c = " + fmt(c, 4) + (st.pinned ? "  📌 (click to unpin)" : "  · click to pin");
+  }
+
+  /* ---------- isotherm zoom / pan ---------- */
+  function isoZoom(fc, cx, cy) {           /* fc > 1 zooms out, < 1 zooms in, about (cx,cy) */
+    const v = st.isoView || isoAutoView();
+    st.isoView = {
+      c0: cx - (cx - v.c0)*fc, c1: cx + (v.c1 - cx)*fc,
+      q0: cy - (cy - v.q0)*fc, q1: cy + (v.q1 - cy)*fc };
+    drawIso();
+  }
+  CV.iso.addEventListener("wheel", e => {
+    if (!G.iso) return;
+    e.preventDefault();
+    const r = CV.iso.getBoundingClientRect();
+    const { A, g, v } = G.iso, M = A.M;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const cx = v.c0 + (px - M.l)/(g.w - M.l - M.r)*(v.c1 - v.c0);
+    const cy = v.q0 + (g.h - M.b - py)/(g.h - M.t - M.b)*(v.q1 - v.q0);
+    isoZoom(e.deltaY > 0 ? 1.18 : 1/1.18, cx, cy);
+  }, { passive: false });
+  let isoDrag = null, mDrag = null, rafPend = false;
+  function rafRecompute() {
+    if (rafPend) return;
+    rafPend = true;
+    requestAnimationFrame(() => { rafPend = false; recompute(); });
+  }
+  function isoMarkerHit(e) {
+    if (!G.iso || !G.iso.markers) return null;
+    const r = CV.iso.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    for (const m of G.iso.markers)
+      if (Math.hypot(px - m.px, py - m.py) < 13) return m;
+    return null;
+  }
+  CV.iso.addEventListener("pointerdown", e => {
+    if (!G.iso) return;
+    e.preventDefault();
+    const hit = isoMarkerHit(e);
+    if (hit) {
+      mDrag = hit.key;
+      try { CV.iso.setPointerCapture(e.pointerId); } catch (err) {}
+      CV.iso.style.cursor = "grabbing";
+      return;
+    }
+    const v = st.isoView || isoAutoView();
+    isoDrag = { x: e.clientX, y: e.clientY, v: { ...v } };
+    try { CV.iso.setPointerCapture(e.pointerId); } catch (err) {}
+    CV.iso.style.cursor = "grabbing";
+  });
+  CV.iso.addEventListener("pointermove", e => {
+    if (mDrag && G.iso) {
+      const { A, g, v } = G.iso, M = A.M;
+      const r = CV.iso.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      let c = v.c0 + (px - M.l)/(g.w - M.l - M.r)*(v.c1 - v.c0);
+      c = Math.max(0, c);
+      const sep = 1e-3*(v.c1 - v.c0);
+      const other = parseFloat($(mDrag === "ci" ? "eq-cf" : "eq-ci").value);
+      if (isFinite(other) && Math.abs(c - other) < sep)
+        c = Math.max(0, other + (c >= other ? sep : -sep));
+      $(mDrag === "ci" ? "eq-ci" : "eq-cf").value = +c.toPrecision(5);
+      rafRecompute();
+      return;
+    }
+    if (!isoDrag) {
+      if (G.iso) CV.iso.style.cursor = isoMarkerHit(e) ? "pointer" : "grab";
+      return;
+    }
+    if (!G.iso) return;
+    const { A, g } = G.iso, M = A.M;
+    const dx = (e.clientX - isoDrag.x)/(g.w - M.l - M.r)*(isoDrag.v.c1 - isoDrag.v.c0);
+    const dy = (e.clientY - isoDrag.y)/(g.h - M.t - M.b)*(isoDrag.v.q1 - isoDrag.v.q0);
+    st.isoView = { c0: isoDrag.v.c0 - dx, c1: isoDrag.v.c1 - dx,
+                   q0: isoDrag.v.q0 + dy, q1: isoDrag.v.q1 + dy };
+    drawIso();
+  });
+  const isoUp = () => {
+    const wasMarker = mDrag;
+    isoDrag = null; mDrag = null;
+    CV.iso.style.cursor = "grab";
+    if (wasMarker) recompute();
+  };
+  CV.iso.addEventListener("pointerup", isoUp);
+  CV.iso.addEventListener("pointercancel", isoUp);
+  CV.iso.addEventListener("dblclick", () => { st.isoView = null; drawIso(); });
+  const isoCenter = () => {
+    const v = st.isoView || isoAutoView();
+    return { cx: (v.c0 + v.c1)/2, cy: (v.q0 + v.q1)/2 };
+  };
+  $("eq-zi").addEventListener("click", () => { const { cx, cy } = isoCenter(); isoZoom(1/1.3, cx, cy); });
+  $("eq-zo").addEventListener("click", () => { const { cx, cy } = isoCenter(); isoZoom(1.3, cx, cy); });
+  $("eq-zr").addEventListener("click", () => { st.isoView = null; drawIso(); });
+
+  /* ---------- data input wiring ---------- */
+  $("eq-data").addEventListener("change", recompute);
+  $("eq-datafile").addEventListener("change", e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => { $("eq-data").value = rd.result; recompute(); };
+    rd.readAsText(file);
+  });
+  $("eq-datamode").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.dataMode = b.dataset.m;
+    [...$("eq-datamode").children].forEach(x => x.classList.toggle("on", x === b));
+    $("eq-bwfld").style.display = st.dataMode === "smooth" ? "" : "none";
+    recompute();
+  });
+  $("eq-bw").addEventListener("input", () => {
+    st.dataBW = parseFloat($("eq-bw").value) || 8;
+    $("eq-bwval").textContent = st.dataBW;
+    if (st.dataMode === "smooth") recompute();
+  });
+
+  /* ---------- controls ---------- */
+  const sel = $("eq-model");
+  sel.innerHTML = Object.keys(MODELS).map(k =>
+    '<option value="' + k + '">' + MODELS[k].label + "</option>").join("");
+  sel.addEventListener("change", () => {
+    st.model = sel.value;
+    buildParamFields(); recompute();
+  });
+  for (const id of ["eq-L", "eq-v", "eq-eps", "eq-ci", "eq-cf", "eq-expr", "eq-tinj"])
+    $(id).addEventListener("change", recompute);
+  function syncTinj() {                    /* injection input follows the axis units */
+    $("eq-tinjlab").innerHTML = dim() ? "Injection t<sub>inj</sub> (s)" : "Injection &tau;<sub>inj</sub> (&ndash;)";
+    $("eq-tinj").value = +(dim() ? st.tauInj*t0() : st.tauInj).toPrecision(6);
+  }
+  $("eq-swap").addEventListener("click", () => {
+    const a = $("eq-ci").value;
+    $("eq-ci").value = $("eq-cf").value;
+    $("eq-cf").value = a;
+    recompute();
+  });
+  $("eq-units").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.units = b.dataset.m;
+    [...$("eq-units").children].forEach(x => x.classList.toggle("on", x === b));
+    syncTinj();
+    saveLS(); drawAll(); updatePhysInfo();
+    if (sol) updateSummary();
+  });
+  /* RH helper (Buck correlation) */
+  $("eq-rhapply").addEventListener("click", () => {
+    const Tc = parseFloat($("eq-rht").value);
+    const psat = 611.21*Math.exp((18.678 - Tc/234.5)*(Tc/(257.14 + Tc)));   /* Pa */
+    const conv = rh => (rh/100)*psat/(8.314*(Tc + 273.15))/1000;            /* mol/L */
+    const ci = conv(parseFloat($("eq-rhi").value) || 0);
+    const cf = conv(parseFloat($("eq-rhf").value) || 0);
+    $("eq-ci").value = ci.toExponential(4);
+    $("eq-cf").value = cf.toExponential(4);
+    $("eq-rhout").textContent = "psat = " + fmt(psat, 1) + " Pa";
+    recompute();
+  });
+  /* PNG export */
+  function savePNG(cvEl, name) {
+    cvEl.toBlob(b => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  }
+  $("eq-profpng").addEventListener("click", () => {
+    const { tau } = crossVals();
+    savePNG(CV.prof, dim() ? "profile_t" + fmt(tau*t0(), 4) + "s.png" : "profile_tau" + fmt(tau, 3) + ".png");
+  });
+  $("eq-btpng").addEventListener("click", () => {
+    const { xi } = crossVals();
+    savePNG(CV.bt, dim() ? "breakthrough_z" + fmt(xi*st.L, 5) + "m.png" : "breakthrough_xi" + fmt(xi, 3) + ".png");
+  });
+
+  /* ---------- init ---------- */
+  (function init() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(LSKEY)); } catch (e) {}
+    if (s) {
+      for (const k of ["L", "v", "eps", "cI", "cF", "expr", "dataText"]) if (s[k] !== undefined) st[k] = s[k];
+      if (isFinite(s.tauInj) && s.tauInj > 0) st.tauInj = s.tauInj;
+      if (s.model && MODELS[s.model]) st.model = s.model;
+      if (s.pvals) st.pvals = s.pvals;
+      if (s.units === "dim" || s.units === "nd") st.units = s.units;
+      if (s.dataMode === "raw" || s.dataMode === "smooth") st.dataMode = s.dataMode;
+      if (isFinite(s.dataBW) && s.dataBW >= 1 && s.dataBW <= 25) st.dataBW = s.dataBW;
+    }
+    $("eq-L").value = st.L; $("eq-v").value = st.v; $("eq-eps").value = st.eps;
+    $("eq-ci").value = st.cI; $("eq-cf").value = st.cF; $("eq-expr").value = st.expr;
+    $("eq-data").value = st.dataText || "";
+    $("eq-bw").value = st.dataBW; $("eq-bwval").textContent = st.dataBW;
+    [...$("eq-datamode").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.dataMode));
+    $("eq-bwfld").style.display = st.dataMode === "smooth" ? "" : "none";
+    sel.value = st.model;
+    [...$("eq-units").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.units));
+    syncTinj();
+    buildParamFields();
+    const ro = new ResizeObserver(() => drawAll());
+    ro.observe(document.querySelector(".plots"));
+    window.addEventListener("resize", drawAll);
+    if (window.matchMedia)
+      matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+    recompute();
+  })();
+})();
+</script>
+</body>
+</html>

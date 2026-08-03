@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit &rarr; SI Notation Converter</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a; --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80; --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 48px 16px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin: 6px 0 24px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 20px;
+  }
+  input[type=text] {
+    width: 100%; font-size: 1.1rem; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  .examples { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .examples span { font-size: 0.78rem; color: var(--muted); }
+  .chip {
+    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+    border-radius: 999px; padding: 3px 10px; font-size: 0.78rem; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .out { margin-top: 22px; display: none; }
+  .out.show { display: block; }
+  .preview {
+    font-size: 1.7rem; font-weight: 600; letter-spacing: 0.01em;
+    padding: 14px 0 4px; text-align: center;
+  }
+  .preview sup { font-size: 0.62em; }
+  .row {
+    margin-top: 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .row .label { font-size: 0.78rem; color: var(--muted); width: 74px; flex-shrink: 0; }
+  .code {
+    flex: 1; font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.92rem; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 12px; overflow-x: auto; white-space: nowrap;
+  }
+  .copybtn {
+    display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 9px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    transition: filter .15s; min-width: 92px; justify-content: center;
+  }
+  .copybtn:hover { filter: brightness(1.1); }
+  .copybtn.copied { background: var(--ok); }
+  .err { margin-top: 18px; color: var(--danger); font-size: 0.88rem; display: none; }
+  .err.show { display: block; }
+  .footer { margin-top: 22px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  /* hidden holder for rich-text copy */
+  #richholder { position: fixed; left: -9999px; top: 0; font-family: "Times New Roman", serif; font-size: 12pt; color: #000; background: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Unit &rarr; SI Notation Converter</h1>
+  <div class="sub">Type a unit with slashes &rarr; get negative-exponent SI notation.</div>
+  <div class="panel">
+    <input type="text" id="q" placeholder="e.g. mmol/g  or  J/(mol K)" autocomplete="off" spellcheck="false" autofocus>
+    <div class="examples" id="examples">
+      <span>Try:</span>
+      <button class="chip">mmol/g</button>
+      <button class="chip">J/(mol K)</button>
+      <button class="chip">kg m/s^2</button>
+      <button class="chip">W/m^2/K</button>
+      <button class="chip">&micro;mol/(g s)</button>
+      <button class="chip">mol/kg/bar</button>
+    </div>
+
+    <div class="out" id="out">
+      <div class="preview" id="preview"></div>
+      <div class="row">
+        <span class="label">LaTeX</span>
+        <span class="code" id="latex"></span>
+        <button class="copybtn" id="copylatex">&#10697; Copy</button>
+      </div>
+      <div class="row">
+        <span class="label">Rich text<br>(Word/RTF)</span>
+        <span class="code" id="richprev"></span>
+        <button class="copybtn" id="copyrich">&#10697; Copy</button>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+  <div class="footer">
+    Rich-text copy pastes into Word, Google Docs, etc. with real superscripts.<br>
+    Repeated units are combined (m/s/s &rarr; m&thinsp;s<sup>&minus;2</sup>). Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+<div id="richholder"></div>
+
+<script>
+/* ---------- parser ---------- */
+const SUPMAP = { "⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9","⁻":"-","⁺":"+" };
+function normalize(s) {
+  // unicode superscripts -> ^n form; unify minus signs and dots
+  let out = "", i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (SUPMAP[c] !== undefined) {
+      let run = "";
+      while (i < s.length && SUPMAP[s[i]] !== undefined) run += SUPMAP[s[i++]];
+      out += "^" + run;
+    } else { out += c; i++; }
+  }
+  return out.replace(/−/g, "-").replace(/[·⋅×]/g, " ");
+}
+
+function parseUnits(input) {
+  const s = normalize(input);
+  let pos = 0;
+  const isSymChar = c => c !== undefined && /[A-Za-zµμ°Ω%Å]/.test(c);
+  const skip = () => { while (pos < s.length && /[\s*.]/.test(s[pos])) pos++; };
+
+  function readInt() {
+    let n = "";
+    if (s[pos] === "-" || s[pos] === "+") n += s[pos++];
+    while (pos < s.length && /[0-9]/.test(s[pos])) n += s[pos++];
+    if (n === "" || n === "-" || n === "+") return null;
+    return parseInt(n, 10);
+  }
+  function exponent() {          // attaches directly after a symbol or ")"
+    if (s[pos] === "^") {
+      pos++;
+      const br = s[pos] === "{" || s[pos] === "(";
+      if (br) pos++;
+      const n = readInt();
+      if (n === null) throw "Missing number after ^";
+      if (br && (s[pos] === "}" || s[pos] === ")")) pos++;
+      return n;
+    }
+    if (/[0-9]/.test(s[pos]) || (s[pos] === "-" && /[0-9]/.test(s[pos + 1]))) {
+      return readInt();          // e.g. s2, s-1
+    }
+    return null;
+  }
+  function term() {              // factors until / or ) or end
+    const units = [];
+    for (;;) {
+      skip();
+      const c = s[pos];
+      if (c === undefined || c === "/" || c === ")") break;
+      if (c === "(") {
+        pos++;
+        const inner = expr();
+        skip();
+        if (s[pos] !== ")") throw "Unbalanced parenthesis";
+        pos++;
+        const e = exponent();
+        if (e !== null) inner.forEach(u => u.exp *= e);
+        units.push(...inner);
+      } else if (isSymChar(c)) {
+        let sym = "";
+        while (isSymChar(s[pos])) sym += s[pos++];
+        const e = exponent();
+        units.push({ sym, exp: e === null ? 1 : e });
+      } else {
+        throw 'Unexpected character "' + c + '"';
+      }
+    }
+    return units;
+  }
+  function expr() {
+    const units = term();
+    for (;;) {
+      skip();
+      if (s[pos] === "/") {
+        pos++;
+        const t = term();
+        if (!t.length) throw "Missing unit after /";
+        t.forEach(u => u.exp *= -1);
+        units.push(...t);
+      } else break;
+    }
+    return units;
+  }
+
+  const units = expr();
+  skip();
+  if (pos < s.length) throw 'Unexpected character "' + s[pos] + '"';
+  if (!units.length) return [];
+
+  // merge repeated symbols (m/s/s -> m s^-2), keep first-seen order
+  const order = [], byKey = new Map();
+  for (const u of units) {
+    if (byKey.has(u.sym)) byKey.get(u.sym).exp += u.exp;
+    else { byKey.set(u.sym, { ...u }); order.push(u.sym); }
+  }
+  return order.map(k => byKey.get(k)).filter(u => u.exp !== 0);
+}
+
+/* ---------- formatters ---------- */
+const TOSUP = { "0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹","-":"⁻" };
+const sup = n => String(n).split("").map(c => TOSUP[c] || c).join("");
+const escHtml = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function toUnicode(units) {
+  return units.map(u => u.sym + (u.exp === 1 ? "" : sup(u.exp))).join(" ");
+}
+function toHtml(units) {
+  return units.map(u => escHtml(u.sym) + (u.exp === 1 ? "" : "<sup>" + (u.exp < 0 ? "&minus;" + Math.abs(u.exp) : u.exp) + "</sup>")).join("&thinsp;");
+}
+function texSym(sym) {
+  return sym.replace(/[µμ]/g, "$\\mu$").replace(/°/g, "$^{\\circ}$").replace(/Ω/g, "$\\Omega$").replace(/%/g, "\\%").replace(/Å/g, "\\AA{}");
+}
+function toLatex(units) {
+  return units.map(u => texSym(u.sym) + (u.exp === 1 ? "" : "$^{" + u.exp + "}$")).join(" ");
+}
+
+/* ---------- UI ---------- */
+const $q = document.getElementById("q"), $out = document.getElementById("out"),
+      $preview = document.getElementById("preview"), $latex = document.getElementById("latex"),
+      $richprev = document.getElementById("richprev"), $err = document.getElementById("err"),
+      $holder = document.getElementById("richholder");
+let current = null;   // {units}
+
+function render() {
+  const v = $q.value.trim();
+  $err.classList.remove("show");
+  if (!v) { $out.classList.remove("show"); current = null; return; }
+  let units;
+  try {
+    units = parseUnits(v);
+  } catch (e) {
+    current = null;
+    $out.classList.remove("show");
+    $err.textContent = "Cannot parse: " + e;
+    $err.classList.add("show");
+    return;
+  }
+  if (!units.length) { $out.classList.remove("show"); current = null; return; }
+  current = units;
+  $preview.innerHTML = toHtml(units);
+  $latex.textContent = toLatex(units);
+  $richprev.textContent = toUnicode(units);
+  $out.classList.add("show");
+}
+$q.addEventListener("input", render);
+document.getElementById("examples").addEventListener("click", e => {
+  if (e.target.classList.contains("chip")) {
+    $q.value = e.target.textContent;
+    render(); $q.focus();
+  }
+});
+
+function flash(btn) {
+  btn.innerHTML = "&#10003; Copied";
+  btn.classList.add("copied");
+  setTimeout(() => { btn.innerHTML = "&#10697; Copy"; btn.classList.remove("copied"); }, 1400);
+}
+function copyPlain(text, btn) {
+  const done = () => flash(btn);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => { legacyPlain(text); done(); });
+  } else { legacyPlain(text); done(); }
+}
+function legacyPlain(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
+function copyRich(btn) {
+  if (!current) return;
+  const html = toHtml(current).replace(/&thinsp;/g, " ");
+  const plain = toUnicode(current);
+  const done = () => flash(btn);
+  if (navigator.clipboard && window.ClipboardItem) {
+    navigator.clipboard.write([new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([plain], { type: "text/plain" }),
+    })]).then(done).catch(() => { legacyRich(html); done(); });
+  } else { legacyRich(html); done(); }
+}
+function legacyRich(html) {
+  $holder.innerHTML = html;
+  const range = document.createRange();
+  range.selectNodeContents($holder);
+  const sel = window.getSelection();
+  sel.removeAllRanges(); sel.addRange(range);
+  document.execCommand("copy");
+  sel.removeAllRanges();
+  $holder.innerHTML = "";
+}
+document.getElementById("copylatex").addEventListener("click", e => {
+  if (current) copyPlain(toLatex(current), e.currentTarget);
+});
+document.getElementById("copyrich").addEventListener("click", e => copyRich(e.currentTarget));
+$q.addEventListener("keydown", e => {
+  if (e.key === "Enter" && current) copyPlain(toLatex(current), document.getElementById("copylatex"));
+});
+</script>
+</body>
+</html>

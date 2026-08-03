@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSA Simulator</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a; --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80; --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1220px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 16px 18px; position: relative; margin-bottom: 14px;
+  }
+  .panel h3 { font-size: 0.92rem; font-weight: 700; margin-bottom: 10px; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 10px; }
+  .fld { display: flex; flex-direction: column; gap: 3px; font-size: 0.72rem; color: var(--muted); }
+  .fld input[type=number], .fld input[type=text] {
+    padding: 6px 8px; font-size: 0.86rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .fld input[type=number] { width: 84px; }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 6px 8px; font-size: 0.86rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.8rem; font-weight: 600; padding: 6px 11px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button.action:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.1); }
+  button.danger { border-color: var(--danger); color: var(--danger); }
+  details.adv { font-size: 0.8rem; color: var(--muted); margin-top: 10px; }
+  details.adv summary { cursor: pointer; font-weight: 600; }
+  details.adv .ctrls { margin-top: 8px; }
+  /* cycle table */
+  table.steps { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.steps th, table.steps td { padding: 5px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+  table.steps input, table.steps select {
+    padding: 4px 6px; font-size: 0.8rem; border: 1.5px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text); outline: none;
+  }
+  table.steps input[type=number] { width: 74px; }
+  table.steps button { padding: 2px 7px; font-size: 0.78rem; }
+  /* KPI cards */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .kpi { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; }
+  .kpi .k { font-size: 0.68rem; color: var(--muted); }
+  .kpi .v { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi .u { font-size: 0.7rem; color: var(--muted); }
+  /* run bar */
+  .runbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .prog { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .plots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .plots { grid-template-columns: 1fr; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.7rem; color: var(--muted); }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  .err { color: var(--danger); font-size: 0.82rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  table.streams { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+  table.streams th, table.streams td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+  table.streams th:first-child, table.streams td:first-child { text-align: left; }
+  .footer { margin-top: 16px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>PSA / VSA Cycle Simulator</h2>
+  <div class="sub">1D non-isothermal, non-isobaric, 3-component adsorption bed &mdash; LDF kinetics, Ergun momentum, WENO finite volumes,
+    TR-BDF2 stiff integration in a Web Worker. Port of the validated MATLAB simulator (Wilkins &amp; Rajendran 2019 four-step LPP VSA as the default case).</div>
+
+  <div class="panel">
+    <h3>Column, transport &amp; feed</h3>
+    <div class="ctrls" id="parRow1"></div>
+    <div class="ctrls" id="parRow2"></div>
+    <details class="adv"><summary>Isotherm (dual-site Langmuir, concentration basis) &amp; kinetics</summary>
+      <div class="ctrls" style="margin-top:8px">
+        <div class="fld">N&#8322; parameter set
+          <div class="seg" id="n2model">
+            <button class="on" data-m="EES">EES</button>
+            <button data-m="UES">UES</button>
+            <button data-m="custom">custom</button>
+          </div>
+        </div>
+      </div>
+      <div class="ctrls" id="isoRow1"></div>
+      <div class="ctrls" id="isoRow2"></div>
+      <div class="ctrls" id="isoRow3"></div>
+      <div class="ctrls" id="kinRow"></div>
+    </details>
+    <details class="adv"><summary>Thermal model &amp; numerics</summary>
+      <div class="ctrls" style="margin-top:8px">
+        <div class="fld">Energy balance
+          <div class="seg" id="thermo">
+            <button data-m="iso">isothermal</button>
+            <button class="on" data-m="wall">wall model (Eq. 10)</button>
+            <button data-m="lumped">lumped U</button>
+          </div>
+        </div>
+        <span id="thermoRow" style="display:contents"></span>
+      </div>
+      <div class="ctrls" id="numRow"></div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <h3>Cycle</h3>
+    <table class="steps" id="stepTbl"></table>
+    <div class="ctrls" style="margin-top:10px">
+      <button class="action" id="addStep">+ Add step</button>
+      <button class="action" id="resetCycle" title="Restore the Wilkins 4-step LPP cycle">Reset to 4-step LPP</button>
+      <span class="fld" style="justify-content:center" id="cycleNote"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="runbar">
+      <button class="action primary" id="runCSS">&#9654; Run to CSS</button>
+      <button class="action" id="runOne">Run 1 cycle</button>
+      <button class="action danger" id="cancel" disabled>&#9632; Cancel</button>
+      <span class="prog" id="prog">idle</span>
+      <span style="flex:1"></span>
+      <button class="action" id="expJSON">&#11015; Setup JSON</button>
+      <button class="action" id="impJSON">&#11014; Import JSON</button>
+      <input type="file" id="impFile" accept=".json" style="display:none">
+      <button class="action" id="expCSV" disabled>&#11015; Results CSV</button>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="panel" id="kpiPanel" style="display:none">
+    <h3>Performance at cyclic steady state</h3>
+    <div class="kpis" id="kpis"></div>
+    <div style="margin-top:12px; overflow-x:auto">
+      <table class="streams" id="streamTbl"></table>
+    </div>
+  </div>
+
+  <div class="plots" id="plots" style="display:none">
+    <div class="pcard">
+      <div class="phead"><h3>Axial profiles at step ends</h3>
+        <select id="profVar" style="font-size:0.78rem;padding:3px 6px;border-radius:6px;background:var(--bg);color:var(--text);border:1.5px solid var(--border)">
+          <option value="y1">y CO&#8322; (&ndash;)</option>
+          <option value="T">T (K)</option>
+          <option value="P">P (bar)</option>
+          <option value="q1">q CO&#8322; (mol/kg)</option>
+          <option value="q2">q N&#8322; (mol/kg)</option>
+        </select>
+      </div>
+      <canvas id="cvProf"></canvas>
+      <div class="pinfo" id="profLegend" style="margin-top:6px"></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>End pressures over the cycle</h3><span class="pinfo">z0 solid &middot; zL dashed</span></div>
+      <canvas id="cvPt"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Convergence</h3><span class="pinfo">log&#8321;&#8320; max |&Delta;state| per cycle &middot; mass-balance error</span></div>
+      <canvas id="cvConv"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Bed temperature over the cycle</h3><span class="pinfo" id="tempInfo">min / mid / max cell</span></div>
+      <canvas id="cvT"></canvas>
+    </div>
+  </div>
+
+  <div class="footer">
+    Model per unit void volume: &part;(cy<sub>i</sub>)/&part;t = &part;/&part;z(D<sub>L</sub>c&thinsp;&part;y<sub>i</sub>/&part;z) &minus; &part;(vcy<sub>i</sub>)/&part;z &minus; &phi;&rho;<sub>p</sub>&part;q<sub>i</sub>/&part;t;
+    LDF &part;q<sub>i</sub>/&part;t = k<sub>i</sub>(q<sub>i</sub>* &minus; q<sub>i</sub>); Ergun momentum; energy balance with (&epsilon;C<sub>v</sub>/R)&part;P/&part;t gas term and optional wall PDE.
+    Isotherm: competitive dual-site Langmuir, concentration basis (Wilkins &amp; Rajendran 2019, Table 2).<br>
+    Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<!-- ================= numerical engine (runs in a Web Worker) ================= -->
+<script id="workerSrc" type="text/js-worker">
+"use strict";
+/* ---------------- isotherm ---------------- */
+const Rg = 8.314;
+function isoDSL(P, Y, T, ip, N, out) {
+  // P,T: length-N arrays; Y: N x 3 (flat, row-major); out: N x 3 flat
+  for (let j = 0; j < N; j++) {
+    const iT = 1/(Rg*T[j]);
+    const cfac = P[j]*iT;
+    let sb = 1, sd = 1;
+    const b = [0,0,0], d = [0,0,0], s = [0,0,0];
+    for (let i = 0; i < 3; i++) {
+      s[i] = Y[3*j+i]*cfac;
+      b[i] = ip.b0[i]*Math.exp(-ip.dUb[i]*iT);
+      d[i] = ip.d0[i]*Math.exp(-ip.dUd[i]*iT);
+      sb += b[i]*s[i];  sd += d[i]*s[i];
+    }
+    for (let i = 0; i < 3; i++)
+      out[3*j+i] = ip.qsb[i]*b[i]*s[i]/sb + ip.qsd[i]*d[i]*s[i]/sd;
+  }
+}
+/* ---------------- parameters / index ---------------- */
+function derive(par) {
+  par.A    = Math.PI*par.rin*par.rin;
+  par.phi  = (1 - par.eps)/par.eps;
+  par.Cvg  = par.Cpg - Rg;
+  par.gam  = par.Cpg/par.Cvg;
+  par.nref = par.Pref*par.A*par.L*par.eps/(Rg*par.Tref);
+  par.Wref = par.Pref*par.A*par.L;
+  if (!par.DL) par.DL = 0.7*par.Dm + 0.5*par.vref*par.dp;
+  if (par.thermo === "lumped" && par.hin > 0 && par.hout > 0 && !par.Uset)
+    par.U = 1/(1/par.hin + (par.rin/par.rout)/par.hout);
+  par.nf = par.thermo === "wall" ? 8 : 7;   // fields per cell
+  par.nb = par.nf*par.N;                    // bed states
+  par.nq = 8;                               // quadratures
+  par.n  = par.nb + par.nq;
+  return par;
+}
+/* state layout: interleaved per cell: [y1 y2 x1 x2 x3 Pb Tb (Twb)] * N, then 8 quads */
+const F_Y1=0, F_Y2=1, F_X1=2, F_X2=3, F_X3=4, F_P=5, F_T=6, F_TW=7;
+
+/* ---------------- WENO face reconstruction ---------------- */
+function wenoFace(phi, N, sgn, out) {
+  // phi: length-N cell values, out: length-(N-1) face values
+  const epsw = 1e-10;
+  for (let f = 0; f < N-1; f++) {
+    const pL = phi[f], pR = phi[f+1];
+    const pLL = f > 0 ? phi[f-1] : phi[0];
+    const pRR = f < N-2 ? phi[f+2] : phi[N-1];
+    if (sgn[f] >= 0) {
+      const b0 = (pL-pLL)*(pL-pLL), b1 = (pR-pL)*(pR-pL);
+      const a0 = (1/3)/((epsw+b0)*(epsw+b0)), a1 = (2/3)/((epsw+b1)*(epsw+b1));
+      out[f] = (a0*(1.5*pL - 0.5*pLL) + a1*0.5*(pL+pR))/(a0+a1);
+    } else {
+      const b0 = (pR-pRR)*(pR-pRR), b1 = (pL-pR)*(pL-pR);
+      const a0 = (1/3)/((epsw+b0)*(epsw+b0)), a1 = (2/3)/((epsw+b1)*(epsw+b1));
+      out[f] = (a0*(1.5*pR - 0.5*pRR) + a1*0.5*(pL+pR))/(a0+a1);
+    }
+  }
+}
+function ergun(dPdz, rho, par) {
+  const g = -dPdz;
+  const A1 = 150*par.mu*(1-par.eps)*(1-par.eps)/(Math.pow(par.eps,3)*par.dp*par.dp);
+  const B1 = 1.75*(1-par.eps)/(Math.pow(par.eps,3)*par.dp)*rho;
+  if (B1 < 1e-12) return g/A1;
+  return Math.sign(g)*(-A1 + Math.sqrt(A1*A1 + 4*B1*Math.abs(g)))/(2*B1);
+}
+
+/* ---------------- RHS ---------------- */
+function makeRHS(par, ip) {
+  const N = par.N, nf = par.nf, dz = par.L/N, ep = par.eps;
+  const Cpg = par.Cpg, Cvg = par.Cvg;
+  const wall = par.thermo === "wall";
+  const iso = par.thermo === "iso";
+  // scratch arrays
+  const P = new Float64Array(N), T = new Float64Array(N);
+  const y1 = new Float64Array(N), y2 = new Float64Array(N);
+  const Yc = new Float64Array(3*N), q = new Float64Array(3*N);
+  const qs = new Float64Array(3*N), dqdt = new Float64Array(3*N);
+  const Tw = new Float64Array(N);
+  const u = new Float64Array(N-1), Ft = new Float64Array(N-1);
+  const sgn = new Float64Array(N-1);
+  const y1f = new Float64Array(N-1), y2f = new Float64Array(N-1), Tf = new Float64Array(N-1);
+  const Fi = new Float64Array(3*(N+1)), FH = new Float64Array(N+1);
+  const Ji = new Float64Array(3*(N+1)), Gc = new Float64Array(N+1);
+  const dci = new Float64Array(3*N), dc = new Float64Array(N), E = new Float64Array(N);
+
+  return function rhs(t, s, ds, stp) {
+    for (let j = 0; j < N; j++) {
+      const o = nf*j;
+      y1[j] = s[o+F_Y1]; y2[j] = s[o+F_Y2];
+      q[3*j]   = par.qref*s[o+F_X1];
+      q[3*j+1] = par.qref*s[o+F_X2];
+      q[3*j+2] = par.qref*s[o+F_X3];
+      P[j] = par.Pref*s[o+F_P];
+      T[j] = par.Tref*s[o+F_T];
+      if (wall) Tw[j] = par.Tref*s[o+F_TW];
+      let a = y1[j], b = y2[j];
+      a = a < 0 ? 0 : (a > 1 ? 1 : a);
+      b = b < 0 ? 0 : (b > 1 ? 1 : b);
+      let cc = 1 - a - b; cc = cc < 0 ? 0 : (cc > 1 ? 1 : cc);
+      Yc[3*j] = a; Yc[3*j+1] = b; Yc[3*j+2] = cc;
+    }
+    isoDSL(P, Yc, T, ip, N, qs);
+    for (let j = 0; j < 3*N; j++) dqdt[j] = (qs[j] - q[j])*par.kLDF[j % 3];
+
+    // interior faces
+    for (let f = 0; f < N-1; f++) {
+      const dPdz = (P[f+1] - P[f])/dz;
+      const Tfa = 0.5*(T[f] + T[f+1]);
+      const Pfa = 0.5*(P[f] + P[f+1]);
+      let mw = 0;
+      for (let i = 0; i < 3; i++) mw += 0.5*(Yc[3*f+i] + Yc[3*(f+1)+i])*par.MW[i];
+      const rhof = Pfa*mw/(Rg*Tfa);
+      u[f] = ergun(dPdz, rhof, par);
+      Ft[f] = (u[f]/ep)*(Pfa/(Rg*Tfa));
+      sgn[f] = u[f] >= 0 ? 1 : -1;
+    }
+    wenoFace(y1, N, sgn, y1f);
+    wenoFace(y2, N, sgn, y2f);
+    wenoFace(T, N, sgn, Tf);
+    for (let f = 0; f < N-1; f++) {
+      const k = 3*(f+1);
+      const y3f = 1 - y1f[f] - y2f[f];
+      Fi[k]   = Ft[f]*y1f[f];
+      Fi[k+1] = Ft[f]*y2f[f];
+      Fi[k+2] = Ft[f]*y3f;
+      FH[f+1] = Ft[f]*Cpg*Tf[f];
+      const cf = Ft[f] !== 0 ? Ft[f]/(u[f]/ep) : 0.5*(P[f]+P[f+1])/(Rg*0.5*(T[f]+T[f+1]));
+      for (let i = 0; i < 3; i++)
+        Ji[k+i] = par.DL*cf*(Yc[3*(f+1)+i] - Yc[3*f+i])/dz;
+      Gc[f+1] = par.Kz*(T[f+1] - T[f])/dz;
+    }
+    // boundary faces
+    let wvac = 0, wcomp = 0;
+    const bnd = (bc, atZ0) => {
+      const j = atZ0 ? 0 : N-1, dir = atZ0 ? 1 : -1;
+      let Ftb = 0, FHb = 0;
+      const Fib = [0,0,0];
+      if (bc.type === "inlet") {
+        const mag = bc.Q/(ep*par.A);
+        Ftb = dir*mag;
+        for (let i = 0; i < 3; i++) Fib[i] = Ftb*bc.y[i];
+        FHb = Ftb*Cpg*bc.T;
+        if (bc.machine === "compressor") {
+          const r = P[j]/par.Patm;
+          if (r > 1) wcomp += isenW(bc.eta, bc.T, bc.Q, r, par);
+        }
+      } else if (bc.type === "outletF") {
+        const mag = bc.Q/(ep*par.A);
+        Ftb = -dir*mag;
+        for (let i = 0; i < 3; i++) Fib[i] = Ftb*Yc[3*j+i];
+        FHb = Ftb*Cpg*T[j];
+        if (bc.machine === "vacuum") {
+          const r = par.Patm/P[j];
+          if (r > 1) wvac += isenW(bc.eta, T[j], bc.Q, r, par);
+        }
+      } else if (bc.type === "outletP") {
+        let Pbc = bc.P;
+        if (bc.rampLambda) Pbc = bc.P + (bc.Pstart - bc.P)*Math.exp(-bc.rampLambda*t);
+        const gradP = atZ0 ? (P[0] - Pbc)/(dz/2) : (Pbc - P[N-1])/(dz/2);
+        const Pfb = 0.5*(P[j] + Pbc);
+        let mw = 0;
+        for (let i = 0; i < 3; i++) mw += Yc[3*j+i]*par.MW[i];
+        const ub = ergun(gradP, Pfb*mw/(Rg*T[j]), par);
+        Ftb = (ub/ep)*(Pfb/(Rg*T[j]));
+        for (let i = 0; i < 3; i++) Fib[i] = Ftb*Yc[3*j+i];
+        FHb = Ftb*Cpg*T[j];
+        if (bc.machine === "vacuum") {
+          const Nd = Math.abs(Ftb)*ep*par.A;
+          const r = par.Patm/Pbc;
+          if (r > 1) wvac += isenW(bc.eta, T[j], Nd, r, par);
+        }
+      } // closed: zeros
+      const kk = atZ0 ? 0 : 3*N;
+      Fi[kk] = Fib[0]; Fi[kk+1] = Fib[1]; Fi[kk+2] = Fib[2];
+      FH[atZ0 ? 0 : N] = FHb;
+      if (atZ0) { Ji[0]=Ji[1]=Ji[2]=0; Gc[0]=0; }
+      else { Ji[3*N]=Ji[3*N+1]=Ji[3*N+2]=0; Gc[N]=0; }
+    };
+    bnd(stp.bc0, true);
+    bnd(stp.bcL, false);
+
+    // cell balances
+    for (let j = 0; j < N; j++) {
+      let sum = 0;
+      for (let i = 0; i < 3; i++) {
+        const v = -(Fi[3*(j+1)+i] - Fi[3*j+i])/dz
+                  + (Ji[3*(j+1)+i] - Ji[3*j+i])/dz
+                  - par.phi*par.rhop*dqdt[3*j+i];
+        dci[3*j+i] = v;  sum += v;
+      }
+      dc[j] = sum;
+      // energy per bed volume.  NOTE: FH already includes Cpg -> eps*dFH/dz.
+      let Ej = (Gc[j+1] - Gc[j])/dz
+             - ep*(FH[j+1] - FH[j])/dz
+             + (1-ep)*par.rhop*(dqdt[3*j]*par.dH[0] + dqdt[3*j+1]*par.dH[1] + dqdt[3*j+2]*par.dH[2]);
+      if (wall) Ej -= (2*par.hin/par.rin)*(T[j] - Tw[j]);
+      else Ej -= (2*par.U/par.rin)*(T[j] - par.Tamb);
+      E[j] = Ej;
+    }
+    for (let j = 0; j < N; j++) {
+      const o = nf*j;
+      const c = P[j]/(Rg*T[j]);
+      const qsum = q[3*j] + q[3*j+1] + q[3*j+2];
+      let dT, dP;
+      if (iso) {
+        dT = 0;
+        dP = Rg*T[j]*dc[j];
+      } else {
+        const a11 = (1-ep)*par.rhop*(par.Cps + par.Cpa*qsum);
+        const a12 = ep*Cvg/Rg;
+        const den = a11/(Rg*T[j]) + a12*c/T[j];
+        dT = (E[j]/(Rg*T[j]) - a12*dc[j])/den;
+        dP = (a11*dc[j] + (c/T[j])*E[j])/den;
+      }
+      ds[o+F_Y1] = (dci[3*j]   - y1[j]*dc[j])/c;
+      ds[o+F_Y2] = (dci[3*j+1] - y2[j]*dc[j])/c;
+      ds[o+F_X1] = dqdt[3*j]/par.qref;
+      ds[o+F_X2] = dqdt[3*j+1]/par.qref;
+      ds[o+F_X3] = dqdt[3*j+2]/par.qref;
+      ds[o+F_P]  = dP/par.Pref;
+      ds[o+F_T]  = dT/par.Tref;
+      if (wall) {
+        const TwL = j > 0 ? Tw[j-1] : Tw[0];
+        const TwR = j < N-1 ? Tw[j+1] : Tw[N-1];
+        const aw = par.rout*par.rout - par.rin*par.rin;
+        const dTw = (par.Kw*(TwR - 2*Tw[j] + TwL)/(dz*dz)
+                   + (2*par.rin*par.hin/aw)*(T[j] - Tw[j])
+                   - (2*par.rout*par.hout/aw)*(Tw[j] - par.Tamb))/(par.rhow*par.Cpw);
+        ds[o+F_TW] = dTw/par.Tref;
+      }
+    }
+    // quadratures: signed outward molar rates + works (dimensionless rates)
+    const nb = par.nb;
+    ds[nb]   = -Fi[0]*ep*par.A/par.nref;
+    ds[nb+1] = -Fi[1]*ep*par.A/par.nref;
+    ds[nb+2] = -Fi[2]*ep*par.A/par.nref;
+    ds[nb+3] =  Fi[3*N]*ep*par.A/par.nref;
+    ds[nb+4] =  Fi[3*N+1]*ep*par.A/par.nref;
+    ds[nb+5] =  Fi[3*N+2]*ep*par.A/par.nref;
+    ds[nb+6] = wcomp/par.Wref;
+    ds[nb+7] = wvac/par.Wref;
+  };
+}
+function isenW(eta, Tin, Nmol, ratio, par) {
+  const g = par.gam;
+  return (1/eta)*(g/(g-1))*Rg*Tin*Nmol*(Math.pow(ratio, (g-1)/g) - 1);
+}
+
+/* ---------------- dense LU ---------------- */
+function luFactor(Adata, n, piv) {
+  for (let k = 0; k < n; k++) {
+    let p = k, mx = Math.abs(Adata[k*n+k]);
+    for (let i = k+1; i < n; i++) {
+      const v = Math.abs(Adata[i*n+k]);
+      if (v > mx) { mx = v; p = i; }
+    }
+    piv[k] = p;
+    if (mx < 1e-300) { Adata[k*n+k] = 1e-300; }
+    if (p !== k)
+      for (let jx = 0; jx < n; jx++) {
+        const tmp = Adata[k*n+jx]; Adata[k*n+jx] = Adata[p*n+jx]; Adata[p*n+jx] = tmp;
+      }
+    const inv = 1/Adata[k*n+k];
+    for (let i = k+1; i < n; i++) {
+      const m = Adata[i*n+k]*inv;
+      Adata[i*n+k] = m;
+      if (m !== 0)
+        for (let jx = k+1; jx < n; jx++) Adata[i*n+jx] -= m*Adata[k*n+jx];
+    }
+  }
+}
+function luSolve(Adata, n, piv, b) {
+  for (let k = 0; k < n; k++) {
+    const p = piv[k];
+    if (p !== k) { const t = b[k]; b[k] = b[p]; b[p] = t; }
+    for (let i = k+1; i < n; i++) b[i] -= Adata[i*n+k]*b[k];
+  }
+  for (let k = n-1; k >= 0; k--) {
+    for (let jx = k+1; jx < n; jx++) b[k] -= Adata[k*n+jx]*b[jx];
+    b[k] /= Adata[k*n+k];
+  }
+}
+
+/* ---------------- TR-BDF2 integrator ---------------- */
+function makeIntegrator(par, rhs) {
+  const nb = par.nb, n = par.n, nf = par.nf;
+  const GAM = 2 - Math.SQRT2, d = 1 - 1/Math.SQRT2;
+  const hb = 3*nf - 1;                        // Jacobian half-bandwidth (coupling reach)
+  const ncol = 2*hb + 1;
+  const J = new Float64Array(nb*nb);
+  const M = new Float64Array(nb*nb);
+  const piv = new Int32Array(nb);
+  const f0 = new Float64Array(n), fg = new Float64Array(n), f1 = new Float64Array(n);
+  const sg = new Float64Array(n), s1 = new Float64Array(n), base = new Float64Array(n);
+  const res = new Float64Array(nb), del = new Float64Array(nb);
+  const spert = new Float64Array(n), fpert = new Float64Array(n);
+  const est = new Float64Array(nb);
+
+  function jacobian(t, s, f, stp) {
+    // colored FD Jacobian of the bed block
+    for (let g = 0; g < ncol; g++) {
+      spert.set(s);
+      const cols = [];
+      for (let jc = g; jc < nb; jc += ncol) {
+        const h = 1e-7*Math.max(1, Math.abs(s[jc]));
+        spert[jc] += h;
+        cols.push([jc, h]);
+      }
+      rhs(t, spert, fpert, stp);
+      for (const [jc, h] of cols) {
+        const i0 = Math.max(0, jc - hb), i1 = Math.min(nb - 1, jc + hb);
+        for (let i = i0; i <= i1; i++)
+          J[i*nb + jc] = (fpert[i] - f[i])/h;
+      }
+    }
+  }
+  function buildM(dt) {
+    M.set(J);
+    const a = -d*dt;
+    for (let i = 0; i < nb*nb; i++) M[i] *= a;
+    for (let i = 0; i < nb; i++) M[i*nb + i] += 1;
+    luFactor(M, nb, piv);
+  }
+  function newton(t, sBase, wgt, sOutGuess, sOut, fOut, dt, stp) {
+    // solve sOut = sBase + wgt*dt*f(t, sOut) on the bed block
+    sOut.set(sOutGuess);
+    let prev = Infinity;
+    for (let it = 0; it < 10; it++) {
+      rhs(t, sOut, fOut, stp);
+      for (let i = 0; i < nb; i++) {
+        res[i] = sBase[i] + wgt*dt*fOut[i] - sOut[i];
+        if (!Number.isFinite(res[i])) return false;
+      }
+      luSolve(M, nb, piv, res);
+      let dn = 0;
+      for (let i = 0; i < nb; i++) {
+        const sc = par.AbsTol + par.RelTol*Math.abs(sOut[i]);
+        const r = Math.abs(res[i])/sc;
+        if (r > dn) dn = r;
+        sOut[i] += res[i];
+      }
+      if (!Number.isFinite(dn)) return false;
+      if (dn < 0.1) { rhs(t, sOut, fOut, stp); return true; }
+      if (it > 1 && dn > 0.9*prev && dn > 10) return false;   // diverging
+      prev = dn;
+    }
+    return false;
+  }
+  let jacValid = false, jacAge = 0, dtM = -1;
+  return {
+    GAM,
+    invalidate() { jacValid = false; dtM = -1; },
+    step(t, s, dt, stp, allowRetry = true) {
+      // returns {ok, errnorm}
+      rhs(t, s, f0, stp);
+      for (let i = 0; i < nb; i++)
+        if (!Number.isFinite(f0[i])) return { ok: false, why: "rhs-nan" };
+      if (!jacValid || jacAge > 50) {
+        jacobian(t, s, f0, stp);
+        jacValid = true; jacAge = 0;
+        buildM(dt); dtM = dt;
+      } else if (Math.abs(dt - dtM) > 0.15*dtM) {
+        buildM(dt); dtM = dt;
+      }
+      jacAge++;
+      // stage 1: TR to t + GAM*dt   (base = s + (GAM dt/2) f0, distinct from sOut)
+      const retryJ = why => {
+        if (!allowRetry || jacAge <= 1) return { ok: false, why };
+        jacobian(t, s, f0, stp);           // stale Jacobian: refresh once and retry
+        jacValid = true; jacAge = 1;
+        buildM(dt); dtM = dt;
+        return this.step(t, s, dt, stp, false);
+      };
+      for (let i = 0; i < nb; i++) base[i] = s[i] + 0.5*GAM*dt*f0[i];
+      if (!newton(t + GAM*dt, base, 0.5*GAM, s, sg, fg, dt, stp)) return retryJ("newton1");
+      // stage 2: BDF2 to t + dt
+      const c1 = 1/(GAM*(2-GAM)), c2 = (1-GAM)*(1-GAM)/(GAM*(2-GAM)), w2 = (1-GAM)/(2-GAM);
+      for (let i = 0; i < nb; i++) base[i] = c1*sg[i] - c2*s[i];
+      if (!newton(t + dt, base, w2, sg, s1, f1, dt, stp)) return retryJ("newton2");
+      // error estimate: est = C*dt^3*y''' ~ 2C*dt*(divided difference of f)
+      const C = (-3*GAM*GAM + 4*GAM - 2)/(12*(2-GAM));
+      for (let i = 0; i < nb; i++)
+        est[i] = 2*C*dt*((f1[i]-fg[i])/(1-GAM) - (fg[i]-f0[i])/GAM);
+      luSolve(M, nb, piv, est);            // stiffly-scaled estimate (Hosea-Shampine)
+      let en = 0, iw = -1;
+      for (let i = 0; i < nb; i++) {
+        const sc = par.AbsTol + par.RelTol*Math.max(Math.abs(s[i]), Math.abs(s1[i]));
+        const r = Math.abs(est[i])/sc;
+        if (!Number.isFinite(r)) { en = 1e6; iw = i; break; }
+        if (r > en) { en = r; iw = i; }
+      }
+      if (en > 1) return { ok: false, errnorm: en, why: "err", iworst: iw };
+      // quadratures with the same TR-BDF2 weights
+      for (let i = nb; i < n; i++) {
+        const zg = s[i] + 0.5*GAM*dt*(f0[i] + fg[i]);
+        s1[i] = c1*zg - c2*s[i] + w2*dt*f1[i];
+      }
+      return { ok: true, errnorm: en, sNew: s1 };
+    }
+  };
+}
+
+/* ---------------- one step of the cycle ---------------- */
+function simulateStep(s0, stp, par, rhs, integ, wantHist) {
+  const nf = par.nf, N = par.N;
+  // ramped BC start pressures
+  for (const [bc, j] of [[stp.bc0, 0], [stp.bcL, N-1]])
+    if (bc.type === "outletP" && bc.rampLambda) bc.Pstart = par.Pref*s0[nf*j + F_P];
+  const isTimed = stp.stop.type === "time";
+  const tEnd = isTimed ? stp.stop.value : stp.tMax;
+  const evVal = s => {
+    if (isTimed) return null;
+    const j = stp.stop.monitor === "z0" ? 0 : N-1;
+    const pv = s[nf*j + F_P] - stp.stop.value/par.Pref;
+    return stp.stop.type === "pAbove" ? pv : -pv;   // event fires when value crosses 0 upward
+  };
+  const floorVal = s => Math.min(s[F_P], s[nf*(N-1)+F_P]) - par.Pfloor/par.Pref;
+
+  let s = s0.slice();
+  let t = 0, dt = 1e-4;
+  let term = isTimed ? "time" : "tmax";
+  const hist = wantHist ? { t: [0], s: [s.slice(0, par.nb)] } : null;
+  let rejects = 0, steps = 0, lastPost = Date.now();
+  integ.invalidate();                      // new BCs -> new Jacobian
+  while (t < tEnd - 1e-12) {
+    if (Date.now() - lastPost > 1000) {
+      postMessage({ type: "stepprog", name: stp.name, t, tEnd, dt, steps, rejects });
+      lastPost = Date.now();
+    }
+    if (dt > tEnd - t) dt = tEnd - t;
+    const r = integ.step(t, s, dt, stp);
+    if (!r.ok) {
+      dt *= r.errnorm ? Math.max(0.25, 0.7*Math.pow(1/r.errnorm, 1/3)) : 0.3;
+      if (dt < 1e-10) throw "Integrator stalled (dt < 1e-10 s) in step '" + stp.name + "'.";
+      rejects++;
+      continue;
+    }
+    const sN = r.sNew;
+    // events on the accepted interval
+    const e0 = evVal(s), e1 = evVal(sN);
+    const g0 = floorVal(s), g1 = floorVal(sN);
+    let hit = null;
+    if (e0 !== null && e0 < 0 && e1 >= 0) hit = "event";
+    if (g1 < 0) hit = hit || "pfloor";
+    if (hit) {
+      // bisect on dt for the crossing time (copy integrator buffers — they are reused)
+      let lo = 0, hi = dt, sm = sN.slice();
+      for (let k = 0; k < 25; k++) {
+        const mid = 0.5*(lo + hi);
+        const rm = integ.step(t, s, mid, stp);
+        if (!rm.ok) { hi = mid; continue; }
+        const val = hit === "event" ? evVal(rm.sNew) : floorVal(rm.sNew);
+        if ((hit === "event" && val >= 0) || (hit === "pfloor" && val < 0)) {
+          sm = rm.sNew.slice(); hi = mid;
+        } else lo = mid;
+      }
+      s = sm; t += hi;
+      term = hit;
+      if (hist) { hist.t.push(t); hist.s.push(s.slice(0, par.nb)); }
+      break;
+    }
+    s = sN.slice();
+    t += dt;
+    steps++;
+    if (hist && (steps % 2 === 0 || t >= tEnd - 1e-12))
+      { hist.t.push(t); hist.s.push(s.slice(0, par.nb)); }
+    {
+      // deadband controller: hold dt when acceptable (keeps M factorization warm)
+      const fac = 0.8*Math.pow(1/Math.max(r.errnorm, 1e-8), 1/3);
+      if (fac >= 1.35) dt = Math.min(dt*Math.min(fac, 2), tEnd);
+      else if (fac < 0.9) dt = dt*Math.max(fac, 0.5);
+    }
+  }
+  const nb = par.nb;
+  const out = {
+    tdur: t, term,
+    out0: [s[nb]*par.nref, s[nb+1]*par.nref, s[nb+2]*par.nref],
+    outL: [s[nb+3]*par.nref, s[nb+4]*par.nref, s[nb+5]*par.nref],
+    Wcomp: s[nb+6]*par.Wref, Wvac: s[nb+7]*par.Wref,
+    hist
+  };
+  for (let i = nb; i < par.n; i++) s[i] = 0;
+  out.sEnd = s;
+  return out;
+}
+
+function bedInventory(s, par) {
+  const N = par.N, nf = par.nf, dz = par.L/N;
+  const inv = [0,0,0];
+  for (let j = 0; j < N; j++) {
+    const o = nf*j;
+    const P = par.Pref*s[o+F_P], T = par.Tref*s[o+F_T];
+    const c = P/(Rg*T);
+    const Y = [s[o+F_Y1], s[o+F_Y2], 1 - s[o+F_Y1] - s[o+F_Y2]];
+    const q = [par.qref*s[o+F_X1], par.qref*s[o+F_X2], par.qref*s[o+F_X3]];
+    for (let i = 0; i < 3; i++)
+      inv[i] += par.eps*par.A*dz*c*Y[i] + (1-par.eps)*par.A*dz*par.rhop*q[i];
+  }
+  return inv;
+}
+
+function runCycle(s0, steps, par, rhs, integ, wantHist) {
+  const inv0 = bedInventory(s0, par);
+  let s = s0;
+  const streams = {}, recs = [];
+  let Wc = 0, Wv = 0, tC = 0;
+  for (const stp of steps) {
+    const out = simulateStep(s, stp, par, rhs, integ, wantHist);
+    s = out.sEnd;
+    recs.push({ name: stp.name, tdur: out.tdur, term: out.term,
+                out0: out.out0, outL: out.outL, Wcomp: out.Wcomp, Wvac: out.Wvac,
+                hist: out.hist });
+    for (const [bc, outw] of [[stp.bc0, out.out0], [stp.bcL, out.outL]]) {
+      if (bc.type === "inlet" || bc.type === "outletP" || bc.type === "outletF") {
+        if (!streams[bc.label]) streams[bc.label] = { nIn: [0,0,0], nOut: [0,0,0] };
+        for (let i = 0; i < 3; i++) {
+          streams[bc.label].nOut[i] += Math.max(outw[i], 0);
+          streams[bc.label].nIn[i]  += Math.max(-outw[i], 0);
+        }
+      }
+    }
+    Wc += out.Wcomp; Wv += out.Wvac; tC += out.tdur;
+  }
+  const inv1 = bedInventory(s, par);
+  const totIn = [0,0,0], totOut = [0,0,0];
+  for (const k in streams)
+    for (let i = 0; i < 3; i++) {
+      totIn[i] += streams[k].nIn[i];
+      totOut[i] += streams[k].nOut[i];
+    }
+  const gf = 1e-5*Math.max(totIn[0]+totIn[1]+totIn[2], totOut[0]+totOut[1]+totOut[2],
+                           Math.abs(inv1[0]-inv0[0]) + Math.abs(inv1[1]-inv0[1]) + Math.abs(inv1[2]-inv0[2]));
+  const mbErr = [0,1,2].map(i => {
+    const sc = Math.max(totIn[i], totOut[i], Math.abs(inv1[i]-inv0[i]), gf);
+    return (inv1[i] - inv0[i] + totOut[i] - totIn[i])/sc;
+  });
+  return { sEnd: s, streams, Wcomp: Wc, Wvac: Wv, tCycle: tC, mbErr, recs };
+}
+
+/* ---------------- worker protocol ---------------- */
+let CANCEL = false;
+onmessage = async e => {
+  const msg = e.data;
+  if (msg.cmd === "cancel") { CANCEL = true; return; }
+  if (msg.cmd !== "run") return;
+  CANCEL = false;
+  try {
+    const par = derive(msg.par);
+    const ip = msg.ip;
+    const rhs = makeRHS(par, ip);
+    const integ = makeIntegrator(par, rhs);
+    // steps
+    const steps = msg.steps;
+    // initial state
+    let s;
+    if (msg.s0 && msg.s0.length === par.n) s = Float64Array.from(msg.s0);
+    else {
+      s = new Float64Array(par.n);
+      const y0 = msg.init.y, P0 = msg.init.P, T0 = msg.init.T;
+      const q0 = new Float64Array(3*par.N);
+      const Pv = new Float64Array(par.N).fill(P0), Tv = new Float64Array(par.N).fill(T0);
+      const Yv = new Float64Array(3*par.N);
+      for (let j = 0; j < par.N; j++) { Yv[3*j] = y0[0]; Yv[3*j+1] = y0[1]; Yv[3*j+2] = y0[2]; }
+      isoDSL(Pv, Yv, Tv, ip, par.N, q0);
+      for (let j = 0; j < par.N; j++) {
+        const o = par.nf*j;
+        s[o+F_Y1] = y0[0]; s[o+F_Y2] = y0[1];
+        s[o+F_X1] = q0[3*j]/par.qref; s[o+F_X2] = q0[3*j+1]/par.qref; s[o+F_X3] = q0[3*j+2]/par.qref;
+        s[o+F_P] = P0/par.Pref; s[o+F_T] = T0/par.Tref;
+        if (par.nf === 8) s[o+F_TW] = par.Tamb/par.Tref;
+      }
+    }
+    // CSS loop
+    const maxCyc = msg.maxCycles === 1 ? 0 : msg.maxCycles, tol = msg.tol, nConsec = 3;
+    let consec = 0, cyc = 0, err = Infinity, mb = Infinity;
+    const histErr = [], histMb = [];
+    for (cyc = 1; cyc <= maxCyc; cyc++) {
+      const res = runCycle(s, steps, par, rhs, integ, false);
+      err = 0;
+      for (let i = 0; i < par.nb; i++)
+        err = Math.max(err, Math.abs(res.sEnd[i] - s[i]));
+      mb = Math.max(...res.mbErr.map(Math.abs));
+      histErr.push(err); histMb.push(mb);
+      s = res.sEnd;
+      postMessage({ type: "progress", cyc, err, mb });
+      if (err < tol) consec++; else consec = 0;
+      if (consec >= nConsec) break;
+      await new Promise(r => setTimeout(r, 0));
+      if (CANCEL) { postMessage({ type: "cancelled", cyc }); return; }
+    }
+    if (cyc > maxCyc) cyc = maxCyc;
+    // final instrumented cycle
+    const css = runCycle(s, steps, par, rhs, integ, true);
+    // pack history for transfer (subsample profiles)
+    const packed = css.recs.map(rc => ({
+      name: rc.name, tdur: rc.tdur, term: rc.term,
+      out0: rc.out0, outL: rc.outL, Wcomp: rc.Wcomp, Wvac: rc.Wvac,
+      t: rc.hist.t, s: rc.hist.s.map(v => Array.from(v))
+    }));
+    postMessage({ type: "done", cyc, err, mb, histErr, histMb,
+                  sEnd: Array.from(css.sEnd),
+                  streams: css.streams, Wcomp: css.Wcomp, Wvac: css.Wvac,
+                  tCycle: css.tCycle, mbErr: css.mbErr, recs: packed,
+                  par: { N: par.N, nf: par.nf, L: par.L, A: par.A, eps: par.eps,
+                         Pref: par.Pref, Tref: par.Tref, qref: par.qref,
+                         nref: par.nref, MW: par.MW } });
+  } catch (msgE) {
+    postMessage({ type: "error", message: "" + (msgE && msgE.message ? msgE.message : msgE) });
+  }
+};
+</script>
+
+<script>
+/* ================= UI thread ================= */
+(() => {
+  const $ = id => document.getElementById(id);
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+  /* ---------- default setup (Wilkins & Rajendran 2019, Figs. 8-9) ---------- */
+  const DEF = {
+    par: {
+      N: 15, L: 1.0, rin: 0.289/2, rout: 0.324/2, eps: 0.37, dp: 1.4e-3,
+      rhop: 1130, Cps: 1070, Cpg: 30.7, Cpa: 30.7, Cpw: 502, rhow: 7800,
+      mu: 1.72e-5, Kz: 9.03e-2, Kw: 16.0, Dm: 1.30e-5, vref: 1.0, DL: 0,
+      hin: 8.6, hout: 2.5, U: 13, Uset: false, Tamb: 298.15,
+      MW: [0.044, 0.028, 0.040], kLDF: [0.1631, 0.2044, 0.2044],
+      dH: [37000, 16250, 0],
+      Patm: 1.01325e5, Pfloor: 50, Pref: 1e5, Tref: 298.15, qref: 5,
+      RelTol: 1e-4, AbsTol: 1e-6, thermo: "wall"
+    },
+    isoSets: {
+      EES: { qsb: [3.257, 3.257, 0], b0: [2.09e-7, 2.13e-6, 0], dUb: [-42670, -16250, 0],
+             qsd: [3.240, 3.240, 0], d0: [1.06e-7, 2.13e-6, 0], dUd: [-32210, -16250, 0] },
+      UES: { qsb: [3.257, 3.257, 0], b0: [2.09e-7, 7.96e-7, 0], dUb: [-42670, -18860, 0],
+             qsd: [3.240, 3.240, 0], d0: [1.06e-7, 6.94e-7, 0], dUd: [-32210, -17760, 0] }
+    },
+    op: { Tfeed: 298.15, PH: 1.0e5, PI: 0.088e5, PL: 0.031e5,
+          tADS: 90.11, tBLO: 158.78, tEVAC: 129.13, vin: 0.37,
+          yFeed: [0.15, 0.85, 0], yLPP: [0.02, 0.98, 0], lppQfac: 0.5, eta: 0.72 },
+    run: { tol: 1e-4, maxCycles: 60 }
+  };
+
+  const st = JSON.parse(JSON.stringify(DEF));
+  st.n2model = "EES";
+  st.ip = JSON.parse(JSON.stringify(DEF.isoSets.EES));
+  st.stepsUI = defaultCycle();
+  let results = null;
+  let worker = null, running = false;
+
+  function defaultCycle() {
+    return [
+      { kind: "adsorption", name: "ADS", end: "z0", spec1: "vin", dur: st ? st.op.tADS : DEF.op.tADS, label: "raffinate" },
+      { kind: "depressurize", name: "BLO", end: "zL", Pset: DEF.op.PI/1e5, dur: DEF.op.tBLO, label: "waste" },
+      { kind: "depressurize", name: "EVAC", end: "z0", Pset: DEF.op.PL/1e5, dur: DEF.op.tEVAC, label: "extract" },
+      { kind: "pressurizeLight", name: "LPP", end: "zL", Ptarg: DEF.op.PH/1e5, dur: 400, label: "lpp" }
+    ];
+  }
+
+  /* ---------- parameter fields ---------- */
+  const fld = (id, label, val, step) =>
+    '<label class="fld"><span>' + label + '</span><input type="number" id="' + id +
+    '" step="' + (step || "any") + '" value="' + val + '"></label>';
+  function buildParams() {
+    $("parRow1").innerHTML =
+      fld("p-L", "L (m)", st.par.L) + fld("p-din", "d<sub>in</sub> (m)", 2*st.par.rin) +
+      fld("p-dout", "d<sub>out</sub> (m)", 2*st.par.rout) + fld("p-eps", "&epsilon; (&ndash;)", st.par.eps) +
+      fld("p-dp", "d<sub>p</sub> (m)", st.par.dp) + fld("p-rhop", "&rho;<sub>p</sub> (kg/m&sup3;)", st.par.rhop) +
+      fld("p-N", "grid N", st.par.N, 1);
+    $("parRow2").innerHTML =
+      fld("o-yco2", "feed y<sub>CO2</sub>", st.op.yFeed[0]) +
+      fld("o-Tf", "T<sub>feed</sub> (K)", st.op.Tfeed) +
+      fld("o-vin", "v<sub>in</sub> interstitial (m/s)", st.op.vin) +
+      fld("o-PH", "P<sub>H</sub> (bar)", st.op.PH/1e5) +
+      fld("o-eta", "&eta; pumps (&ndash;)", st.op.eta) +
+      fld("o-Tamb", "T<sub>amb</sub> (K)", st.par.Tamb);
+    const ipf = (k, i, lab) => fld("ip-" + k + i, lab, st.ip[k][i]);
+    $("isoRow1").innerHTML = "<span class='fld'><span><b>CO&#8322;</b></span></span>" +
+      ipf("qsb",0,"q<sub>sb</sub>") + ipf("b0",0,"b<sub>0</sub>") + ipf("dUb",0,"dU<sub>b</sub>") +
+      ipf("qsd",0,"q<sub>sd</sub>") + ipf("d0",0,"d<sub>0</sub>") + ipf("dUd",0,"dU<sub>d</sub>");
+    $("isoRow2").innerHTML = "<span class='fld'><span><b>N&#8322;</b></span></span>" +
+      ipf("qsb",1,"q<sub>sb</sub>") + ipf("b0",1,"b<sub>0</sub>") + ipf("dUb",1,"dU<sub>b</sub>") +
+      ipf("qsd",1,"q<sub>sd</sub>") + ipf("d0",1,"d<sub>0</sub>") + ipf("dUd",1,"dU<sub>d</sub>");
+    $("isoRow3").innerHTML = "<span class='fld'><span><b>3rd</b></span></span>" +
+      ipf("qsb",2,"q<sub>sb</sub>") + ipf("b0",2,"b<sub>0</sub>") + ipf("dUb",2,"dU<sub>b</sub>") +
+      ipf("qsd",2,"q<sub>sd</sub>") + ipf("d0",2,"d<sub>0</sub>") + ipf("dUd",2,"dU<sub>d</sub>");
+    $("kinRow").innerHTML =
+      fld("p-k1", "k<sub>LDF,CO2</sub> (1/s)", st.par.kLDF[0]) +
+      fld("p-k2", "k<sub>LDF,N2</sub> (1/s)", st.par.kLDF[1]) +
+      fld("p-k3", "k<sub>LDF,3</sub> (1/s)", st.par.kLDF[2]) +
+      fld("p-dH1", "&Delta;H<sub>CO2</sub> (J/mol)", st.par.dH[0]) +
+      fld("p-dH2", "&Delta;H<sub>N2</sub> (J/mol)", st.par.dH[1]) +
+      fld("p-DL", "D<sub>L</sub> (m&sup2;/s, 0 = corr.)", st.par.DL);
+    buildThermoRow();
+    $("numRow").innerHTML =
+      fld("p-rel", "RelTol", st.par.RelTol) + fld("p-abs", "AbsTol", st.par.AbsTol) +
+      fld("r-tol", "CSS tol", st.run.tol) + fld("r-max", "max cycles", st.run.maxCycles, 1);
+  }
+  function buildThermoRow() {
+    let h = "";
+    if (st.par.thermo === "wall")
+      h = fld("p-hin", "h<sub>in</sub> (W/m&sup2;K)", st.par.hin) +
+          fld("p-hout", "h<sub>out</sub> (W/m&sup2;K)", st.par.hout) +
+          fld("p-Kw", "K<sub>w</sub> (W/mK)", st.par.Kw) +
+          fld("p-Cpw", "C<sub>pw</sub> (J/kgK)", st.par.Cpw) +
+          fld("p-rhow", "&rho;<sub>w</sub> (kg/m&sup3;)", st.par.rhow);
+    else if (st.par.thermo === "lumped")
+      h = fld("p-U", "U (W/m&sup2;K)", st.par.U);
+    $("thermoRow").innerHTML = h;
+  }
+
+  /* ---------- cycle table ---------- */
+  const KINDS = {
+    adsorption:      { label: "Adsorption (feed)",       fields: ["dur"] },
+    depressurize:    { label: "Depressurize (vacuum)",   fields: ["Pset", "dur"] },
+    pressurizeLight: { label: "Pressurize (light gas)",  fields: ["Ptarg", "dur"] },
+    pressurizeFeed:  { label: "Pressurize (feed gas)",   fields: ["Ptarg", "dur"] }
+  };
+  function buildStepTable() {
+    let h = "<tr><th>#</th><th>name</th><th>type</th><th>open end</th>" +
+            "<th>P set/target (bar)</th><th>duration / t<sub>max</sub> (s)</th><th>stream label</th><th></th></tr>";
+    st.stepsUI.forEach((sp, i) => {
+      h += "<tr>" +
+        "<td>" + (i+1) + "</td>" +
+        "<td><input type='text' data-i='" + i + "' data-k='name' value='" + sp.name + "' style='width:64px'></td>" +
+        "<td><select data-i='" + i + "' data-k='kind'>" +
+          Object.keys(KINDS).map(k => "<option value='" + k + "'" + (sp.kind === k ? " selected" : "") + ">" +
+            KINDS[k].label + "</option>").join("") + "</select></td>" +
+        "<td><select data-i='" + i + "' data-k='end'>" +
+          ["z0","zL"].map(e => "<option" + (sp.end === e ? " selected" : "") + ">" + e + "</option>").join("") +
+          "</select></td>" +
+        "<td>" + (KINDS[sp.kind].fields.includes("Pset") ?
+            "<input type='number' data-i='" + i + "' data-k='Pset' value='" + sp.Pset + "' step='0.01'>" :
+          KINDS[sp.kind].fields.includes("Ptarg") ?
+            "<input type='number' data-i='" + i + "' data-k='Ptarg' value='" + sp.Ptarg + "' step='0.01'>" : "&mdash;") + "</td>" +
+        "<td><input type='number' data-i='" + i + "' data-k='dur' value='" + sp.dur + "' step='1'></td>" +
+        "<td><input type='text' data-i='" + i + "' data-k='label' value='" + sp.label + "' style='width:76px'></td>" +
+        "<td><button class='action' data-del='" + i + "'>&#10005;</button>" +
+        (i > 0 ? "<button class='action' data-up='" + i + "'>&#8593;</button>" : "") + "</td></tr>";
+    });
+    $("stepTbl").innerHTML = h;
+    $("cycleNote").innerHTML = "Adsorption feeds at its open end and vents at the other end at P<sub>H</sub>. " +
+      "Light-gas pressurization stops when the far end reaches its target (t is a safety cap).";
+  }
+  $("stepTbl").addEventListener("change", e => {
+    const el = e.target, i = +el.dataset.i, k = el.dataset.k;
+    if (k === undefined || !st.stepsUI[i]) return;
+    if (k === "kind") {
+      const kind = el.value;
+      const def = { adsorption: { dur: 90 }, depressurize: { Pset: 0.1, dur: 100 },
+                    pressurizeLight: { Ptarg: 1, dur: 400 }, pressurizeFeed: { Ptarg: 1, dur: 400 } };
+      st.stepsUI[i] = Object.assign({ name: st.stepsUI[i].name, end: st.stepsUI[i].end,
+                                      label: st.stepsUI[i].label, kind }, def[kind]);
+      buildStepTable();
+    } else st.stepsUI[i][k] = (k === "name" || k === "label") ? el.value : parseFloat(el.value);
+    saveLS();
+  });
+  $("stepTbl").addEventListener("click", e => {
+    const del = e.target.dataset && e.target.dataset.del;
+    const up = e.target.dataset && e.target.dataset.up;
+    if (del !== undefined && del !== null && del !== "") {
+      st.stepsUI.splice(+del, 1); buildStepTable(); saveLS();
+    } else if (up !== undefined && up !== null && up !== "") {
+      const i = +up;
+      [st.stepsUI[i-1], st.stepsUI[i]] = [st.stepsUI[i], st.stepsUI[i-1]];
+      buildStepTable(); saveLS();
+    }
+  });
+  $("addStep").addEventListener("click", () => {
+    st.stepsUI.push({ kind: "depressurize", name: "STEP", end: "zL", Pset: 0.1, dur: 60, label: "waste" });
+    buildStepTable(); saveLS();
+  });
+  $("resetCycle").addEventListener("click", () => {
+    st.stepsUI = defaultCycle(); buildStepTable(); saveLS();
+  });
+
+  /* ---------- gather setup -> worker payload ---------- */
+  const num = id => parseFloat($(id).value);
+  function gather() {
+    const p = st.par;
+    p.L = num("p-L"); p.rin = num("p-din")/2; p.rout = num("p-dout")/2;
+    p.eps = num("p-eps"); p.dp = num("p-dp"); p.rhop = num("p-rhop");
+    p.N = Math.max(5, Math.round(num("p-N")));
+    p.kLDF = [num("p-k1"), num("p-k2"), num("p-k3")];
+    p.dH = [num("p-dH1"), num("p-dH2"), 0];
+    p.DL = num("p-DL") || 0;
+    p.RelTol = num("p-rel"); p.AbsTol = num("p-abs");
+    p.Tamb = num("o-Tamb");
+    if (p.thermo === "wall") {
+      p.hin = num("p-hin"); p.hout = num("p-hout");
+      p.Kw = num("p-Kw"); p.Cpw = num("p-Cpw"); p.rhow = num("p-rhow");
+    } else if (p.thermo === "lumped") { p.U = num("p-U"); p.Uset = true; }
+    if (p.thermo === "iso") { p.U = 0; }
+    st.run.tol = num("r-tol"); st.run.maxCycles = Math.max(1, Math.round(num("r-max")));
+    const o = st.op;
+    o.yFeed = [num("o-yco2"), 1 - num("o-yco2"), 0];
+    o.Tfeed = num("o-Tf"); o.vin = num("o-vin"); o.PH = num("o-PH")*1e5; o.eta = num("o-eta");
+    for (const k of ["qsb","b0","dUb","qsd","d0","dUd"])
+      st.ip[k] = [num("ip-" + k + "0"), num("ip-" + k + "1"), num("ip-" + k + "2")];
+    // steps -> BC structs
+    const cH = o.PH/(8.314*o.Tfeed);
+    const A = Math.PI*p.rin*p.rin;
+    const Qfeed = cH*p.eps*o.vin*A;
+    const closed = { type: "closed" };
+    const steps = st.stepsUI.map(sp => {
+      let bcOpen, stop, tMax = sp.dur;
+      if (sp.kind === "adsorption") {
+        bcOpen = { type: "inlet", Q: Qfeed, y: o.yFeed, T: o.Tfeed, machine: "none", eta: o.eta, label: "feed" };
+        const bcOut = { type: "outletP", P: o.PH, rampLambda: 0, machine: "none", eta: o.eta, label: sp.label };
+        stop = { type: "time", value: sp.dur };
+        return sp.end === "z0"
+          ? { name: sp.name, bc0: bcOpen, bcL: bcOut, stop, tMax }
+          : { name: sp.name, bc0: bcOut, bcL: bcOpen, stop, tMax };
+      }
+      if (sp.kind === "depressurize") {
+        bcOpen = { type: "outletP", P: sp.Pset*1e5, rampLambda: 6/sp.dur, machine: "vacuum",
+                   eta: o.eta, label: sp.label };
+        stop = { type: "time", value: sp.dur };
+      } else {  // pressurize
+        const y = sp.kind === "pressurizeLight" ? o.yLPP : o.yFeed;
+        bcOpen = { type: "inlet", Q: o.lppQfac*Qfeed, y, T: o.Tfeed, machine: "none",
+                   eta: o.eta, label: sp.label };
+        stop = { type: "pAbove", value: sp.Ptarg*1e5, monitor: sp.end === "z0" ? "zL" : "z0" };
+      }
+      return sp.end === "z0"
+        ? { name: sp.name, bc0: bcOpen, bcL: closed, stop, tMax }
+        : { name: sp.name, bc0: closed, bcL: bcOpen, stop, tMax };
+    });
+    return {
+      cmd: "run",
+      par: JSON.parse(JSON.stringify(p)),
+      ip: JSON.parse(JSON.stringify(st.ip)),
+      steps,
+      init: { P: o.PH, T: o.Tfeed, y: [0, 1, 0] },
+      s0: st.warmState || null,
+      tol: st.run.tol, maxCycles: st.run.maxCycles
+    };
+  }
+
+  /* ---------- worker management ---------- */
+  function makeWorker() {
+    const src = document.getElementById("workerSrc").textContent;
+    const url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+    const w = new Worker(url);
+    URL.revokeObjectURL(url);
+    return w;
+  }
+  function setRunning(v) {
+    running = v;
+    $("runCSS").disabled = v; $("runOne").disabled = v;
+    $("cancel").disabled = !v;
+  }
+  function run(maxCycles) {
+    if (running) return;
+    $("err").classList.remove("show");
+    const payload = gather();
+    if (maxCycles) payload.maxCycles = maxCycles;
+    saveLS();
+    if (worker) worker.terminate();
+    worker = makeWorker();
+    const tStart = performance.now();
+    worker.onerror = ev => {
+      setRunning(false);
+      $("err").textContent = "⚠ Worker error: " + ev.message + " (line " + ev.lineno + ")";
+      $("err").classList.add("show");
+      $("prog").textContent = "failed";
+    };
+    worker.onmessage = e => {
+      const m = e.data;
+      if (m.type === "stepprog") {
+        $("prog").textContent = "cycle running · " + m.name + " t = " + m.t.toFixed(1) + "/" +
+          m.tEnd.toFixed(0) + " s · dt " + m.dt.toExponential(1) + " · " + m.steps +
+          " steps (" + m.rejects + " rej)";
+      } else if (m.type === "progress") {
+        $("prog").textContent = "cycle " + m.cyc + " · Δstate " + m.err.toExponential(2) +
+          " · mass bal " + m.mb.toExponential(2) + " · " + ((performance.now()-tStart)/1000).toFixed(0) + " s";
+      } else if (m.type === "done") {
+        setRunning(false);
+        results = m;
+        st.warmState = m.sEnd;
+        $("prog").textContent = "done: " + m.cyc + " cycles, " +
+          ((performance.now()-tStart)/1000).toFixed(1) + " s · Δstate " + m.err.toExponential(2) +
+          " · mass bal " + m.mb.toExponential(2);
+        showResults();
+      } else if (m.type === "error") {
+        setRunning(false);
+        $("err").textContent = "⚠ " + m.message;
+        $("err").classList.add("show");
+        $("prog").textContent = "failed";
+      } else if (m.type === "cancelled") {
+        setRunning(false);
+        $("prog").textContent = "cancelled at cycle " + m.cyc;
+      }
+    };
+    setRunning(true);
+    $("prog").textContent = "starting…";
+    worker.postMessage(payload);
+  }
+  $("runCSS").addEventListener("click", () => run(null));
+  $("runOne").addEventListener("click", () => run(1));
+  $("cancel").addEventListener("click", () => { if (worker) worker.postMessage({ cmd: "cancel" }); });
+
+  /* ---------- results ---------- */
+  const fmt = (x, d = 3) => isFinite(x) ? (+x.toFixed(d)).toString() : "—";
+  function kpiCalc(m) {
+    const prodLabel = "extract";
+    const prod = m.streams[prodLabel] ? m.streams[prodLabel].nOut : [0,0,0];
+    const feed = m.streams.feed ? m.streams.feed.nIn : [1e-12,0,0];
+    const W = m.Wcomp + m.Wvac;
+    const pur = prod[0]/(prod[0]+prod[1]+prod[2]);
+    const rec = prod[0]/feed[0];
+    const eJmol = W/Math.max(prod[0], 1e-12);
+    const kwht = eJmol/m.par.MW[0]/3.6e6*1000;
+    const prodty = prod[0]/((1-m.par.eps)*m.par.A*m.par.L*m.tCycle);
+    return { prod, feed, pur, rec, kwht, prodty, W };
+  }
+  function showResults() {
+    const m = results;
+    const K = kpiCalc(m);
+    $("kpiPanel").style.display = "";
+    $("plots").style.display = "";
+    $("expCSV").disabled = false;
+    $("kpis").innerHTML =
+      kpi("CO₂ purity", fmt(100*K.pur, 2), "%") +
+      kpi("CO₂ recovery", fmt(100*K.rec, 2), "%") +
+      kpi("Specific energy", fmt(K.kwht, 1), "kWh / t CO₂") +
+      kpi("Productivity", fmt(K.prodty, 3), "mol CO₂ / m³ads / s") +
+      kpi("Cycle time", fmt(m.tCycle, 1), "s") +
+      kpi("Cycles to CSS", m.cyc, "") +
+      kpi("Mass balance", Math.max(...m.mbErr.map(Math.abs)).toExponential(1), "");
+    let sh = "<tr><th>stream</th><th>CO₂ in</th><th>N₂ in</th><th>CO₂ out</th><th>N₂ out</th><th>mol/cycle</th></tr>";
+    for (const k in m.streams) {
+      const s = m.streams[k];
+      sh += "<tr><td>" + k + "</td><td>" + fmt(s.nIn[0], 3) + "</td><td>" + fmt(s.nIn[1], 3) +
+        "</td><td>" + fmt(s.nOut[0], 3) + "</td><td>" + fmt(s.nOut[1], 3) +
+        "</td><td>" + fmt(s.nIn[0]+s.nIn[1]+s.nIn[2]+s.nOut[0]+s.nOut[1]+s.nOut[2], 3) + "</td></tr>";
+    }
+    $("streamTbl").innerHTML = sh;
+    drawAll();
+  }
+  const kpi = (k, v, u) => '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v +
+                           '</div><div class="u">' + u + '</div></div>';
+
+  /* ---------- plotting ---------- */
+  function themeCols() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return { card: g("--card"), border: g("--border"), text: g("--text"),
+             muted: g("--muted"), accent: g("--accent") };
+  }
+  const STEPCOL = ["#3b82f6", "#f59e0b", "#ef4444", "#10b981", "#a855f7", "#0891b2"];
+  function sizeCanvas(cv, ratio) {
+    const w = cv.getBoundingClientRect().width;
+    if (w < 40) return null;
+    const h = Math.round(w*ratio);
+    cv.style.height = h + "px";
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const p = 10 ** Math.floor(Math.log10(raw));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m*p >= raw) return m*p;
+    return 10*p;
+  }
+  function axes(ctx, g, th, x0, x1, y0, y1, xlab, ylab) {
+    const M = { l: 52, r: 10, t: 8, b: 32 };
+    const X = x => M.l + (x - x0)/(x1 - x0)*(g.w - M.l - M.r);
+    const Y = y => g.h - M.b - (y - y0)/(y1 - y0)*(g.h - M.t - M.b);
+    ctx.font = "10px " + FONT; ctx.strokeStyle = th.border; ctx.lineWidth = 1;
+    ctx.fillStyle = th.muted;
+    const xs = niceStep((x1-x0)/6), ys = niceStep((y1-y0)/5);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let x = Math.ceil(x0/xs)*xs; x <= x1 + 1e-9; x += xs) {
+      ctx.beginPath(); ctx.moveTo(X(x), M.t); ctx.lineTo(X(x), g.h - M.b); ctx.stroke();
+      ctx.fillText((+x.toFixed(6)).toString(), X(x), g.h - M.b + 4);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let y = Math.ceil(y0/ys)*ys; y <= y1 + 1e-9; y += ys) {
+      ctx.beginPath(); ctx.moveTo(M.l, Y(y)); ctx.lineTo(g.w - M.r, Y(y)); ctx.stroke();
+      ctx.fillText((+y.toFixed(6)).toString(), M.l - 5, Y(y));
+    }
+    ctx.fillStyle = th.text; ctx.font = "11px " + FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(xlab, M.l + (g.w - M.l - M.r)/2, g.h - 5);
+    ctx.save(); ctx.translate(11, M.t + (g.h - M.t - M.b)/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(ylab, 0, 0); ctx.restore();
+    ctx.strokeStyle = th.border;
+    ctx.strokeRect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b);
+    return { X, Y, M };
+  }
+  function fieldOf(sArr, j, f, m) { return sArr[m.par.nf*j + f]; }
+  function profVals(sBed, varName, m) {
+    const N = m.par.N, out = new Array(N);
+    for (let j = 0; j < N; j++) {
+      if (varName === "y1") out[j] = fieldOf(sBed, j, 0, m);
+      else if (varName === "T") out[j] = m.par.Tref*fieldOf(sBed, j, 6, m);
+      else if (varName === "P") out[j] = fieldOf(sBed, j, 5, m);
+      else if (varName === "q1") out[j] = m.par.qref*fieldOf(sBed, j, 2, m);
+      else out[j] = m.par.qref*fieldOf(sBed, j, 3, m);
+    }
+    return out;
+  }
+  function drawProfiles() {
+    const cv = $("cvProf"), g = sizeCanvas(cv, 0.62);
+    if (!g || !results) return;
+    const th = themeCols(), m = results;
+    g.ctx.fillStyle = th.card; g.ctx.fillRect(0, 0, g.w, g.h);
+    const varName = $("profVar").value;
+    let lo = Infinity, hi = -Infinity;
+    const series = m.recs.map(rc => {
+      const v = profVals(rc.s[rc.s.length-1], varName, m);
+      for (const x of v) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+      return v;
+    });
+    const pad = 0.07*(hi - lo || 1);
+    const A = axes(g.ctx, g, th, 0, m.par.L, lo - pad, hi + pad, "z (m)",
+      $("profVar").selectedOptions[0].textContent);
+    const N = m.par.N, dz = m.par.L/N;
+    series.forEach((v, si) => {
+      g.ctx.strokeStyle = STEPCOL[si % STEPCOL.length]; g.ctx.lineWidth = 2;
+      g.ctx.beginPath();
+      for (let j = 0; j < N; j++) {
+        const x = A.X((j + 0.5)*dz), y = A.Y(v[j]);
+        j ? g.ctx.lineTo(x, y) : g.ctx.moveTo(x, y);
+      }
+      g.ctx.stroke();
+    });
+    $("profLegend").innerHTML = m.recs.map((rc, i) =>
+      "<span style='color:" + STEPCOL[i % STEPCOL.length] + "'>— " + rc.name + " end</span>").join("&nbsp; ");
+  }
+  function drawPt() {
+    const cv = $("cvPt"), g = sizeCanvas(cv, 0.62);
+    if (!g || !results) return;
+    const th = themeCols(), m = results;
+    g.ctx.fillStyle = th.card; g.ctx.fillRect(0, 0, g.w, g.h);
+    let tAll = 0, pmax = 0;
+    for (const rc of m.recs) { tAll += rc.tdur; }
+    for (const rc of m.recs)
+      for (const sB of rc.s) {
+        pmax = Math.max(pmax, fieldOf(sB, 0, 5, m), fieldOf(sB, m.par.N-1, 5, m));
+      }
+    const A = axes(g.ctx, g, th, 0, tAll, 0, pmax*1.08, "t in cycle (s)", "P (bar)");
+    let t0 = 0;
+    m.recs.forEach((rc, si) => {
+      for (const [j, dash] of [[0, []], [m.par.N-1, [5,4]]]) {
+        g.ctx.strokeStyle = STEPCOL[si % STEPCOL.length];
+        g.ctx.lineWidth = 1.8;
+        g.ctx.setLineDash(dash);
+        g.ctx.beginPath();
+        rc.t.forEach((tt, k) => {
+          const x = A.X(t0 + tt), y = A.Y(fieldOf(rc.s[k], j, 5, m));
+          k ? g.ctx.lineTo(x, y) : g.ctx.moveTo(x, y);
+        });
+        g.ctx.stroke();
+        g.ctx.setLineDash([]);
+      }
+      t0 += rc.tdur;
+    });
+  }
+  function drawConv() {
+    const cv = $("cvConv"), g = sizeCanvas(cv, 0.62);
+    if (!g || !results) return;
+    const th = themeCols(), m = results;
+    g.ctx.fillStyle = th.card; g.ctx.fillRect(0, 0, g.w, g.h);
+    const n = m.histErr.length;
+    const lg = v => Math.log10(Math.max(v, 1e-12));
+    let lo = Infinity, hi = -Infinity;
+    for (const v of m.histErr.concat(m.histMb)) { lo = Math.min(lo, lg(v)); hi = Math.max(hi, lg(v)); }
+    const A = axes(g.ctx, g, th, 1, Math.max(n, 2), lo - 0.3, hi + 0.3, "cycle", "log₁₀");
+    for (const [arr, color] of [[m.histErr, th.accent], [m.histMb, "#ef4444"]]) {
+      g.ctx.strokeStyle = color; g.ctx.lineWidth = 2;
+      g.ctx.beginPath();
+      arr.forEach((v, i) => {
+        const x = A.X(i + 1), y = A.Y(lg(v));
+        i ? g.ctx.lineTo(x, y) : g.ctx.moveTo(x, y);
+      });
+      g.ctx.stroke();
+    }
+  }
+  function drawT() {
+    const cv = $("cvT"), g = sizeCanvas(cv, 0.62);
+    if (!g || !results) return;
+    const th = themeCols(), m = results;
+    g.ctx.fillStyle = th.card; g.ctx.fillRect(0, 0, g.w, g.h);
+    let tAll = 0, lo = Infinity, hi = -Infinity;
+    for (const rc of m.recs) tAll += rc.tdur;
+    const cells = [0, Math.floor(m.par.N/2), m.par.N-1];
+    for (const rc of m.recs)
+      for (const sB of rc.s)
+        for (const j of cells) {
+          const T = m.par.Tref*fieldOf(sB, j, 6, m);
+          lo = Math.min(lo, T); hi = Math.max(hi, T);
+        }
+    const pad = 0.05*(hi - lo || 1);
+    const A = axes(g.ctx, g, th, 0, tAll, lo - pad, hi + pad, "t in cycle (s)", "T (K)");
+    const dash = [[], [6,4], [2,3]];
+    let t0 = 0;
+    m.recs.forEach(rc => {
+      cells.forEach((j, ci) => {
+        g.ctx.strokeStyle = th.accent;
+        g.ctx.lineWidth = 1.6;
+        g.ctx.setLineDash(dash[ci]);
+        g.ctx.beginPath();
+        rc.t.forEach((tt, k) => {
+          const x = A.X(t0 + tt), y = A.Y(m.par.Tref*fieldOf(rc.s[k], j, 6, m));
+          k ? g.ctx.lineTo(x, y) : g.ctx.moveTo(x, y);
+        });
+        g.ctx.stroke(); g.ctx.setLineDash([]);
+      });
+      t0 += rc.tdur;
+    });
+    $("tempInfo").textContent = "solid: z0 cell · dashed: mid · dotted: zL cell";
+  }
+  function drawAll() { drawProfiles(); drawPt(); drawConv(); drawT(); }
+  $("profVar").addEventListener("change", drawProfiles);
+
+  /* ---------- import / export ---------- */
+  function setupJSON() {
+    return { par: st.par, ip: st.ip, op: st.op, run: st.run,
+             n2model: st.n2model, stepsUI: st.stepsUI };
+  }
+  $("expJSON").addEventListener("click", () => {
+    gather();
+    const blob = new Blob([JSON.stringify(setupJSON(), null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "psa_setup.json"; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+  $("impJSON").addEventListener("click", () => $("impFile").click());
+  $("impFile").addEventListener("change", e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const j = JSON.parse(rd.result);
+        for (const k of ["par","ip","op","run","stepsUI","n2model"])
+          if (j[k] !== undefined) st[k] = j[k];
+        st.warmState = null;
+        buildParams(); buildStepTable(); syncSegs(); saveLS();
+      } catch (err) {
+        $("err").textContent = "⚠ Import failed: " + err;
+        $("err").classList.add("show");
+      }
+    };
+    rd.readAsText(f);
+  });
+  $("expCSV").addEventListener("click", () => {
+    if (!results) return;
+    const m = results, K = kpiCalc(m);
+    const L = ["# PSA simulator results",
+      "purity_pct," + (100*K.pur), "recovery_pct," + (100*K.rec),
+      "energy_kWh_per_t," + K.kwht, "productivity_mol_m3_s," + K.prodty,
+      "cycle_time_s," + m.tCycle, "cycles_to_css," + m.cyc, "",
+      "# end-of-step axial profiles: z_m,step,yCO2,T_K,P_bar,qCO2,qN2"];
+    const N = m.par.N, dz = m.par.L/N;
+    m.recs.forEach(rc => {
+      const sB = rc.s[rc.s.length-1];
+      for (let j = 0; j < N; j++)
+        L.push(((j+0.5)*dz).toFixed(5) + "," + rc.name + "," +
+          fieldOf(sB, j, 0, m).toPrecision(6) + "," +
+          (m.par.Tref*fieldOf(sB, j, 6, m)).toPrecision(6) + "," +
+          fieldOf(sB, j, 5, m).toPrecision(6) + "," +
+          (m.par.qref*fieldOf(sB, j, 2, m)).toPrecision(6) + "," +
+          (m.par.qref*fieldOf(sB, j, 3, m)).toPrecision(6));
+    });
+    const blob = new Blob([L.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "psa_results.csv"; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+
+  /* ---------- segments / LS ---------- */
+  $("n2model").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.n2model = b.dataset.m;
+    [...$("n2model").children].forEach(x => x.classList.toggle("on", x === b));
+    if (DEF.isoSets[st.n2model]) {
+      st.ip = JSON.parse(JSON.stringify(DEF.isoSets[st.n2model]));
+      buildParams();
+    }
+    st.warmState = null;
+    saveLS();
+  });
+  $("thermo").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.par.thermo = b.dataset.m === "iso" ? "iso" : b.dataset.m;
+    [...$("thermo").children].forEach(x => x.classList.toggle("on", x === b));
+    st.warmState = null;      // state size changes with the wall model
+    buildThermoRow(); saveLS();
+  });
+  function syncSegs() {
+    [...$("n2model").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.n2model));
+    [...$("thermo").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.par.thermo));
+  }
+  const LSKEY = "psasim_v1";
+  function saveLS() {
+    try { localStorage.setItem(LSKEY, JSON.stringify(setupJSON())); } catch (e) {}
+  }
+  (function init() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(LSKEY)); } catch (e) {}
+    if (s) for (const k of ["par","ip","op","run","stepsUI","n2model"])
+      if (s[k] !== undefined) st[k] = s[k];
+    buildParams(); buildStepTable(); syncSegs();
+    window.addEventListener("resize", () => { if (results) drawAll(); });
+    if (window.matchMedia)
+      matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (results) drawAll(); });
+    /* debug/validation hooks */
+    window.__psa = { gather, run: () => run(null), st, results: () => results };
+  })();
+})();
+</script>
+</body>
+</html>

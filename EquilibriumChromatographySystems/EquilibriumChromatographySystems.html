@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Equilibrium Theory &mdash; Binary Systems</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1150px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative;
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld input[type=number], .fld input[type=text] {
+    padding: 7px 9px; font-size: 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .fld input[type=number] { width: 88px; }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .seg button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  .exprbox { width: 300px; max-width: 60vw; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+  .err { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  .summary { margin-top: 12px; font-size: 0.84rem; line-height: 1.65; color: var(--muted); }
+  .summary b { color: var(--text); }
+  .plots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 860px) { .plots { grid-template-columns: 1fr; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  #eq-phys { cursor: crosshair; touch-action: none; }
+  .pcard .pfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .pcard .pfoot button { font-size: 0.75rem; padding: 4px 9px; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Equilibrium Theory &mdash; Coupled Systems (2&times;2)</h2>
+  <div class="sub">Riemann problems for systems of two conservation laws: isothermal <b>binary</b> chromatography (adiabatic single-component mode coming next).
+    Constant-selectivity Langmuir uses the exact straight-line hodograph construction; every isotherm also gets an independent
+    high-resolution numerical reference solution. Hover the physical plane; click to pin.</div>
+
+  <div class="panel">
+    <div class="ctrls">
+      <div class="fld">Mode
+        <div class="seg" id="eq-mode">
+          <button class="on" data-m="binary">Binary isothermal</button>
+          <button data-m="adiabatic" disabled title="Coming in the next version">Adiabatic (c, T)</button>
+        </div>
+      </div>
+      <label class="fld"><span>Column length L (m)</span><input type="number" id="eq-L" step="0.001" value="0.016"></label>
+      <label class="fld"><span>Interstitial velocity v<sub>i</sub> (m/s)</span><input type="number" id="eq-v" step="0.01" value="0.16"></label>
+      <label class="fld"><span>Voidage &epsilon; (&ndash;)</span><input type="number" id="eq-eps" step="0.01" min="0.05" max="0.95" value="0.37"></label>
+      <div class="fld">Axes
+        <div class="seg" id="eq-units">
+          <button class="on" data-m="nd">&xi;, &tau;</button>
+          <button data-m="dim">z (m), t (s)</button>
+        </div>
+      </div>
+    </div>
+    <div class="ctrls">
+      <label class="fld"><span>c<sub>1,I</sub> (mol/L)</span><input type="number" id="eq-c1i" step="0.05" value="0"></label>
+      <label class="fld"><span>c<sub>2,I</sub> (mol/L)</span><input type="number" id="eq-c2i" step="0.05" value="0"></label>
+      <label class="fld"><span>c<sub>1,F</sub> (mol/L)</span><input type="number" id="eq-c1f" step="0.05" value="0.5"></label>
+      <label class="fld"><span>c<sub>2,F</sub> (mol/L)</span><input type="number" id="eq-c2f" step="0.05" value="0.5"></label>
+      <button class="action" id="eq-swap" style="margin-bottom:1px" title="Swap initial and feed states">&#8645; Swap</button>
+      <label class="fld"><span>Isotherm model</span>
+        <select id="eq-model"></select>
+      </label>
+      <span id="eq-params" style="display:contents"></span>
+    </div>
+    <div class="ctrls" id="eq-exprrow" style="display:none">
+      <label class="fld"><span>q&#8321;(c1, c2)</span><input type="text" class="exprbox" id="eq-expr1" value="5*1*c1/(1+1*c1+2*c2)" spellcheck="false"></label>
+      <label class="fld"><span>q&#8322;(c1, c2)</span><input type="text" class="exprbox" id="eq-expr2" value="5*2*c2/(1+1*c1+2*c2)" spellcheck="false"></label>
+    </div>
+    <div class="err" id="eq-err"></div>
+    <div class="summary" id="eq-summary"></div>
+  </div>
+
+  <div class="plots">
+    <div class="pcard">
+      <div class="phead"><h3>Physical plane</h3>
+        <span class="pinfo" id="eq-physinfo">hover to explore &middot; click to pin</span>
+        <div class="seg" id="eq-cmap" style="font-size:0">
+          <button class="on" data-m="0">c&#8321;</button>
+          <button data-m="1">c&#8322;</button>
+          <button data-m="2">c&#8321;+c&#8322;</button>
+        </div>
+      </div>
+      <canvas id="eq-phys"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Hodograph plane (c&#8322;, c&#8321;)</h3><span class="pinfo" id="eq-hodoinfo"></span></div>
+      <canvas id="eq-hodo" title="Drag the I and F points to set the states"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Fluid-phase profile</h3><span class="pinfo" id="eq-profinfo"></span></div>
+      <canvas id="eq-prof"></canvas>
+      <div class="pfoot"><button class="action" id="eq-profpng">&#11015; PNG</button></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Breakthrough curves</h3><span class="pinfo" id="eq-btinfo"></span></div>
+      <canvas id="eq-bt"></canvas>
+      <div class="pfoot"><button class="action" id="eq-btpng">&#11015; PNG</button></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Adsorbed-phase profile</h3><span class="pinfo" id="eq-profqinfo"></span></div>
+      <canvas id="eq-profq"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Engine cross-check</h3><span class="pinfo" id="eq-xinfo"></span></div>
+      <div class="summary" id="eq-xcheck" style="margin-top:2px"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    System: (I + &nu;&thinsp;&part;q/&part;c)&thinsp;&part;c/&part;&tau; + &part;c/&part;&xi; = 0, &nu; = (1&minus;&epsilon;)/&epsilon;; two characteristic families &sigma;<sub>k</sub> = 1/(1+&nu;&lambda;<sub>k</sub>).
+    Constant-selectivity Langmuir: exact straight-line hodograph (h-transformation, Rhee&ndash;Aris&ndash;Amundson); wave and shock images coincide.<br>
+    General isotherms: conservative 2nd-order MUSCL reference solution in the self-similar variable s = &xi;/&tau; (numerically generated hodograph).
+    Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script id="eq-script">
+/* ============ Equilibrium theory: 2x2 systems (binary isothermal) ============ */
+(() => {
+  const $ = id => document.getElementById(id);
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const COL = { c1: "#3b82f6", c2: "#f59e0b", shock: "#ef4444",
+                slow: "#a855f7", fast: "#10b981", num: "#94a3b8" };
+
+  /* ---------- expression parser in (c1, c2) ---------- */
+  const FN1 = { exp: Math.exp, log: Math.log, ln: Math.log, log10: Math.log10,
+                sqrt: Math.sqrt, abs: Math.abs, tanh: Math.tanh, sinh: Math.sinh,
+                cosh: Math.cosh, sin: Math.sin, cos: Math.cos, atan: Math.atan };
+  const FN2 = { pow: Math.pow, min: Math.min, max: Math.max };
+  function compileExpr2(src) {
+    const toks = [];
+    let i = 0;
+    while (i < src.length) {
+      const ch = src[i];
+      if (ch === " " || ch === "\t") { i++; continue; }
+      if (/[0-9.]/.test(ch)) {
+        let j = i;
+        while (j < src.length && /[0-9.eE]/.test(src[j])) {
+          if ((src[j] === "e" || src[j] === "E") && (src[j+1] === "+" || src[j+1] === "-")) j++;
+          j++;
+        }
+        const v = parseFloat(src.slice(i, j));
+        if (!isFinite(v)) throw "Bad number near '" + src.slice(i, j) + "'";
+        toks.push({ t: "n", v }); i = j; continue;
+      }
+      if (/[a-zA-Z_]/.test(ch)) {
+        let j = i;
+        while (j < src.length && /[a-zA-Z0-9_]/.test(src[j])) j++;
+        toks.push({ t: "id", v: src.slice(i, j) }); i = j; continue;
+      }
+      if ("+-*/^(),".includes(ch)) { toks.push({ t: ch }); i++; continue; }
+      throw "Unexpected character '" + ch + "'";
+    }
+    const out = [], ops = [];
+    const prec = { "+": 1, "-": 1, "*": 2, "/": 2, "u-": 3, "^": 4 };
+    const rassoc = { "^": 1, "u-": 1 };
+    let prev = null;
+    const unaryCtx = () => prev === null || ["+", "-", "*", "/", "^", "u-", "(", ","].includes(prev);
+    for (const tk of toks) {
+      if (tk.t === "n") { out.push(tk); prev = "v"; }
+      else if (tk.t === "id") {
+        if (tk.v === "c1") out.push({ t: "x" });
+        else if (tk.v === "c2") out.push({ t: "y" });
+        else if (tk.v === "pi") out.push({ t: "n", v: Math.PI });
+        else if (FN1[tk.v] || FN2[tk.v]) { ops.push({ t: "f", v: tk.v }); prev = "("; continue; }
+        else throw "Unknown symbol '" + tk.v + "' — use c1, c2, numbers, exp/log/sqrt/…";
+        prev = "v";
+      }
+      else if (tk.t === "(") { ops.push(tk); prev = "("; }
+      else if (tk.t === ",") {
+        while (ops.length && ops[ops.length-1].t !== "(") out.push(ops.pop());
+        if (!ops.length) throw "Misplaced comma";
+        prev = ",";
+      }
+      else if (tk.t === ")") {
+        while (ops.length && ops[ops.length-1].t !== "(") out.push(ops.pop());
+        if (!ops.length) throw "Unbalanced ')'";
+        ops.pop();
+        if (ops.length && ops[ops.length-1].t === "f") out.push(ops.pop());
+        prev = "v";
+      }
+      else {
+        let op = tk.t;
+        if (op === "-" && unaryCtx()) op = "u-";
+        else if (op === "+" && unaryCtx()) continue;
+        while (ops.length) {
+          const top = ops[ops.length-1];
+          if (top.t === "(" || top.t === "f") break;
+          if (prec[top.t] > prec[op] || (prec[top.t] === prec[op] && !rassoc[op])) out.push(ops.pop());
+          else break;
+        }
+        ops.push({ t: op }); prev = op;
+      }
+    }
+    while (ops.length) {
+      const top = ops.pop();
+      if (top.t === "(") throw "Unbalanced '('";
+      out.push(top);
+    }
+    if (!out.length) throw "Empty expression";
+    const f = (x, y) => {
+      const stx = [];
+      for (const tk of out) {
+        if (tk.t === "n") stx.push(tk.v);
+        else if (tk.t === "x") stx.push(x);
+        else if (tk.t === "y") stx.push(y);
+        else if (tk.t === "u-") stx.push(-stx.pop());
+        else if (tk.t === "f") {
+          if (FN1[tk.v]) stx.push(FN1[tk.v](stx.pop()));
+          else { const b = stx.pop(), a = stx.pop(); stx.push(FN2[tk.v](a, b)); }
+        } else {
+          const b = stx.pop(), a = stx.pop();
+          stx.push(tk.t === "+" ? a + b : tk.t === "-" ? a - b :
+                   tk.t === "*" ? a * b : tk.t === "/" ? a / b : Math.pow(a, b));
+        }
+      }
+      if (stx.length !== 1) throw "Malformed expression";
+      return stx[0];
+    };
+    f(0.1, 0.1);
+    return f;
+  }
+
+  /* ---------- isotherm models ---------- */
+  const MODELS = {
+    langS: { label: "Binary Langmuir — shared qs (exact)",
+      params: [["qs", "q<sub>s</sub>", 5], ["b1", "b<sub>1</sub>", 1], ["b2", "b<sub>2</sub>", 2]],
+      make: p => ({
+        q1: (x, y) => p.qs*p.b1*x/(1 + p.b1*x + p.b2*y),
+        q2: (x, y) => p.qs*p.b2*y/(1 + p.b1*x + p.b2*y),
+        exact: true })
+    },
+    langI: { label: "Binary Langmuir — independent qs,i",
+      params: [["qs1", "q<sub>s1</sub>", 5], ["b1", "b<sub>1</sub>", 1],
+               ["qs2", "q<sub>s2</sub>", 4], ["b2", "b<sub>2</sub>", 2]],
+      make: p => ({
+        q1: (x, y) => p.qs1*p.b1*x/(1 + p.b1*x + p.b2*y),
+        q2: (x, y) => p.qs2*p.b2*y/(1 + p.b1*x + p.b2*y),
+        exact: false })
+    },
+    antiL: { label: "Binary anti-Langmuir",
+      params: [["qs", "q<sub>s</sub>", 1], ["b1", "b<sub>1</sub>", 0.3], ["b2", "b<sub>2</sub>", 0.5]],
+      make: p => ({
+        q1: (x, y) => p.qs*p.b1*x/(1 - p.b1*x - p.b2*y),
+        q2: (x, y) => p.qs*p.b2*y/(1 - p.b1*x - p.b2*y),
+        exact: false })
+    },
+    custom: { label: "Custom q1, q2 …", params: [], make: null }
+  };
+
+  /* ---------- state ---------- */
+  const st = { L: 0.016, v: 0.16, eps: 0.37,
+               c1i: 0, c2i: 0, c1f: 0.5, c2f: 0.5,
+               model: "langS", pvals: {},
+               e1: "5*1*c1/(1+1*c1+2*c2)", e2: "5*2*c2/(1+1*c1+2*c2)",
+               units: "nd", cmap: 0, cross: null, pinned: false };
+  let sol = null;
+  const LSKEY = "eqsys_v1";
+  function saveLS() {
+    try { localStorage.setItem(LSKEY, JSON.stringify({
+      L: st.L, v: st.v, eps: st.eps,
+      c1i: st.c1i, c2i: st.c2i, c1f: st.c1f, c2f: st.c2f,
+      model: st.model, pvals: st.pvals, e1: st.e1, e2: st.e2,
+      units: st.units, cmap: st.cmap })); } catch (e) {}
+  }
+
+  /* ---------- formatting / helpers ---------- */
+  const fmt = (x, d = 3) => isFinite(x) ? (+x.toFixed(d)).toString() : "—";
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const p = 10 ** Math.floor(Math.log10(raw));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m*p >= raw) return m*p;
+    return 10*p;
+  }
+  const t0 = () => st.L/st.v;
+  const dim = () => st.units === "dim";
+  const xLab = () => dim() ? "z (m)" : "ξ (–)";
+  const tLab = () => dim() ? "t (s)" : "τ (–)";
+  const xVal = xi => dim() ? xi*st.L : xi;
+  const tVal = tau => dim() ? tau*t0() : tau;
+  const VIR = [[68,1,84],[72,36,117],[65,68,135],[53,95,141],[42,120,142],
+               [33,145,140],[34,168,132],[68,191,112],[122,209,81],[189,223,38],[253,231,37]];
+  function vir(u) {
+    u = Math.min(1, Math.max(0, u));
+    const x = u*(VIR.length - 1), i = Math.min(VIR.length - 2, Math.floor(x)), fq = x - i;
+    return [VIR[i][0] + fq*(VIR[i+1][0]-VIR[i][0]),
+            VIR[i][1] + fq*(VIR[i+1][1]-VIR[i][1]),
+            VIR[i][2] + fq*(VIR[i+1][2]-VIR[i][2])];
+  }
+
+  /* ---------- eigen machinery ---------- */
+  function jac(F, x, y) {                  /* 2x2 Jacobian of (q1,q2) by central FD */
+    const hx = Math.max(1e-7, 1e-5*Math.abs(x)), hy = Math.max(1e-7, 1e-5*Math.abs(y));
+    return [
+      [(F.q1(x + hx, y) - F.q1(x - hx, y))/(2*hx), (F.q1(x, y + hy) - F.q1(x, y - hy))/(2*hy)],
+      [(F.q2(x + hx, y) - F.q2(x - hx, y))/(2*hx), (F.q2(x, y + hy) - F.q2(x, y - hy))/(2*hy)]
+    ];
+  }
+  function eig(J) {                        /* slow = larger lambda (smaller sigma) */
+    const tr = J[0][0] + J[1][1], det = J[0][0]*J[1][1] - J[0][1]*J[1][0];
+    const disc = tr*tr - 4*det;
+    if (disc < -1e-9*Math.max(1, tr*tr)) return null;   /* not hyperbolic */
+    const rt = Math.sqrt(Math.max(0, disc));
+    const lS = (tr + rt)/2, lF = (tr - rt)/2;
+    const vec = l => {
+      let r = [J[0][1], l - J[0][0]];
+      if (Math.hypot(r[0], r[1]) < 1e-12*Math.max(1, Math.abs(l))) r = [l - J[1][1], J[1][0]];
+      if (Math.hypot(r[0], r[1]) < 1e-14) r = [1, 0];
+      const n = Math.hypot(r[0], r[1]);
+      return [r[0]/n, r[1]/n];
+    };
+    return { lS, lF, rS: vec(lS), rF: vec(lF) };
+  }
+  let _nu = 1;                             /* current phase ratio nu */
+
+  /* ---------- exact construction (constant-selectivity Langmuir) ---------- */
+  function exactRiemann(F, uI, uF) {
+    /* structure: uF --slow--> uM --fast--> uI ; hodograph paths are straight */
+    const eF = eig(jac(F, uF[0], uF[1]));
+    const eI = eig(jac(F, uI[0], uI[1]));
+    if (!eF || !eI) throw "System is not hyperbolic at the given states.";
+    /* uF + a*rS(uF) = uI + b*rF(uI) */
+    const A = [[eF.rS[0], -eI.rF[0]], [eF.rS[1], -eI.rF[1]]];
+    const det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
+    if (Math.abs(det) < 1e-12) return null;
+    const rhs = [uI[0] - uF[0], uI[1] - uF[1]];
+    const a = (rhs[0]*A[1][1] - rhs[1]*A[0][1])/det;
+    const uM = [uF[0] + a*eF.rS[0], uF[1] + a*eF.rS[1]];
+    if (uM[0] < -1e-9 || uM[1] < -1e-9) return null;
+    const feats = [];
+    const mkTrans = (fam, uB, uA) => {      /* uB behind, uA ahead; returns feature or null */
+      const dc = Math.hypot(uA[0]-uB[0], uA[1]-uB[1]);
+      if (dc < 1e-10) return null;
+      const lam = u => { const e = eig(jac(F, u[0], u[1])); return fam === "slow" ? e.lS : e.lF; };
+      const sB = 1/(1 + _nu*lam(uB)), sA = 1/(1 + _nu*lam(uA));
+      if (sB <= sA + 1e-12) {              /* rarefaction: sample along segment */
+        const n = 36, states = [], sig = [];
+        for (let k = 0; k <= n; k++) {
+          const u = [uB[0] + (uA[0]-uB[0])*k/n, uB[1] + (uA[1]-uB[1])*k/n];
+          states.push(u); sig.push(1/(1 + _nu*lam(u)));
+        }
+        for (let k = 1; k <= n; k++) if (sig[k] < sig[k-1]) sig[k] = sig[k-1];
+        return { type: "fan", fam, states, sig };
+      }
+      /* shock: RH speed from both components must agree */
+      const d1 = uA[0] - uB[0], d2 = uA[1] - uB[1];
+      const dq1 = F.q1(uA[0], uA[1]) - F.q1(uB[0], uB[1]);
+      const dq2 = F.q2(uA[0], uA[1]) - F.q2(uB[0], uB[1]);
+      const m = Math.abs(d1) > Math.abs(d2) ? dq1/d1 : dq2/d2;
+      if (Math.abs(d1) > 1e-9 && Math.abs(d2) > 1e-9 &&
+          Math.abs(dq1/d1 - dq2/d2) > 5e-3*Math.max(Math.abs(dq1/d1), 1e-12))
+        return "rhfail";
+      return { type: "shock", fam, uB, uA, s: 1/(1 + _nu*m) };
+    };
+    const f1 = mkTrans("slow", uF, uM);
+    const f2 = mkTrans("fast", uM, uI);
+    if (f1 === "rhfail" || f2 === "rhfail") return null;
+    if (f1) feats.push(f1);
+    if (f2) feats.push(f2);
+    /* speed ordering back->front must be non-decreasing */
+    const speeds = [];
+    for (const ft of feats)
+      ft.type === "shock" ? speeds.push(ft.s, ft.s) : speeds.push(ft.sig[0], ft.sig[ft.sig.length-1]);
+    for (let k = 1; k < speeds.length; k++)
+      if (speeds[k] < speeds[k-1] - 1e-9) return null;
+    for (const s of speeds) if (!isFinite(s) || s <= 0) return null;
+    /* build lookup knots (s ascending; jump duplicates) */
+    const S = [], C1 = [], C2 = [];
+    const push = (s, u) => { S.push(s); C1.push(u[0]); C2.push(u[1]); };
+    for (const ft of feats) {
+      if (ft.type === "fan")
+        for (let k = 0; k < ft.states.length; k++) push(ft.sig[k], ft.states[k]);
+      else { push(ft.s, ft.uB); push(ft.s, ft.uA); }
+    }
+    for (let k = 1; k < S.length; k++) if (S[k] < S[k-1]) S[k] = S[k-1];
+    return { engine: "exact", uI, uF, uM, feats, S, C1, C2 };
+  }
+
+  /* ---------- numerical reference solver (MUSCL, local Rusanov) ---------- */
+  function numRiemann(F, uI, uF) {
+    const N = 900, XMAX = 1.06, dx = XMAX/N, TEND = 1.0, CFL = 0.45;
+    const nu = _nu;
+    const wOf = u => [u[0] + nu*F.q1(u[0], u[1]), u[1] + nu*F.q2(u[0], u[1])];
+    const c1 = new Float64Array(N), c2 = new Float64Array(N);
+    const w1 = new Float64Array(N), w2 = new Float64Array(N);
+    const wF = wOf(uF), wI = wOf(uI);
+    for (let j = 0; j < N; j++) {
+      c1[j] = uI[0]; c2[j] = uI[1]; w1[j] = wI[0]; w2[j] = wI[1];
+    }
+    const invert = (tw1, tw2, gx, gy) => {  /* Newton: c s.t. c + nu q(c) = w */
+      let x = gx, y = gy;
+      for (let it = 0; it < 12; it++) {
+        const r1 = x + nu*F.q1(x, y) - tw1, r2 = y + nu*F.q2(x, y) - tw2;
+        if (Math.abs(r1) + Math.abs(r2) < 1e-11) break;
+        const J = jac(F, Math.max(x, 0), Math.max(y, 0));
+        const a = 1 + nu*J[0][0], b = nu*J[0][1], cq = nu*J[1][0], d = 1 + nu*J[1][1];
+        const det = a*d - b*cq;
+        if (Math.abs(det) < 1e-14) break;
+        x -= (r1*d - r2*b)/det;
+        y -= (r2*a - r1*cq)/det;
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+      }
+      return [x, y];
+    };
+    /* signal speed bound: sigma = 1/(1+nu*lambda), largest at the smallest eigenvalue */
+    const alpha = (ua, ub) => {
+      const ea = eig(jac(F, ua[0], ua[1])), eb = eig(jac(F, ub[0], ub[1]));
+      if (!ea || !eb) throw "System is not hyperbolic inside the state region.";
+      const lmin = Math.min(ea.lF, eb.lF);
+      if (lmin < -1/nu*0.999) throw "Non-physical wave speed (1 + ν·λ ≤ 0).";
+      return 1/(1 + nu*Math.max(lmin, 0));
+    };
+    const minmod = (a, b) => a*b <= 0 ? 0 : (Math.abs(a) < Math.abs(b) ? a : b);
+    const dt = CFL*dx;                      /* alpha <= 1 */
+    const steps = Math.ceil(TEND/dt);
+    const fl1 = new Float64Array(N + 1), fl2 = new Float64Array(N + 1);
+    const s1 = new Float64Array(N), s2 = new Float64Array(N);
+    for (let n = 0; n < steps; n++) {
+      /* MUSCL slopes on c */
+      for (let j = 0; j < N; j++) {
+        const jm = j > 0 ? j - 1 : j, jp = j < N - 1 ? j + 1 : j;
+        s1[j] = minmod(c1[j] - c1[jm], c1[jp] - c1[j]);
+        s2[j] = minmod(c2[j] - c2[jm], c2[jp] - c2[j]);
+      }
+      for (let j = 0; j <= N; j++) {
+        /* left/right reconstructed states at interface j (between cells j-1, j) */
+        let uL, uR;
+        if (j === 0) uL = uF;
+        else uL = [c1[j-1] + 0.5*s1[j-1], c2[j-1] + 0.5*s2[j-1]];
+        if (j === N) uR = [c1[N-1], c2[N-1]];
+        else uR = [c1[j] - 0.5*s1[j], c2[j] - 0.5*s2[j]];
+        if (uL[0] < 0) uL[0] = 0; if (uL[1] < 0) uL[1] = 0;
+        if (uR[0] < 0) uR[0] = 0; if (uR[1] < 0) uR[1] = 0;
+        const al = alpha(uL, uR);
+        const wL = wOf(uL), wR = wOf(uR);
+        fl1[j] = 0.5*(uL[0] + uR[0]) - 0.5*al*(wR[0] - wL[0]);
+        fl2[j] = 0.5*(uL[1] + uR[1]) - 0.5*al*(wR[1] - wL[1]);
+      }
+      for (let j = 0; j < N; j++) {
+        w1[j] -= dt/dx*(fl1[j+1] - fl1[j]);
+        w2[j] -= dt/dx*(fl2[j+1] - fl2[j]);
+        const u = invert(w1[j], w2[j], c1[j], c2[j]);
+        c1[j] = u[0]; c2[j] = u[1];
+      }
+    }
+    /* extract self-similar table s = xi/TEND */
+    const S = [], C1 = [], C2 = [];
+    for (let j = 0; j < N; j++) {
+      S.push((j + 0.5)*dx/TEND); C1.push(c1[j]); C2.push(c2[j]);
+    }
+    /* detect features from gradient of (c1,c2) */
+    const rng = Math.max(1e-12, Math.hypot(uF[0]-uI[0], uF[1]-uI[1]));
+    const gmag = [];
+    for (let j = 0; j + 1 < N; j++)
+      gmag.push(Math.hypot(C1[j+1]-C1[j], C2[j+1]-C2[j])/rng);
+    const shockThr = 0.04, fanThr = 0.002;
+    const feats = [];
+    let j = 0;
+    while (j < gmag.length) {
+      if (gmag[j] > fanThr) {
+        let k = j, peak = 0, kp = j, sum = 0;
+        while (k < gmag.length && gmag[k] > fanThr) {
+          if (gmag[k] > peak) { peak = gmag[k]; kp = k; }
+          sum += gmag[k]; k++;
+        }
+        const sLo = S[j], sHi = S[Math.min(k, N-1)];
+        feats.push({ type: peak > shockThr && (sHi - sLo) < 0.12*Math.max(S[N-1],1) ? "shock" : "fan",
+                     sLo, sHi, sPk: S[kp],
+                     uB: [C1[Math.max(0, j-2)], C2[Math.max(0, j-2)]],
+                     uA: [C1[Math.min(N-1, k+2)], C2[Math.min(N-1, k+2)]] });
+        j = k;
+      } else j++;
+    }
+    return { engine: "numerical", uI, uF, feats, S, C1, C2 };
+  }
+
+  /* ---------- solution lookup ---------- */
+  function lookup(sn, s) {                 /* state at similarity variable s */
+    const S = sn.S, n = S.length;
+    if (s <= S[0]) return [sn.uF[0], sn.uF[1]];
+    if (s >= S[n-1]) return [sn.uI[0], sn.uI[1]];
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= s) lo = m; else hi = m; }
+    const d = S[hi] - S[lo];
+    if (d < 1e-15) return [sn.C1[hi], sn.C2[hi]];
+    const f = (s - S[lo])/d;
+    return [sn.C1[lo] + f*(sn.C1[hi]-sn.C1[lo]), sn.C2[lo] + f*(sn.C2[hi]-sn.C2[lo])];
+  }
+
+  /* ---------- build solution ---------- */
+  function currentF() {
+    const m = MODELS[st.model];
+    if (st.model === "custom") {
+      const q1 = compileExpr2(st.e1), q2 = compileExpr2(st.e2);
+      return { q1, q2, exact: false };
+    }
+    const p = {};
+    for (const [k, , d] of m.params) {
+      const v = parseFloat($("eq-p-" + k) ? $("eq-p-" + k).value : d);
+      p[k] = isFinite(v) ? v : d;
+      st.pvals[st.model + "." + k] = p[k];
+    }
+    return m.make(p);
+  }
+  function buildSolution() {
+    _nu = (1 - st.eps)/st.eps;
+    const F = currentF();
+    const uI = [st.c1i, st.c2i], uF = [st.c1f, st.c2f];
+    for (const v of [...uI, ...uF]) if (!isFinite(v) || v < 0) throw "States must be non-negative numbers.";
+    if (Math.hypot(uF[0]-uI[0], uF[1]-uI[1]) < 1e-12) throw "Initial and feed states are identical.";
+    for (const u of [uI, uF]) {
+      const q = [F.q1(u[0], u[1]), F.q2(u[0], u[1])];
+      if (!isFinite(q[0]) || !isFinite(q[1])) throw "Isotherm not finite at the given states.";
+    }
+    let ex = null, exErr = "";
+    if (F.exact) {
+      try { ex = exactRiemann(F, uI, uF); } catch (e) { exErr = "" + e; ex = null; }
+      if (!ex && !exErr) exErr = "exact construction not applicable here";
+    }
+    const num = numRiemann(F, uI, uF);
+    const main = ex || num;
+    const sMin = main.S.find((s, i) => {   /* first departure from cF plateau */
+      return Math.hypot(main.C1[i]-uF[0], main.C2[i]-uF[1]) > 1e-3*Math.max(1e-12, Math.hypot(uF[0]-uI[0], uF[1]-uI[1]));
+    });
+    const tauMax = Math.min(1000, 1.18/Math.max(sMin || 0.01, 1e-3));
+    return { F, nu: _nu, uI, uF, ex, num, main, exErr, tauMax };
+  }
+
+  /* ---------- canvases ---------- */
+  function themeCols() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return { card: g("--card"), border: g("--border"), text: g("--text"),
+             muted: g("--muted"), accent: g("--accent") };
+  }
+  const CV = { phys: $("eq-phys"), hodo: $("eq-hodo"), prof: $("eq-prof"),
+               bt: $("eq-bt"), profq: $("eq-profq") };
+  const G = {};
+  function sizeCanvas(cv, ratio) {
+    const w = cv.getBoundingClientRect().width;
+    if (w < 40) return null;
+    const h = Math.round(w*ratio);
+    cv.style.height = h + "px";
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+    return { w, h, dpr };
+  }
+  function axes(ctx, g, th, x0, x1, y0, y1, xlab, ylab) {
+    const M = { l: 48, r: 12, t: 10, b: 34 };
+    const X = x => M.l + (x - x0)/(x1 - x0)*(g.w - M.l - M.r);
+    const Y = y => g.h - M.b - (y - y0)/(y1 - y0)*(g.h - M.t - M.b);
+    ctx.font = "10px " + FONT; ctx.strokeStyle = th.border; ctx.lineWidth = 1;
+    ctx.fillStyle = th.muted;
+    const xs = niceStep((x1 - x0)/6), ys = niceStep((y1 - y0)/5);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let x = Math.ceil(x0/xs)*xs; x <= x1 + 1e-9; x += xs) {
+      ctx.beginPath(); ctx.moveTo(X(x), M.t); ctx.lineTo(X(x), g.h - M.b); ctx.stroke();
+      ctx.fillText(fmt(x, 6), X(x), g.h - M.b + 4);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let y = Math.ceil(y0/ys)*ys; y <= y1 + 1e-9; y += ys) {
+      ctx.beginPath(); ctx.moveTo(M.l, Y(y)); ctx.lineTo(g.w - M.r, Y(y)); ctx.stroke();
+      ctx.fillText(fmt(y, 6), M.l - 5, Y(y));
+    }
+    ctx.fillStyle = th.text; ctx.font = "11px " + FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(xlab, M.l + (g.w - M.l - M.r)/2, g.h - 6);
+    ctx.save(); ctx.translate(11, M.t + (g.h - M.t - M.b)/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(ylab, 0, 0); ctx.restore();
+    ctx.strokeStyle = th.border;
+    ctx.strokeRect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b);
+    return { X, Y, M };
+  }
+
+  /* ---------- physical plane ---------- */
+  function cmapVal(u) {
+    return st.cmap === 0 ? u[0] : st.cmap === 1 ? u[1] : u[0] + u[1];
+  }
+  function drawPhys() {
+    const cv = CV.phys, g = sizeCanvas(cv, 0.78);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    const tmax = sol.tauMax, sn = sol.main;
+    const A = axes(ctx, g, th, 0, dim() ? st.L : 1, 0, dim() ? tmax*t0() : tmax, xLab(), tLab());
+    const { X, Y, M } = A;
+    const px0 = Math.round(M.l) + 1, px1 = Math.round(g.w - M.r) - 1;
+    const py0 = Math.round(M.t) + 1, py1 = Math.round(g.h - M.b) - 1;
+    const dw = Math.round((px1 - px0)*g.dpr), dh = Math.round((py1 - py0)*g.dpr);
+    const img = ctx.createImageData(dw, dh);
+    let vlo = Infinity, vhi = -Infinity;
+    for (const u of [[sol.uI[0], sol.uI[1]], [sol.uF[0], sol.uF[1]]]) {
+      vlo = Math.min(vlo, cmapVal(u)); vhi = Math.max(vhi, cmapVal(u));
+    }
+    for (let i = 0; i < sn.S.length; i += 8) {
+      const v = cmapVal([sn.C1[i], sn.C2[i]]);
+      vlo = Math.min(vlo, v); vhi = Math.max(vhi, v);
+    }
+    const dvr = vhi - vlo || 1;
+    for (let py = 0; py < dh; py++) {
+      const tau = tmax*(1 - (py + 0.5)/dh);
+      for (let px = 0; px < dw; px++) {
+        const xi = (px + 0.5)/dw;
+        const u = tau <= 0 ? sol.uI : lookup(sn, xi/tau);
+        const [r, gg, b] = vir((cmapVal(u) - vlo)/dvr);
+        const o = 4*(py*dw + px);
+        img.data[o] = r; img.data[o+1] = gg; img.data[o+2] = b; img.data[o+3] = 255;
+      }
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.putImageData(img, Math.round(px0*g.dpr), Math.round(py0*g.dpr));
+    ctx.restore();
+    /* feature rays */
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    const ray = (s, style, wdt) => {
+      ctx.strokeStyle = style; ctx.lineWidth = wdt;
+      ctx.beginPath();
+      ctx.moveTo(X(0), Y(0));
+      ctx.lineTo(X(xVal(Math.min(1, s*tmax))), Y(tVal(Math.min(tmax, 1/Math.max(s, 1e-9)))));
+      ctx.stroke();
+    };
+    for (const ft of sn.feats) {
+      if (ft.type === "fan") {
+        const n = 9;
+        if (sn.engine === "exact")
+          for (let k = 0; k < n; k++)
+            ray(ft.sig[Math.round((ft.sig.length-1)*k/(n-1))], "rgba(255,255,255,0.35)", 1);
+        else
+          for (let k = 0; k < n; k++)
+            ray(ft.sLo + (ft.sHi - ft.sLo)*k/(n-1), "rgba(255,255,255,0.35)", 1);
+      } else {
+        ray(sn.engine === "exact" ? ft.s : ft.sPk, COL.shock, 2.5);
+      }
+    }
+    ctx.restore();
+    const lbl = (txt, x, y) => {
+      ctx.font = "11px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.45)";
+      ctx.strokeText(txt, x, y); ctx.fillStyle = "#fff"; ctx.fillText(txt, x, y);
+    };
+    lbl("F", X(xVal(0.1)), Y(tVal(tmax*0.9)));
+    lbl("I", X(xVal(0.9)), Y(tVal(tmax*0.08)));
+    const cr = st.cross;
+    if (cr) {
+      const cx = X(xVal(cr.xi)), cy = Y(tVal(cr.tau));
+      ctx.save();
+      ctx.strokeStyle = st.pinned ? th.accent : "rgba(255,255,255,0.85)";
+      ctx.lineWidth = st.pinned ? 1.6 : 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(cx, M.t); ctx.lineTo(cx, g.h - M.b); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(M.l, cy); ctx.lineTo(g.w - M.r, cy); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI);
+      ctx.fillStyle = st.pinned ? th.accent : "#fff"; ctx.fill();
+      ctx.restore();
+    }
+    G.phys = A; G.physG = g;
+  }
+
+  /* ---------- hodograph (x = c2, y = c1; full characteristic web) ---------- */
+  function integralCurve(F, u0, fam, c1max, c2max) {
+    /* integrate du/ds = r_fam(u) both ways until leaving the domain */
+    const h = Math.max(c1max, c2max)/220;
+    const go = sign => {
+      const pts = [];
+      let u = [u0[0], u0[1]], prev = null;
+      for (let i = 0; i < 420; i++) {
+        let e;
+        try { e = eig(jac(F, Math.max(u[0], 0), Math.max(u[1], 0))); } catch (err) { break; }
+        if (!e) break;
+        let r = fam === "slow" ? e.rS : e.rF;
+        if (prev) { if (r[0]*prev[0] + r[1]*prev[1] < 0) r = [-r[0], -r[1]]; }
+        else if (sign < 0) r = [-r[0], -r[1]];
+        /* midpoint step with orientation continuity */
+        const um = [u[0] + 0.5*h*r[0], u[1] + 0.5*h*r[1]];
+        let r2 = r;
+        try {
+          const e2 = eig(jac(F, Math.max(um[0], 0), Math.max(um[1], 0)));
+          if (e2) {
+            r2 = fam === "slow" ? e2.rS : e2.rF;
+            if (r2[0]*r[0] + r2[1]*r[1] < 0) r2 = [-r2[0], -r2[1]];
+          }
+        } catch (err) {}
+        prev = r2;
+        u = [u[0] + h*r2[0], u[1] + h*r2[1]];
+        if (u[0] < -1e-9 || u[1] < -1e-9 || u[0] > c1max*1.02 || u[1] > c2max*1.02) break;
+        pts.push([u[0], u[1]]);
+      }
+      return pts;
+    };
+    return go(-1).reverse().concat([[u0[0], u0[1]]], go(1));
+  }
+  function drawHodo() {
+    const cv = CV.hodo, g = sizeCanvas(cv, 0.78);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) { if (G.hodo) G.hodo.markers = []; return; }
+    const c1s = [sol.uI[0], sol.uF[0]], c2s = [sol.uI[1], sol.uF[1]];
+    if (sol.ex) { c1s.push(sol.ex.uM[0]); c2s.push(sol.ex.uM[1]); }
+    const c1max = Math.max(...c1s, 0.01)*1.25 + 0.02, c2max = Math.max(...c2s, 0.01)*1.25 + 0.02;
+    /* axes swapped: x = c2, y = c1 */
+    const A = axes(ctx, g, th, 0, c2max, 0, c1max, "c₂ (mol/L)", "c₁ (mol/L)");
+    const { X, Y, M } = A;
+    const px = u => X(u[1]), py = u => Y(u[0]);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    /* full characteristic web: integral curves of both families */
+    const seeds = [];
+    const nS = 7;
+    for (let k = 0; k < nS; k++) {
+      const t = (k + 0.5)/nS;
+      seeds.push([c1max*t, c2max*t]);              /* diagonal */
+      seeds.push([c1max*t, c2max*(1 - t)]);        /* anti-diagonal */
+    }
+    for (const fam of ["slow", "fast"]) {
+      ctx.strokeStyle = fam === "slow" ? COL.slow : COL.fast;
+      ctx.lineWidth = 1; ctx.globalAlpha = 0.32;
+      for (const u0 of seeds) {
+        const pts = integralCurve(sol.F, u0, fam, c1max, c2max);
+        if (pts.length < 3) continue;
+        ctx.beginPath();
+        pts.forEach((u, i) => i ? ctx.lineTo(px(u), py(u)) : ctx.moveTo(px(u), py(u)));
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    /* numerical hodograph path */
+    const num = sol.num;
+    ctx.strokeStyle = COL.num; ctx.lineWidth = 1.6; ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    for (let i = 0; i < num.S.length; i += 2) {
+      const x = X(num.C2[i]), y = Y(num.C1[i]);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    /* exact path overlaid on the web */
+    if (sol.ex) {
+      for (const ft of sol.ex.feats) {
+        if (ft.type === "fan") {
+          ctx.strokeStyle = ft.fam === "slow" ? COL.slow : COL.fast;
+          ctx.lineWidth = 3.2;
+          ctx.beginPath();
+          ft.states.forEach((u, i) => i ? ctx.lineTo(px(u), py(u)) : ctx.moveTo(px(u), py(u)));
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = COL.shock; ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(px(ft.uB), py(ft.uB));
+          ctx.lineTo(px(ft.uA), py(ft.uA));
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+    /* markers (I and F draggable) */
+    G.hodo = { A, g, c1max, c2max, markers: [] };
+    const mark = (u, name, key) => {
+      if (u[0] > c1max || u[1] > c2max) return;
+      const x = px(u), y = py(u);
+      if (key) G.hodo.markers.push({ key, px: x, py: y });
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2*Math.PI);
+      ctx.fillStyle = th.text; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = th.card; ctx.stroke();
+      ctx.font = "bold 10.5px " + FONT; ctx.fillStyle = th.text;
+      ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(name, x, y - 8);
+    };
+    mark(sol.uI, "I", "i"); mark(sol.uF, "F", "f");
+    if (sol.ex) mark(sol.ex.uM, "M");
+    $("eq-hodoinfo").innerHTML =
+      "<span style='color:" + COL.slow + "'>—</span> slow&nbsp; <span style='color:" + COL.fast + "'>—</span> fast&nbsp; " +
+      "<span style='color:" + COL.shock + "'>—</span> shock&nbsp; <span style='color:" + COL.num + "'>┄</span> numerical" +
+      " &middot; drag I/F";
+  }
+
+  /* ---------- profiles / breakthrough ---------- */
+  function twoLine(cvEl, series, x0, x1, xlab, ylab, info, dashQ) {
+    const g = sizeCanvas(cvEl, 0.55);
+    if (!g) return;
+    const ctx = cvEl.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    let lo = 0, hi = -Infinity;
+    for (const s of series) for (const p of s.pts) hi = Math.max(hi, p.y);
+    hi = hi*1.08 || 1;
+    const A = axes(ctx, g, th, x0, x1, lo, hi, xlab, ylab);
+    const { X, Y, M } = A;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    for (const s of series) {
+      ctx.strokeStyle = s.color; ctx.lineWidth = 2.2; ctx.lineJoin = "round";
+      ctx.setLineDash(dashQ ? [6, 4] : []);
+      ctx.beginPath();
+      s.pts.forEach((p, i) => i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+    /* legend + caption */
+    ctx.font = "10.5px " + FONT; ctx.textBaseline = "top";
+    let lx = M.l + 8;
+    for (const s of series) {
+      ctx.fillStyle = s.color; ctx.textAlign = "left";
+      ctx.fillText("— " + s.name, lx, M.t + 4);
+      lx += ctx.measureText("— " + s.name).width + 14;
+    }
+    ctx.fillStyle = th.muted; ctx.textAlign = "right";
+    ctx.fillText(info, g.w - M.r - 4, M.t + 4);
+  }
+  function crossVals() {
+    const cr = st.cross || { xi: 1, tau: sol ? sol.tauMax/2 : 1 };
+    return { xi: Math.min(1, Math.max(0.001, cr.xi)), tau: Math.max(1e-6, cr.tau) };
+  }
+  function sampleProfile(fn, n, x1) {
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const x = x1*i/n;
+      pts.push({ x, y: fn(x) });
+    }
+    return pts;
+  }
+  function drawProfile() {
+    if (!sol) return;
+    const { tau } = crossVals();
+    const info = dim() ? "t = " + fmt(tau*t0(), 4) + " s" : "τ = " + fmt(tau, 3);
+    const xe = dim() ? st.L : 1;
+    const series = [
+      { name: "c₁", color: COL.c1, pts: sampleProfile(x => lookup(sol.main, (x/xe)/tau)[0], 500, xe) },
+      { name: "c₂", color: COL.c2, pts: sampleProfile(x => lookup(sol.main, (x/xe)/tau)[1], 500, xe) }
+    ];
+    twoLine(CV.prof, series, 0, xe, xLab(), "c (mol/L)", info, false);
+    $("eq-profinfo").textContent = "at " + info;
+  }
+  function drawProfQ() {
+    if (!sol) return;
+    const { tau } = crossVals();
+    const info = dim() ? "t = " + fmt(tau*t0(), 4) + " s" : "τ = " + fmt(tau, 3);
+    const xe = dim() ? st.L : 1;
+    const qA = x => { const u = lookup(sol.main, (x/xe)/tau); return sol.F.q1(u[0], u[1]); };
+    const qB = x => { const u = lookup(sol.main, (x/xe)/tau); return sol.F.q2(u[0], u[1]); };
+    const series = [
+      { name: "q₁", color: COL.c1, pts: sampleProfile(qA, 500, xe) },
+      { name: "q₂", color: COL.c2, pts: sampleProfile(qB, 500, xe) }
+    ];
+    twoLine(CV.profq, series, 0, xe, xLab(), "q (mol/L solid)", info, true);
+    $("eq-profqinfo").textContent = "at " + info;
+  }
+  function drawBT() {
+    if (!sol) return;
+    const { xi } = crossVals();
+    const info = dim() ? "z = " + fmt(xi*st.L, 5) + " m" : "ξ = " + fmt(xi, 3);
+    const te = dim() ? sol.tauMax*t0() : sol.tauMax;
+    const tauOf = x => dim() ? x/t0() : x;
+    const series = [
+      { name: "c₁", color: COL.c1,
+        pts: sampleProfile(x => lookup(sol.main, xi/Math.max(tauOf(x), 1e-9))[0], 600, te) },
+      { name: "c₂", color: COL.c2,
+        pts: sampleProfile(x => lookup(sol.main, xi/Math.max(tauOf(x), 1e-9))[1], 600, te) }
+    ];
+    twoLine(CV.bt, series, 0, te, tLab(), "c (mol/L)", info, false);
+    $("eq-btinfo").textContent = "at " + info;
+  }
+  function drawAll() { drawPhys(); drawHodo(); drawProfile(); drawBT(); drawProfQ(); }
+
+  /* ---------- summary & cross-check ---------- */
+  function plateauWidth(ex) {              /* speed gap between the two transitions */
+    const sp = [];
+    for (const ft of ex.feats)
+      ft.type === "shock" ? sp.push([ft.s, ft.s]) : sp.push([ft.sig[0], ft.sig[ft.sig.length-1]]);
+    return sp.length === 2 ? sp[1][0] - sp[0][1] : 0;
+  }
+  function featText(sn) {
+    const parts = [];
+    for (let i = sn.feats.length - 1; i >= 0; i--) {   /* front -> back */
+      const ft = sn.feats[i];
+      if (ft.type === "shock")
+        parts.push("<b>" + (ft.fam || "") + " shock</b> (σ = " +
+          fmt(sn.engine === "exact" ? ft.s : ft.sPk, 4) + ")");
+      else
+        parts.push("<b>" + (ft.fam || "") + " wave</b> (σ " +
+          (sn.engine === "exact" ? fmt(ft.sig[0], 4) + "→" + fmt(ft.sig[ft.sig.length-1], 4)
+                                 : fmt(ft.sLo, 4) + "→" + fmt(ft.sHi, 4)) + ")");
+    }
+    return parts.join(" ⟶ ") || "—";
+  }
+  function updateSummary() {
+    if (!sol) return;
+    const sn = sol.main;
+    let html =
+      "<b>" + (sn.engine === "exact" ? "Exact hodograph construction" : "Numerical reference solution") +
+      "</b> · ν = " + fmt(sol.nu, 4) + " · t₀ = " + fmt(t0(), 4) + " s<br>" +
+      "Structure (front → back): " + featText(sn);
+    if (sol.ex) {
+      html += "<br>Intermediate plateau: " + (plateauWidth(sol.ex) < 1e-6
+        ? "<i>zero width</i> — the two transitions travel at the same speed (degenerate/boundary case); " +
+          "the observable solution is a single effective discontinuity"
+        : (() => {
+            const q1 = sol.F.q1(sol.ex.uM[0], sol.ex.uM[1]), q2 = sol.F.q2(sol.ex.uM[0], sol.ex.uM[1]);
+            let t = "c<sub>M</sub> = (" + fmt(sol.ex.uM[0], 4) + ", " + fmt(sol.ex.uM[1], 4) +
+                    "), q<sub>M</sub> = (" + fmt(q1, 4) + ", " + fmt(q2, 4) + ")";
+            const roll = sol.ex.uM[0] - Math.max(sol.uF[0], sol.uI[0]);
+            if (roll > 1e-4) t += " — <b>roll-up of component 1: +" +
+              fmt(100*roll/Math.max(sol.uF[0], 1e-12), 1) + "%</b>";
+            return t;
+          })());
+    } else if (sol.exErr) {
+      html += "<br><span style='color:var(--muted)'>Exact construction unavailable: " + sol.exErr + " — using numerical solution.</span>";
+    }
+    $("eq-summary").innerHTML = html;
+    /* cross-check panel */
+    const xc = $("eq-xcheck");
+    if (sol.ex) {
+      /* compare intermediate plateau against numerical at the plateau midpoint */
+      let sMid = null;
+      const speeds = [];
+      for (const ft of sol.ex.feats)
+        ft.type === "shock" ? speeds.push([ft.s, ft.s]) : speeds.push([ft.sig[0], ft.sig[ft.sig.length-1]]);
+      if (speeds.length === 2 && plateauWidth(sol.ex) > 1e-4)
+        sMid = (speeds[0][1] + speeds[1][0])/2;
+      let html2 = "Exact and numerical engines ran independently.<br>";
+      if (sMid) {
+        const un = lookup(sol.num, sMid);
+        const d = Math.hypot(un[0]-sol.ex.uM[0], un[1]-sol.ex.uM[1]);
+        const rel = d/Math.max(1e-12, Math.hypot(sol.uF[0]-sol.uI[0], sol.uF[1]-sol.uI[1]));
+        html2 += "Intermediate plateau: exact (" + fmt(sol.ex.uM[0], 4) + ", " + fmt(sol.ex.uM[1], 4) +
+          ") vs numerical (" + fmt(un[0], 4) + ", " + fmt(un[1], 4) + ") — deviation <b>" +
+          fmt(100*rel, 2) + "%</b> of ΔC.<br>";
+      }
+      html2 += "Numerical features: " + featText(sol.num);
+      xc.innerHTML = html2;
+      $("eq-xinfo").textContent = "exact vs numerical";
+    } else {
+      xc.innerHTML = "No exact construction for this isotherm — the numerical reference solution is shown " +
+        "(2nd-order conservative MUSCL, 900 cells, self-similar extraction). " +
+        "Shocks appear slightly smeared; plateau values are accurate.<br>Numerical features: " + featText(sol.num);
+      $("eq-xinfo").textContent = "numerical only";
+    }
+  }
+
+  /* ---------- recompute ---------- */
+  function recompute() {
+    st.L = parseFloat($("eq-L").value) || st.L;
+    st.v = parseFloat($("eq-v").value) || st.v;
+    const e = parseFloat($("eq-eps").value);
+    if (isFinite(e) && e > 0.02 && e < 0.98) st.eps = e;
+    st.c1i = parseFloat($("eq-c1i").value);
+    st.c2i = parseFloat($("eq-c2i").value);
+    st.c1f = parseFloat($("eq-c1f").value);
+    st.c2f = parseFloat($("eq-c2f").value);
+    st.e1 = $("eq-expr1").value; st.e2 = $("eq-expr2").value;
+    const errEl = $("eq-err");
+    try {
+      sol = buildSolution();
+      errEl.classList.remove("show");
+    } catch (msg) {
+      sol = null;
+      errEl.textContent = "⚠ " + (msg && msg.message ? msg.message : msg);
+      errEl.classList.add("show");
+      $("eq-summary").innerHTML = ""; $("eq-xcheck").innerHTML = "";
+    }
+    window.__eq = sol;
+    if (sol) updateSummary();
+    saveLS(); drawAll();
+  }
+
+  /* ---------- crosshair ---------- */
+  function physEvt(e) {
+    const r = CV.phys.getBoundingClientRect();
+    if (!G.phys || !sol) return null;
+    const { M } = G.phys, g = G.physG;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    if (px < M.l || px > g.w - M.r || py < M.t || py > g.h - M.b) return null;
+    const xi = (px - M.l)/(g.w - M.l - M.r);
+    const tau = sol.tauMax*(1 - (py - M.t)/(g.h - M.t - M.b));
+    return { xi, tau };
+  }
+  CV.phys.addEventListener("pointermove", e => {
+    if (st.pinned) return;
+    const p = physEvt(e);
+    if (!p) return;
+    st.cross = p;
+    updatePhysInfo();
+    drawPhys(); drawProfile(); drawBT(); drawProfQ();
+  });
+  CV.phys.addEventListener("pointerleave", () => {
+    if (st.pinned) return;
+    st.cross = null;
+    updatePhysInfo();
+    drawPhys(); drawProfile(); drawBT(); drawProfQ();
+  });
+  CV.phys.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    const p = physEvt(e);
+    if (!p) return;
+    st.pinned = !st.pinned;
+    st.cross = p;
+    updatePhysInfo();
+    drawPhys(); drawProfile(); drawBT(); drawProfQ();
+  });
+  function updatePhysInfo() {
+    const el = $("eq-physinfo");
+    if (!st.cross || !sol) { el.textContent = "hover to explore · click to pin"; return; }
+    const u = st.cross.tau > 0 ? lookup(sol.main, st.cross.xi/st.cross.tau) : sol.uI;
+    el.textContent =
+      (dim() ? "z = " + fmt(st.cross.xi*st.L, 5) + " m, t = " + fmt(st.cross.tau*t0(), 4) + " s"
+             : "ξ = " + fmt(st.cross.xi, 3) + ", τ = " + fmt(st.cross.tau, 3)) +
+      " · c = (" + fmt(u[0], 4) + ", " + fmt(u[1], 4) + ")" +
+      (st.pinned ? " 📌" : "");
+  }
+
+  /* ---------- draggable I/F markers on the hodograph ---------- */
+  let hodoDrag = null, hodoRaf = false;
+  function hodoRecompute() {
+    if (hodoRaf) return;
+    hodoRaf = true;
+    requestAnimationFrame(() => { hodoRaf = false; recompute(); });
+  }
+  function hodoHit(e) {
+    if (!G.hodo || !G.hodo.markers) return null;
+    const r = CV.hodo.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    for (const m of G.hodo.markers)
+      if (Math.hypot(px - m.px, py - m.py) < 13) return m;
+    return null;
+  }
+  CV.hodo.addEventListener("pointerdown", e => {
+    const hit = hodoHit(e);
+    if (!hit) return;
+    e.preventDefault();
+    hodoDrag = hit.key;
+    try { CV.hodo.setPointerCapture(e.pointerId); } catch (err) {}
+    CV.hodo.style.cursor = "grabbing";
+  });
+  CV.hodo.addEventListener("pointermove", e => {
+    if (!hodoDrag) {
+      CV.hodo.style.cursor = hodoHit(e) ? "pointer" : "";
+      return;
+    }
+    if (!G.hodo) return;
+    const { A, g, c1max, c2max } = G.hodo, M = A.M;
+    const r = CV.hodo.getBoundingClientRect();
+    const pxx = e.clientX - r.left, pyy = e.clientY - r.top;
+    let c2 = (pxx - M.l)/(g.w - M.l - M.r)*c2max;
+    let c1 = (g.h - M.b - pyy)/(g.h - M.t - M.b)*c1max;
+    c1 = Math.min(Math.max(0, c1), c1max);
+    c2 = Math.min(Math.max(0, c2), c2max);
+    $(hodoDrag === "i" ? "eq-c1i" : "eq-c1f").value = +c1.toPrecision(4);
+    $(hodoDrag === "i" ? "eq-c2i" : "eq-c2f").value = +c2.toPrecision(4);
+    hodoRecompute();
+  });
+  const hodoUp = () => {
+    if (!hodoDrag) return;
+    hodoDrag = null;
+    CV.hodo.style.cursor = "";
+    recompute();                           /* commit final state synchronously */
+  };
+  CV.hodo.addEventListener("pointerup", hodoUp);
+  CV.hodo.addEventListener("pointercancel", hodoUp);
+
+  /* ---------- controls ---------- */
+  const sel = $("eq-model");
+  sel.innerHTML = Object.keys(MODELS).map(k =>
+    '<option value="' + k + '">' + MODELS[k].label + "</option>").join("");
+  function buildParamFields() {
+    const m = MODELS[st.model];
+    $("eq-params").innerHTML = m.params.map(([k, lab, d]) => {
+      const saved = st.pvals[st.model + "." + k];
+      return '<label class="fld"><span>' + lab +
+        '</span><input type="number" id="eq-p-' + k + '" step="any" value="' +
+        (saved !== undefined ? saved : d) + '"></label>';
+    }).join("");
+    for (const [k] of m.params)
+      $("eq-p-" + k).addEventListener("change", recompute);
+    $("eq-exprrow").style.display = st.model === "custom" ? "" : "none";
+  }
+  sel.addEventListener("change", () => {
+    st.model = sel.value;
+    buildParamFields(); recompute();
+  });
+  for (const id of ["eq-L", "eq-v", "eq-eps", "eq-c1i", "eq-c2i", "eq-c1f", "eq-c2f", "eq-expr1", "eq-expr2"])
+    $(id).addEventListener("change", recompute);
+  $("eq-swap").addEventListener("click", () => {
+    const a = $("eq-c1i").value, b = $("eq-c2i").value;
+    $("eq-c1i").value = $("eq-c1f").value; $("eq-c2i").value = $("eq-c2f").value;
+    $("eq-c1f").value = a; $("eq-c2f").value = b;
+    recompute();
+  });
+  $("eq-units").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.units = b.dataset.m;
+    [...$("eq-units").children].forEach(x => x.classList.toggle("on", x === b));
+    saveLS(); drawAll(); updatePhysInfo();
+  });
+  $("eq-cmap").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    st.cmap = +b.dataset.m;
+    [...$("eq-cmap").children].forEach(x => x.classList.toggle("on", x === b));
+    saveLS(); drawPhys();
+  });
+  function savePNG(cvEl, name) {
+    cvEl.toBlob(b => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  }
+  $("eq-profpng").addEventListener("click", () => {
+    const { tau } = crossVals();
+    savePNG(CV.prof, "profile_tau" + fmt(tau, 3) + ".png");
+  });
+  $("eq-btpng").addEventListener("click", () => {
+    const { xi } = crossVals();
+    savePNG(CV.bt, "breakthrough_xi" + fmt(xi, 3) + ".png");
+  });
+
+  /* ---------- init ---------- */
+  (function init() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(LSKEY)); } catch (e) {}
+    if (s) {
+      for (const k of ["L", "v", "eps", "c1i", "c2i", "c1f", "c2f", "e1", "e2"])
+        if (s[k] !== undefined) st[k] = s[k];
+      if (s.model && MODELS[s.model]) st.model = s.model;
+      if (s.pvals) st.pvals = s.pvals;
+      if (s.units === "dim" || s.units === "nd") st.units = s.units;
+      if ([0, 1, 2].includes(s.cmap)) st.cmap = s.cmap;
+    }
+    $("eq-L").value = st.L; $("eq-v").value = st.v; $("eq-eps").value = st.eps;
+    $("eq-c1i").value = st.c1i; $("eq-c2i").value = st.c2i;
+    $("eq-c1f").value = st.c1f; $("eq-c2f").value = st.c2f;
+    $("eq-expr1").value = st.e1; $("eq-expr2").value = st.e2;
+    sel.value = st.model;
+    [...$("eq-units").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.units));
+    [...$("eq-cmap").children].forEach(b => b.classList.toggle("on", +b.dataset.m === st.cmap));
+    buildParamFields();
+    const ro = new ResizeObserver(() => drawAll());
+    ro.observe(document.querySelector(".plots"));
+    window.addEventListener("resize", drawAll);
+    if (window.matchMedia)
+      matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+    recompute();
+  })();
+})();
+</script>
+</body>
+</html>

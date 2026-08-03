@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research Apps</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+    --shadow-hover: 0 2px 6px rgba(0,0,0,.1), 0 14px 34px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+      --shadow-hover: 0 2px 6px rgba(0,0,0,.5), 0 14px 34px rgba(0,0,0,.45);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 22px 14px 34px;
+  }
+  .wrap { width: 100%; max-width: 760px; }
+  h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 0.8rem; margin: 4px 0 16px; line-height: 1.45; }
+  .section { margin: 16px 0 8px; display: flex; align-items: center; gap: 10px; }
+  .section:first-of-type { margin-top: 0; }
+  .section h2 {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); white-space: nowrap;
+  }
+  .section::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 8px;
+  }
+  a.tile {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 12px 6px 10px;
+    text-decoration: none; color: var(--text); text-align: center;
+    transition: transform .12s, box-shadow .12s, border-color .12s;
+  }
+  a.tile:hover, a.tile:focus-visible {
+    transform: translateY(-2px); box-shadow: var(--shadow-hover);
+    border-color: var(--accent); outline: none;
+  }
+  .emoji { font-size: 1.7rem; line-height: 1; }
+  .name { font-size: 0.66rem; font-weight: 600; line-height: 1.25; color: var(--text); }
+  #tip {
+    position: fixed; z-index: 10; display: none; pointer-events: none;
+    max-width: 280px; padding: 10px 12px;
+    background: var(--card); border: 1px solid var(--accent); border-radius: 10px;
+    box-shadow: var(--shadow-hover);
+    font-size: 0.74rem; line-height: 1.45; color: var(--muted);
+  }
+  #tip b { display: block; color: var(--text); font-size: 0.8rem; margin-bottom: 3px; }
+  .footer { margin-top: 22px; color: var(--muted); font-size: 0.72rem; text-align: center; line-height: 1.6; }
+  .footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Research Apps</h1>
+  <div class="sub">
+    Single-file tools &mdash; each app is one standalone HTML file that works offline.
+    Hover an icon for details; click to open.
+  </div>
+
+  <div class="section"><h2>General Purpose Apps</h2></div>
+  <div class="grid">
+    <a class="tile" href="JournalNameAbbreviator/JournalAbbreviator.html"
+       data-desc="Full journal name → ISO 4 abbreviation. 40,527 embedded titles, rule-based fallback for unlisted journals, custom add/edit with a shareable-copy download.">
+      <span class="emoji">&#128218;</span><span class="name">Journal Abbreviator</span>
+    </a>
+    <a class="tile" href="UnitNotationConverter/UnitSIConverter.html"
+       data-desc="mmol/g → mmol g⁻¹: negative-exponent SI style with LaTeX and rich-text (Word) copy buttons.">
+      <span class="emoji">&#9878;&#65039;</span><span class="name">Unit &rarr; SI Notation</span>
+    </a>
+    <a class="tile" href="TextCounter/TextCounter.html"
+       data-desc="Paste or type text and watch live counts: words, characters with and without spaces (Word-convention), plus sentences, paragraphs, lines, and reading time. Select part of the text to count just the selection.">
+      <span class="emoji">&#128290;</span><span class="name">Text Counter</span>
+    </a>
+    <a class="tile" href="UnitConverter/UnitConverter.html"
+       data-desc="Type a conversion in plain text — &quot;2.7 atm in Pa&quot; — and the answer appears as you type. Dimensional analysis recognizes the physical quantity; compound units (W/m2K), SI prefixes, multiple targets, gauge pressure and temperature offsets, mol↔mass crossing via (MW …).">
+      <span class="emoji">&#128260;</span><span class="name">Unit Converter</span>
+    </a>
+  </div>
+
+  <div class="section"><h2>Chem Engg Apps</h2></div>
+  <div class="grid">
+    <a class="tile" href="PsychrometricChart/PsychrometricChart.html"
+       data-desc="Interactive moist-air chart: crosshair readout, RH / wet-bulb / specific-volume / enthalpy lines, g/kg or mole-fraction axis, adjustable pressure and ranges, A→B process analysis, PNG export.">
+      <span class="emoji">&#127777;&#65039;</span><span class="name">Psychrometric Chart</span>
+    </a>
+    <a class="tile" href="PressureEnthalpy/PressureEnthalpy.html"
+       data-desc="Real-fluid pressure–enthalpy charts for CO₂, water, and ethane (NIST-quality embedded data): isotherms, isentropes, isochores, quality lines, crosshair readout, state points A–D, and a cycle builder (vapor-compression → COP, transcritical, Rankine).">
+      <span class="emoji">&#9832;&#65039;</span><span class="name">P&ndash;h Diagram</span>
+    </a>
+    <a class="tile" href="GasConstant/GasConstant.html"
+       data-desc="Standard values of the universal gas constant with one-click copy, plus a builder: pick P, V, T, amount (mol / kmol / lb-mol) or an energy unit and get R in that combination, all derived from the exact SI value.">
+      <span class="emoji">&#127880;</span><span class="name">Gas Constant (R)</span>
+    </a>
+    <a class="tile" href="McCabeThiele/McCabeThiele.html"
+       data-desc="Interactive binary distillation design at constant relative volatility: live sliders for α, compositions, feed quality q, and reflux (R or R/Rmin), stage-by-stage animation, Rmin &amp; Nmin limits, Murphree efficiency, stage table, PNG export.">
+      <span class="emoji">&#9879;&#65039;</span><span class="name">McCabe&ndash;Thiele Designer</span>
+    </a>
+  </div>
+
+  <div class="section"><h2>Adsorption &amp; Chromatography Apps</h2></div>
+  <div class="grid">
+    <a class="tile" href="EquilibriumChromatography/EquilibriumChromatography.html"
+       data-desc="Single-component equilibrium theory (Rhee–Aris–Amundson): envelope construction on any isotherm → waves and shocks, colour-mapped physical plane with pinnable crosshair, column profiles and breakthrough curves, standard + custom isotherms.">
+      <span class="emoji">&#127754;</span><span class="name">Equilibrium Chromatography</span>
+    </a>
+    <a class="tile" href="EquilibriumChromatographyPulse/EquilibriumChromatographyPulse.html"
+       data-desc="Finite pulse injection by wavefront tracking: loading and purge fans interact, shocks decay along curved paths, every collision re-resolved by envelope construction. Peak metrics, mass-balance check, and an interaction-event table.">
+      <span class="emoji">&#128301;</span><span class="name">Chromatography &mdash; Pulse</span>
+    </a>
+    <a class="tile" href="EquilibriumChromatographySystems/EquilibriumChromatographySystems.html"
+       data-desc="Riemann problems for coupled conservation laws: isothermal binary chromatography with hodograph-plane analysis — exact straight-line construction for constant-selectivity Langmuir, numerical reference solution for arbitrary isotherms, roll-up and displacement effects.">
+      <span class="emoji">&#9883;&#65039;</span><span class="name">Chromatography &mdash; 2&times;2 Systems</span>
+    </a>
+    <a class="tile" href="EquilibriumChromatographySorption/EquilibriumChromatographySorption.html"
+       data-desc="Equilibrium theory with the sorption effect: single adsorbable component whose ad/de-sorption changes the fluid velocity (Ortner 2014 / Hefti 2015). Analytical Riemann solution via envelopes on νq vs y/(1−y); twin physical planes for composition and velocity v/vF with a linked crosshair.">
+      <span class="emoji">&#127788;&#65039;</span><span class="name">Chromatography &mdash; Sorption Effect</span>
+    </a>
+    <!-- PSA Simulator temporarily hidden (not yet complete) — restore by removing this comment wrapper.
+    <a class="tile" href="PSASimulator/PSASimulator.html"
+       data-desc="1D non-isothermal PSA/VSA cycle simulator: LDF kinetics, Ergun momentum, WENO finite volumes, TR-BDF2 stiff integration in a Web Worker. Cycle builder, CSS loop, purity/recovery/energy KPIs (Wilkins &amp; Rajendran 2019 four-step LPP VSA as default).">
+      <span class="emoji">&#127981;</span><span class="name">PSA Simulator</span>
+    </a>
+    -->
+  </div>
+
+  <div class="footer">
+    Each app is self-contained &mdash; no installation, no internet needed.<br>
+    <span style="display:inline-block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border);">
+    Developed by Arvind Rajendran with the assistance of Claude Code (Anthropic) &middot; v1.0 &middot; July 2026<br>
+    Provided &ldquo;as is&rdquo; for educational and research purposes, without warranty of any kind.
+    Verify results independently before use in any critical application &mdash; use at your own risk.<br>
+    All calculations run entirely in your browser &mdash; no data is uploaded or collected.<br>
+    &copy; 2026 Arvind Rajendran &middot; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> &middot;
+    If these tools are useful in your work, an acknowledgement is appreciated.
+    </span>
+  </div>
+</div>
+
+<div id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  var tip = document.getElementById('tip');
+  var tiles = document.querySelectorAll('a.tile');
+
+  function show(tile) {
+    var name = tile.querySelector('.name').textContent;
+    tip.innerHTML = '';
+    var b = document.createElement('b');
+    b.textContent = name;
+    tip.appendChild(b);
+    tip.appendChild(document.createTextNode(tile.getAttribute('data-desc') || ''));
+    tip.style.display = 'block';
+
+    var r = tile.getBoundingClientRect();
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var x = r.left + r.width / 2 - tw / 2;
+    x = Math.max(8, Math.min(x, window.innerWidth - tw - 8));
+    var y = r.bottom + 8;
+    if (y + th > window.innerHeight - 8) y = r.top - th - 8;   // flip above if no room
+    if (y < 8) y = 8;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+  function hide() { tip.style.display = 'none'; }
+
+  tiles.forEach(function (t) {
+    t.addEventListener('mouseenter', function () { show(t); });
+    t.addEventListener('mouseleave', hide);
+    t.addEventListener('focus', function () { show(t); });
+    t.addEventListener('blur', hide);
+  });
+  window.addEventListener('scroll', hide, true);
+})();
+</script>
+</body>
+</html>

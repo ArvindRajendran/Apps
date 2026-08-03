@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gas Constant (R)</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 760px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 20px; position: relative; margin-bottom: 18px;
+  }
+  .panel h3 { font-size: 0.98rem; margin-bottom: 12px; }
+  .toprow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toprow h3 { margin-bottom: 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  select:focus { border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  td.val {
+    font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+    text-align: right; white-space: nowrap; width: 1%; font-size: 0.92rem;
+  }
+  td.unit { color: var(--muted); }
+  td.unit .note { font-size: 0.75rem; opacity: 0.8; }
+  td.cbtn { width: 1%; }
+  button.copy {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--muted);
+    border-radius: 8px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.copy:hover { border-color: var(--accent); color: var(--accent); }
+  button.copy.done { border-color: var(--ok); color: var(--ok); }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.85rem; font-weight: 600; padding: 8px 14px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .result {
+    margin-top: 18px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  .result .rv {
+    font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+    font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .result .ru { color: var(--muted); font-size: 1rem; }
+  .footer { margin-top: 6px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Universal Gas Constant, <i>R</i></h2>
+  <div class="sub">Exact by the 2019 SI redefinition: <i>R</i> = <i>N</i><sub>A</sub>&thinsp;<i>k</i><sub>B</sub> = 8.31446261815324 J&thinsp;mol&#8315;&sup1;&thinsp;K&#8315;&sup1;. All values below are derived from it. Copy buttons copy the number only.</div>
+
+  <div class="panel">
+    <div class="toprow">
+      <h3>Standard values</h3>
+      <label class="fld">Significant figures
+        <select id="prec">
+          <option value="4">4</option>
+          <option value="6" selected>6</option>
+          <option value="9">9</option>
+          <option value="15">15 (full)</option>
+        </select>
+      </label>
+    </div>
+    <table id="list"></table>
+  </div>
+
+  <div class="panel">
+    <h3>Build your own</h3>
+    <div class="seg" id="mode">
+      <button class="on" data-m="pv">P&middot;V / (n&middot;T)</button>
+      <button data-m="e">Energy / (n&middot;T)</button>
+    </div>
+    <div class="ctrls" id="pvctrls">
+      <label class="fld">Pressure<select id="selP"></select></label>
+      <label class="fld">Volume<select id="selV"></select></label>
+      <label class="fld">Amount<select id="selN"></select></label>
+      <label class="fld">Temperature<select id="selT"></select></label>
+    </div>
+    <div class="ctrls" id="ectrls" style="display:none">
+      <label class="fld">Energy<select id="selE"></select></label>
+      <label class="fld">Amount<select id="selN2"></select></label>
+      <label class="fld">Temperature<select id="selT2"></select></label>
+    </div>
+    <div class="result">
+      <span style="font-size:1.1rem"><i>R</i> =</span>
+      <span class="rv" id="rval"></span>
+      <span class="ru" id="runit"></span>
+      <button class="copy" id="rcopy">&#10697; Copy value</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    Exact conversion factors throughout (atm = 101325 Pa; psi from 4.4482216152605 N and 25.4 mm;
+    lb-mol = 453.59237 mol; &deg;R = 5/9 K; cal = 4.184 J thermochemical; BTU = 1055.05585262 J international table).<br>
+    Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const R = 8.31446261815324;              /* J/(mol K), exact */
+
+  /* ---- exact unit factors (SI per unit) ---- */
+  const PU = { "Pa":1, "kPa":1e3, "MPa":1e6, "bar":1e5, "atm":101325,
+               "Torr":101325/760, "psi":4.4482216152605/0.00064516 };
+  const VU = { "m³":1, "L":1e-3, "cm³":1e-6,
+               "ft³":0.3048**3, "in³":0.0254**3 };
+  const NU = { "mol":1, "kmol":1000, "lb-mol":453.59237 };
+  const TU = { "K":1, "°R":5/9 };
+  const EU = { "J":1, "kJ":1e3, "cal (th)":4.184, "kcal (th)":4184,
+               "BTU (IT)":1055.05585262, "ft·lbf":0.3048*4.4482216152605,
+               "erg":1e-7 };
+
+  const S1 = "⁻¹";               /* superscript -1 */
+  const unitPV = (p,v,n,t) => p + " " + v + " " + n + S1 + " " + t + S1;
+  const unitE  = (e,n,t)   => e.replace(/ \(.+\)/,"") + " " + n + S1 + " " + t + S1;
+  const rPV = (p,v,n,t) => R * NU[n] * TU[t] / (PU[p] * VU[v]);
+  const rE  = (e,n,t)   => R * NU[n] * TU[t] / EU[e];
+
+  /* ---- standard list ---- */
+  const STD = [
+    { val: () => R,                          unit: "J mol" + S1 + " K" + S1, note: "exact" },
+    { val: () => R/EU["kJ"],                 unit: "kJ mol" + S1 + " K" + S1 },
+    { val: () => rPV("Pa","m³","mol","K"),   unit: unitPV("Pa","m³","mol","K"), note: "≡ J mol" + S1 + " K" + S1 },
+    { val: () => rPV("kPa","L","mol","K"),   unit: unitPV("kPa","L","mol","K") },
+    { val: () => rPV("bar","L","mol","K"),   unit: unitPV("bar","L","mol","K") },
+    { val: () => rPV("atm","L","mol","K"),   unit: unitPV("atm","L","mol","K") },
+    { val: () => rPV("Torr","L","mol","K"),  unit: unitPV("Torr","L","mol","K"), note: "Torr ≈ mmHg" },
+    { val: () => rPV("bar","cm³","mol","K"), unit: unitPV("bar","cm³","mol","K") },
+    { val: () => rPV("atm","cm³","mol","K"), unit: unitPV("atm","cm³","mol","K") },
+    { val: () => rE("cal (th)","mol","K"),   unit: "cal mol" + S1 + " K" + S1, note: "thermochemical cal" },
+    { val: () => R*NU["kmol"],               unit: "J kmol" + S1 + " K" + S1 },
+    { val: () => rPV("psi","ft³","lb-mol","°R"), unit: unitPV("psi","ft³","lb-mol","°R") },
+    { val: () => rPV("atm","ft³","lb-mol","°R"), unit: unitPV("atm","ft³","lb-mol","°R") },
+    { val: () => rE("BTU (IT)","lb-mol","°R"), unit: "BTU lb-mol" + S1 + " °R" + S1, note: "IT BTU" },
+    { val: () => rE("ft·lbf","lb-mol","°R"), unit: "ft·lbf lb-mol" + S1 + " °R" + S1 },
+  ];
+
+  /* ---- formatting ---- */
+  function fmt(x) {
+    const p = parseInt($("prec").value, 10);
+    let s = x.toPrecision(p);
+    if (s.includes("e")) {                       /* prettify exponent form */
+      const [m, ex] = s.split("e");
+      s = m + "×10^" + parseInt(ex, 10);
+    }
+    return s;
+  }
+
+  /* ---- clipboard ---- */
+  function copyNum(txt, btn) {
+    const done = () => {
+      const old = btn.innerHTML;
+      btn.innerHTML = "✓ Copied"; btn.classList.add("done");
+      setTimeout(() => { btn.innerHTML = old; btn.classList.remove("done"); }, 1200);
+    };
+    const legacy = () => {
+      const ta = document.createElement("textarea");
+      ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta); done();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(done).catch(legacy);
+    else legacy();
+  }
+
+  /* ---- render standard list ---- */
+  function renderList() {
+    $("list").innerHTML = STD.map((row, i) =>
+      "<tr><td class='val'>" + fmt(row.val()) + "</td><td class='unit'>" + row.unit +
+      (row.note ? " <span class='note'>(" + row.note + ")</span>" : "") +
+      "</td><td class='cbtn'><button class='copy' data-i='" + i + "'>⤩ Copy</button></td></tr>").join("");
+  }
+  $("list").addEventListener("click", e => {
+    const b = e.target.closest("button.copy");
+    if (b) copyNum(fmt(STD[b.dataset.i].val()), b);
+  });
+
+  /* ---- builder ---- */
+  function fill(sel, obj, def) {
+    sel.innerHTML = Object.keys(obj).map(k =>
+      "<option" + (k === def ? " selected" : "") + ">" + k + "</option>").join("");
+  }
+  fill($("selP"), PU, "kPa"); fill($("selV"), VU, "L");
+  fill($("selN"), NU, "mol"); fill($("selT"), TU, "K");
+  fill($("selE"), EU, "J");
+  fill($("selN2"), NU, "mol"); fill($("selT2"), TU, "K");
+
+  let mode = "pv";
+  $("mode").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    mode = b.dataset.m;
+    [...$("mode").children].forEach(x => x.classList.toggle("on", x === b));
+    $("pvctrls").style.display = mode === "pv" ? "" : "none";
+    $("ectrls").style.display = mode === "e" ? "" : "none";
+    update();
+  });
+
+  function current() {
+    if (mode === "pv") {
+      const p = $("selP").value, v = $("selV").value, n = $("selN").value, t = $("selT").value;
+      return { x: rPV(p, v, n, t), u: unitPV(p, v, n, t) };
+    }
+    const e = $("selE").value, n = $("selN2").value, t = $("selT2").value;
+    return { x: rE(e, n, t), u: unitE(e, n, t) };
+  }
+  function update() {
+    const c = current();
+    $("rval").textContent = fmt(c.x);
+    $("runit").textContent = c.u;
+    renderList();
+  }
+  for (const id of ["selP","selV","selN","selT","selE","selN2","selT2","prec"])
+    $(id).addEventListener("change", update);
+  $("rcopy").addEventListener("click", () => copyNum(fmt(current().x), $("rcopy")));
+
+  update();
+})();
+</script>
+</body>
+</html>

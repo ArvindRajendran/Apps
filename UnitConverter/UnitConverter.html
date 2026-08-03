@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit Converter</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a; --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80; --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 48px 16px;
+  }
+  .wrap { width: 100%; max-width: 700px; }
+  h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin: 6px 0 20px; }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 16px;
+  }
+  #inp {
+    width: 100%; font-size: 1.15rem; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); outline: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    transition: border-color .15s;
+  }
+  #inp:focus { border-color: var(--accent); }
+
+  #out { margin-top: 12px; }
+  .qbadge {
+    display: inline-block; font-size: 0.72rem; font-weight: 600;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 2px 10px; border-radius: 999px; vertical-align: middle;
+  }
+  .factor { float: right; color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+  .res {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; margin-top: 8px;
+  }
+  .res .val {
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .res .sci { color: var(--muted); font-size: 0.85rem; margin-left: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .res .assume { color: var(--muted); font-size: 0.78rem; }
+  .cbtns { float: right; display: inline-flex; gap: 6px; }
+  .cbtn {
+    background: none; border: 1px solid var(--border); border-radius: 7px;
+    color: var(--muted); font-size: 0.72rem; padding: 3px 9px; cursor: pointer;
+  }
+  .cbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .cbtn.flash { border-color: var(--ok); color: var(--ok); }
+
+  .hint { color: var(--muted); font-size: 0.85rem; margin-top: 10px; line-height: 1.5; }
+  .hint.err { color: var(--danger); }
+  .chips { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 0.78rem; border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 12px; color: var(--text); background: none; cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .toolbar { margin-top: 12px; display: flex; align-items: center; gap: 10px;
+    color: var(--muted); font-size: 0.8rem; flex-wrap: wrap; }
+  .toolbar select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; padding: 3px 6px; font-size: 0.8rem;
+  }
+  .seclbl { margin-top: 16px; color: var(--muted); font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.6; }
+  .footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Unit Converter</h1>
+  <div class="sub">Type a conversion in plain text &mdash; the answer appears as you type. No buttons.</div>
+
+  <div class="panel">
+    <input id="inp" placeholder="e.g.  2.7 atm in Pa" autofocus autocomplete="off" spellcheck="false">
+    <div id="out"></div>
+    <div class="toolbar">
+      <span>Significant figures:
+        <select id="sig">
+          <option>3</option><option>4</option><option>5</option>
+          <option selected>6</option><option>7</option><option>8</option><option>10</option>
+        </select>
+      </span>
+      <span style="margin-left:auto;">separators: <b>in</b>, <b>to</b>, <b>&rarr;</b> &middot; several targets with commas &middot; arithmetic works: <b>10*10*10</b>, <b>(1+2)/4</b>, <b>2^3</b> &middot; add <b>(MW 44)</b> to cross mol&harr;mass</span>
+    </div>
+
+    <div class="seclbl">Try</div>
+    <div class="chips" id="examples"></div>
+
+    <div class="seclbl" id="histlbl" style="display:none;">Recent</div>
+    <div class="chips" id="history"></div>
+  </div>
+
+  <div class="footer">
+    Dimensional analysis on base-SI exponent vectors; the physical quantity is recognized
+    from the dimensions of what you type. SI prefixes work on all metric units
+    (mmHg and torr are both taken as 101&thinsp;325/760 Pa; cal is thermochemical, 4.184 J;
+    BTU is the international table value).<br>
+    Works offline &mdash; single file, share freely.
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> &middot; <a href="../Apps.html">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script id="engine">
+"use strict";
+/* Unit engine: every unit = scale factor to SI + exponent vector [m,kg,s,K,mol,A,cd] (+offset). */
+const UC = (function () {
+
+  function d(L, M, T, K, N, A, J) { return [L||0, M||0, T||0, K||0, N||0, A||0, J||0]; }
+  const D0 = d();
+
+  /* symbol: [factor, dims, {off, pre}]  — pre: accepts SI prefixes */
+  const U = {
+    m:      [1, d(1), {pre:1}],
+    g:      [1e-3, d(0,1), {pre:1}],
+    s:      [1, d(0,0,1), {pre:1}],
+    K:      [1, d(0,0,0,1), {pre:1}],
+    mol:    [1, d(0,0,0,0,1), {pre:1}],
+    A:      [1, d(0,0,0,0,0,1), {pre:1}],
+    cd:     [1, d(0,0,0,0,0,0,1), {}],
+    C:      [1, d(0,0,0,1), {off:273.15}],
+    F:      [5/9, d(0,0,0,1), {off:273.15 - 32*5/9}],
+    R:      [5/9, d(0,0,0,1), {}],
+    in:     [0.0254, d(1), {}],
+    ft:     [0.3048, d(1), {}],
+    yd:     [0.9144, d(1), {}],
+    mi:     [1609.344, d(1), {}],
+    angstrom: [1e-10, d(1), {}],
+    lb:     [0.45359237, d(0,1), {}],
+    oz:     [0.028349523125, d(0,1), {}],
+    t:      [1000, d(0,1), {pre:1}],
+    min:    [60, d(0,0,1), {}],
+    h:      [3600, d(0,0,1), {}],
+    day:    [86400, d(0,0,1), {}],
+    yr:     [31557600, d(0,0,1), {}],
+    lbmol:  [453.59237, d(0,0,0,0,1), {}],
+    N:      [1, d(1,1,-2), {pre:1}],
+    dyn:    [1e-5, d(1,1,-2), {}],
+    lbf:    [4.4482216152605, d(1,1,-2), {}],
+    kgf:    [9.80665, d(1,1,-2), {}],
+    Pa:     [1, d(-1,1,-2), {pre:1}],
+    bar:    [1e5, d(-1,1,-2), {pre:1}],
+    atm:    [101325, d(-1,1,-2), {}],
+    psi:    [4.4482216152605/0.0254/0.0254, d(-1,1,-2), {}],
+    psig:   [4.4482216152605/0.0254/0.0254, d(-1,1,-2), {off:101325}],
+    torr:   [101325/760, d(-1,1,-2), {pre:1}],
+    mmHg:   [101325/760, d(-1,1,-2), {}],
+    inHg:   [25.4*101325/760, d(-1,1,-2), {}],
+    inH2O:  [249.0889, d(-1,1,-2), {}],
+    mmH2O:  [9.80665, d(-1,1,-2), {}],
+    J:      [1, d(2,1,-2), {pre:1}],
+    cal:    [4.184, d(2,1,-2), {pre:1}],
+    BTU:    [1055.05585262, d(2,1,-2), {}],
+    Wh:     [3600, d(2,1,-2), {pre:1}],
+    eV:     [1.602176634e-19, d(2,1,-2), {pre:1}],
+    erg:    [1e-7, d(2,1,-2), {}],
+    W:      [1, d(2,1,-3), {pre:1}],
+    hp:     [745.699872, d(2,1,-3), {}],
+    P:      [0.1, d(-1,1,-1), {pre:1}],
+    St:     [1e-4, d(2,0,-1), {pre:1}],
+    L:      [1e-3, d(3), {pre:1}],
+    gal:    [3.785411784e-3, d(3), {}],
+    cc:     [1e-6, d(3), {}],
+    M:      [1000, d(-3,0,0,0,1), {pre:1}],
+    Hz:     [1, d(0,0,-1), {pre:1}],
+    rpm:    [1/60, d(0,0,-1), {}],
+    V:      [1, d(2,1,-3,0,0,-1), {pre:1}],
+    ohm:    [1, d(2,1,-3,0,0,-2), {pre:1}],
+    coulomb:[1, d(0,0,1,0,0,1), {}],
+    '%':    [0.01, D0, {}],
+    ppm:    [1e-6, D0, {}],
+    ppb:    [1e-9, D0, {}],
+    mph:    [0.44704, d(1,0,-1), {}],
+    kph:    [1000/3600, d(1,0,-1), {}],
+    ha:     [1e4, d(2), {}],
+    acre:   [4046.8564224, d(2), {}],
+    Da:     [1.66053906892e-27, d(0,1), {pre:1}]
+  };
+
+  const ALIAS = {
+    sec:'s', secs:'s', second:'s', seconds:'s', hr:'h', hrs:'h', hour:'h', hours:'h',
+    mins:'min', minute:'min', minutes:'min', days:'day', d:'day', year:'yr', years:'yr', a:'yr',
+    metre:'m', meter:'m', metres:'m', meters:'m', inch:'in', inches:'in', feet:'ft', foot:'ft',
+    mile:'mi', miles:'mi', micron:'um',
+    gram:'g', grams:'g', lbs:'lb', lbm:'lb', pound:'lb', pounds:'lb', tonne:'t', tonnes:'t', ton:'t', tons:'t',
+    kelvin:'K', degC:'C', degF:'F', degR:'R', oC:'C', oF:'F', oR:'R', celsius:'C', fahrenheit:'F', rankine:'R',
+    mole:'mol', moles:'mol', 'lb-mol':'lbmol', lbmole:'lbmol',
+    newton:'N', newtons:'N', pascal:'Pa', pascals:'Pa',
+    psia:'psi', Torr:'torr', mmhg:'mmHg', inhg:'inHg', inh2o:'inH2O', mmh2o:'mmH2O',
+    joule:'J', joules:'J', calorie:'cal', calories:'cal', Btu:'BTU', btu:'BTU',
+    watt:'W', watts:'W', poise:'P', stokes:'St', stoke:'St',
+    litre:'L', liter:'L', litres:'L', liters:'L', l:'L',
+    gallon:'gal', gallons:'gal', 'in3':'', 'Å':'angstrom', A0:'angstrom',
+    amp:'A', ampere:'A', amps:'A', volt:'V', volts:'V', Ohm:'ohm', 'Ω':'ohm',
+    dalton:'Da', amu:'Da',
+    percent:'%', pct:'%'
+  };
+  delete ALIAS['in3'];
+
+  const PREFIX = { Y:1e24, Z:1e21, E:1e18, P:1e15, T:1e12, G:1e9, M:1e6, k:1e3,
+                   h:1e2, da:10, d:1e-1, c:1e-2, m:1e-3, u:1e-6, n:1e-9, p:1e-12,
+                   f:1e-15, a:1e-18, z:1e-21, y:1e-24 };
+
+  const QNAMES = {};
+  function qn(vec, name) { QNAMES[vec.join(',')] = name; }
+  qn(d(1), 'length'); qn(d(0,1), 'mass'); qn(d(0,0,1), 'time'); qn(d(0,0,0,1), 'temperature');
+  qn(d(0,0,0,0,1), 'amount of substance'); qn(d(0,0,0,0,0,1), 'electric current'); qn(D0, 'dimensionless');
+  qn(d(2), 'area'); qn(d(3), 'volume'); qn(d(1,0,-1), 'velocity'); qn(d(1,0,-2), 'acceleration');
+  qn(d(-1,1,-2), 'pressure'); qn(d(1,1,-2), 'force'); qn(d(2,1,-2), 'energy'); qn(d(2,1,-3), 'power');
+  qn(d(-3,1), 'density'); qn(d(0,0,-1), 'frequency'); qn(d(-1,1,-1), 'dynamic viscosity');
+  qn(d(2,0,-1), 'kinematic viscosity / diffusivity'); qn(d(-3,0,0,0,1), 'molar concentration');
+  qn(d(0,-1,0,0,1), 'amount per mass'); qn(d(0,1,0,0,-1), 'molar mass');
+  qn(d(2,0,-2), 'specific energy'); qn(d(2,1,-2,0,-1), 'energy per amount');
+  qn(d(2,0,-2,-1), 'specific heat capacity'); qn(d(2,1,-2,-1,0,0,0), 'heat capacity / entropy');
+  qn(d(2,1,-2,-1,-1), 'molar heat capacity'); qn(d(0,1,-3,-1), 'heat transfer coefficient');
+  qn(d(1,1,-3,-1), 'thermal conductivity'); qn(d(3,0,-1), 'volumetric flow rate');
+  qn(d(0,1,-1), 'mass flow rate'); qn(d(0,0,-1,0,1), 'molar flow rate');
+  qn(d(3,0,0,0,-1), 'molar volume'); qn(d(0,0,1,0,0,1), 'electric charge');
+  qn(d(2,1,-3,0,0,-1), 'voltage'); qn(d(2,1,-3,0,0,-2), 'electrical resistance');
+  qn(d(-2,1,0), 'mass per area'); qn(d(-2,0,0,0,1), 'amount per area');
+  qn(d(2,1,-2,0,0,0,0), 'energy');
+
+  const SUGGEST = {
+    'pressure': ['Pa', 'kPa', 'bar', 'atm', 'psi', 'mmHg'],
+    'temperature': ['K', 'C', 'F'],
+    'energy': ['J', 'kJ', 'cal', 'BTU', 'kWh'],
+    'power': ['W', 'kW', 'hp'],
+    'length': ['m', 'cm', 'mm', 'ft', 'in'],
+    'mass': ['kg', 'g', 'lb', 't'],
+    'amount of substance': ['mol', 'kmol', 'lbmol'],
+    'volume': ['L', 'mL', 'm3', 'ft3', 'gal'],
+    'dynamic viscosity': ['Pa.s', 'cP'],
+    'kinematic viscosity / diffusivity': ['m2/s', 'cSt'],
+    'amount per mass': ['mol/kg', 'mmol/g'],
+    'energy per amount': ['kJ/mol', 'kcal/mol'],
+    'molar concentration': ['mol/m3', 'M', 'mM'],
+    'velocity': ['m/s', 'km/h', 'mph'],
+    'density': ['kg/m3', 'g/cm3'],
+    'time': ['s', 'min', 'h', 'day'],
+    'dimensionless': ['%', 'ppm', 'ppb']
+  };
+
+  const MWDIM = d(0,1,0,0,-1);          /* kg/mol */
+
+  function normalize(str) {
+    return str
+      .replace(/[µμ]/g, 'u')
+      .replace(/Å/g, 'angstrom')
+      .replace(/Ω|Ω/g, 'ohm')
+      .replace(/·|⋅|×/g, '*')
+      .replace(/−/g, '-')
+      .replace(/°\s*/g, '')
+      .replace(/⁻/g, '^-')
+      .replace(/[²]/g, '^2').replace(/[³]/g, '^3')
+      .replace(/⁰/g, '^0').replace(/¹/g, '^1')
+      .replace(/⁴/g, '^4').replace(/⁵/g, '^5')
+      .replace(/⁶/g, '^6').replace(/⁷/g, '^7')
+      .replace(/⁸/g, '^8').replace(/⁹/g, '^9');
+  }
+
+  function lookupSymbol(sym) {
+    if (U[sym]) return { f: U[sym][0], dim: U[sym][1], off: U[sym][2].off || 0, sym };
+    if (ALIAS[sym] !== undefined) return lookupSymbol(ALIAS[sym]);
+    const lower = sym.toLowerCase();
+    const ciKeys = Object.keys(U).filter(k => k.toLowerCase() === lower);
+    if (ciKeys.length === 1) return lookupSymbol(ciKeys[0]);
+    const ciAlias = Object.keys(ALIAS).filter(k => k.toLowerCase() === lower);
+    if (ciAlias.length === 1) return lookupSymbol(ALIAS[ciAlias[0]]);
+    for (const p of Object.keys(PREFIX)) {
+      if (sym.length > p.length && sym.startsWith(p)) {
+        const rest = sym.slice(p.length);
+        const base = U[rest] ? rest : (ALIAS[rest] && U[ALIAS[rest]] ? ALIAS[rest] : null);
+        if (base && U[base][2].pre) {
+          return { f: PREFIX[p] * U[base][0], dim: U[base][1], off: 0, sym };
+        }
+      }
+    }
+    return null;
+  }
+
+  function parseFactor(tok) {
+    let whole = lookupSymbol(tok);
+    if (whole) return { ...whole, exp: 1 };
+    const m = tok.match(/^(.+?)\^?([-+]?\d+)$/);
+    if (m) {
+      const u = lookupSymbol(m[1]);
+      if (u) return { ...u, exp: parseInt(m[2], 10) };
+    }
+    return null;
+  }
+
+  /* Juxtaposed shorthand like "m2K" (= m^2·K) or "molK": longest valid prefix, rest recursively. */
+  function parseFactors(tok) {
+    const single = parseFactor(tok);
+    if (single) return [single];
+    for (let i = tok.length - 1; i >= 1; i--) {
+      const left = parseFactor(tok.slice(0, i));
+      if (!left) continue;
+      const right = parseFactors(tok.slice(i));
+      if (right) return [left, ...right];
+    }
+    return null;
+  }
+
+  /* Parse a unit expression like "W/m2K", "kJ/mol", "Pa.s", "BTU/h.ft2.F". */
+  function parseUnitExpr(str) {
+    str = str.trim();
+    if (!str) return null;
+    const groups = str.split('/');
+    let f = 1, dim = D0.slice(), nFac = 0, offInfo = null;
+    for (let gi = 0; gi < groups.length; gi++) {
+      const sign = gi === 0 ? 1 : -1;
+      const toks = groups[gi].split(/[*\s.]+/).filter(Boolean);
+      if (gi === 0 && toks.length === 0) return null;
+      for (const tok of toks) {
+        const facs = parseFactors(tok);
+        if (!facs) return { error: tok };
+        for (const fac of facs) {
+          const e = sign * fac.exp;
+          f *= Math.pow(fac.f, e);
+          for (let i = 0; i < 7; i++) dim[i] += fac.dim[i] * e;
+          nFac++;
+          if (fac.off) offInfo = { off: fac.off, f: fac.f };
+        }
+      }
+    }
+    const simple = nFac === 1;
+    return { f, dim, str, off: (simple && offInfo) ? offInfo.off : 0, simple };
+  }
+
+  /* Leading arithmetic expression: "10*10*10", "(1+2)/4", "2^3", "2.7e5", "101,325".
+     Recursive descent, no eval(); stops at the first letter (start of the units). */
+  function parseNumberExpr(str) {
+    let pos = 0;
+    const NUM = /^(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.?\d*(?:[eE][-+]?\d+)?|\.\d+)/;
+    function ws() { while (pos < str.length && /\s/.test(str[pos])) pos++; }
+    function primary() {
+      ws();
+      if (str[pos] === '(') {
+        const save = pos; pos++;
+        const v = additive();
+        ws();
+        if (v === null || str[pos] !== ')') { pos = save; return null; }
+        pos++; return v;
+      }
+      const m = str.slice(pos).match(NUM);
+      if (!m) return null;
+      pos += m[0].length;
+      return parseFloat(m[0].replace(/,/g, ''));
+    }
+    function unary() {
+      ws();
+      if (str[pos] === '-') { const s = pos; pos++; const v = unary(); if (v === null) { pos = s; return null; } return -v; }
+      if (str[pos] === '+') { const s = pos; pos++; const v = unary(); if (v === null) { pos = s; return null; } return v; }
+      return power();
+    }
+    function power() {
+      let base = primary();
+      if (base === null) return null;
+      ws();
+      if (str[pos] === '^') {
+        const save = pos; pos++;
+        const e = unary();
+        if (e === null) { pos = save; return base; }
+        return Math.pow(base, e);
+      }
+      return base;
+    }
+    function multiplicative() {
+      let v = unary();
+      if (v === null) return null;
+      for (;;) {
+        ws();
+        const op = str[pos];
+        if (op !== '*' && op !== '/') return v;
+        const save = pos; pos++;
+        const r = unary();
+        if (r === null) { pos = save; return v; }
+        v = op === '*' ? v * r : v / r;
+      }
+    }
+    function additive() {
+      let v = multiplicative();
+      if (v === null) return null;
+      for (;;) {
+        ws();
+        const op = str[pos];
+        if (op !== '+' && op !== '-') return v;
+        const save = pos; pos++;
+        const r = multiplicative();
+        if (r === null) { pos = save; return v; }
+        v = op === '+' ? v + r : v - r;
+      }
+    }
+    const value = additive();
+    if (value === null) return null;
+    ws();
+    return { value, len: pos };
+  }
+
+  function dimsEqual(a, b) { return a.every((x, i) => Math.abs(x - b[i]) < 1e-9); }
+  function dimDiff(a, b) { return a.map((x, i) => x - b[i]); }
+  function quantityName(dim) { return QNAMES[dim.join(',')] || null; }
+
+  function dimHuman(dim) {
+    const names = ['m', 'kg', 's', 'K', 'mol', 'A', 'cd'];
+    const parts = [];
+    dim.forEach((e, i) => {
+      if (Math.abs(e) > 1e-9) parts.push(names[i] + (e === 1 ? '' : '^' + (Math.round(e*100)/100)));
+    });
+    return parts.length ? parts.join('·') : '1 (dimensionless)';
+  }
+
+  /* value in source units -> value in target units; both parsed exprs. mw in g/mol or null. */
+  function convert(v, src, tgt, mw) {
+    if (dimsEqual(src.dim, tgt.dim)) {
+      const siVal = v * src.f + (src.off || 0);
+      return { ok: true, value: (siVal - (tgt.off || 0)) / tgt.f, usedMW: false };
+    }
+    if (mw) {
+      const mwSI = mw * 1e-3;                       /* kg/mol */
+      const diff = dimDiff(src.dim, tgt.dim);
+      if (dimsEqual(diff, MWDIM)) return { ok: true, value: v * src.f / mwSI / tgt.f, usedMW: true };
+      if (dimsEqual(diff, MWDIM.map(x => -x))) return { ok: true, value: v * src.f * mwSI / tgt.f, usedMW: true };
+    } else {
+      const diff = dimDiff(src.dim, tgt.dim);
+      if (dimsEqual(diff, MWDIM) || dimsEqual(diff, MWDIM.map(x => -x)))
+        return { ok: false, needMW: true };
+    }
+    return { ok: false };
+  }
+
+  /* Full query parser. Returns a structured result for the UI. */
+  function evaluate(raw) {
+    let text = normalize(raw).trim();
+    if (!text) return { state: 'empty' };
+
+    let mw = null;
+    const mwMatch = text.match(/\(\s*(?:MW|Mw|mw|M)\s*[=:]?\s*([0-9.eE+-]+)\s*\)|\b(?:MW|Mw|mw)\s*[=:]\s*([0-9.eE+-]+)/);
+    if (mwMatch) {
+      mw = parseFloat(mwMatch[1] || mwMatch[2]);
+      text = (text.slice(0, mwMatch.index) + text.slice(mwMatch.index + mwMatch[0].length)).trim();
+      text = text.replace(/,\s*$/, '');
+    }
+
+    const numExpr = parseNumberExpr(text);
+    let value = 1, rest = text;
+    if (numExpr) {
+      value = numExpr.value;
+      rest = text.slice(numExpr.len);
+    }
+    if (!rest.trim()) return { state: 'incomplete', msg: 'now type a unit…' };
+
+    /* try every separator position until both sides parse */
+    const sepRe = /\s+(?:in|to|as)\s+|\s*(?:->|→|=)\s*/gi;
+    let m2, candidates = [];
+    while ((m2 = sepRe.exec(rest)) !== null)
+      candidates.push({ i: m2.index, len: m2[0].length });
+
+    for (const c of candidates) {
+      const srcStr = rest.slice(0, c.i);
+      const tgtSide = rest.slice(c.i + c.len);
+      const src = parseUnitExpr(srcStr);
+      if (!src || src.error) continue;
+      const tgtStrs = tgtSide.split(/\s*,\s*|\s+and\s+/).filter(Boolean);
+      if (!tgtStrs.length) continue;
+      const tgts = tgtStrs.map(parseUnitExpr);
+      if (tgts.some(t => !t || t.error)) continue;
+
+      const results = tgts.map(t => ({ tgt: t, ...convert(value, src, t, mw) }));
+      return {
+        state: 'result', value, src, mw,
+        quantity: quantityName(src.dim), dim: src.dim, results
+      };
+    }
+
+    /* no valid split: try source only */
+    const src = parseUnitExpr(rest);
+    if (src && !src.error) {
+      const q = quantityName(src.dim);
+      return { state: 'partial', value, src, quantity: q,
+               suggest: (q && SUGGEST[q]) ? SUGGEST[q].filter(s => s !== src.str) : [] };
+    }
+    return { state: 'error',
+             msg: src && src.error ? 'unrecognized unit: “' + src.error + '”'
+                                   : 'could not parse the unit expression' };
+  }
+
+  function sigfig(x, n) {
+    if (x === 0) return '0';
+    if (!isFinite(x)) return String(x);
+    return Number(x.toPrecision(n)).toString();
+  }
+  function fmtPlain(x, n) {
+    const s = Number(Number(x).toPrecision(n));
+    const a = Math.abs(s);
+    if (a !== 0 && (a >= 1e15 || a < 1e-4)) return null;
+    const parts = s.toString().split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return parts.join('.');
+  }
+  function fmtSci(x, n) {
+    if (x === 0) return '0';
+    const e = Math.floor(Math.log10(Math.abs(x)));
+    const mant = x / Math.pow(10, e);
+    return Number(mant.toPrecision(n)).toString() + '×10^' + e;
+  }
+
+  return { evaluate, parseUnitExpr, convert, quantityName, dimHuman, sigfig, fmtPlain, fmtSci, SUGGEST };
+})();
+if (typeof module !== 'undefined') module.exports = UC;
+</script>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const inp = $('inp'), out = $('out'), sigSel = $('sig');
+  const LSKEY = 'unitconv_v1';
+
+  const EXAMPLES = ['2.7 atm in Pa', '10*10*10 Pa in atm', '77 F in K', '1 cP in Pa.s',
+    '3.2 mmol/g in mol/kg, mg/g (MW 44)', '1 W/m2K in BTU/h.ft2.F', '450 mmHg'];
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function sciHtml(s) {
+    return esc(s).replace(/\^(-?\d+)/, '<sup>$1</sup>').replace(/×/, '&thinsp;&times;&thinsp;');
+  }
+
+  let lastGood = null;
+
+  function render() {
+    const r = UC.evaluate(inp.value);
+    const n = parseInt(sigSel.value, 10);
+    let h = '';
+
+    if (r.state === 'empty') {
+      h = '<div class="hint">Examples below — or start typing.</div>';
+    } else if (r.state === 'incomplete') {
+      h = '<div class="hint">' + esc(r.msg) + '</div>';
+    } else if (r.state === 'error') {
+      h = '<div class="hint err">' + esc(r.msg) + '</div>';
+    } else if (r.state === 'partial') {
+      const q = r.quantity ? '<span class="qbadge">' + esc(r.quantity) + '</span> ' : '';
+      h = '<div class="hint">' + q + 'recognized — waiting for a target unit ("in …")';
+      if (r.suggest && r.suggest.length) {
+        h += '</div><div class="chips">' + r.suggest.map(s =>
+          '<button class="chip" data-sg="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div>';
+      } else h += '</div>';
+    } else if (r.state === 'result') {
+      const q = r.quantity || UC.dimHuman(r.dim);
+      h = '<div style="margin-top:10px;"><span class="qbadge">' + esc(q) + '</span>';
+      const first = r.results[0];
+      if (first.ok && !first.usedMW && !r.src.off && !first.tgt.off) {
+        const factor = UC.sigfig(r.src.f / first.tgt.f, Math.max(n, 7));
+        h += '<span class="factor">1 ' + esc(r.src.str) + ' = ' + esc(factor) + ' ' + esc(first.tgt.str) + '</span>';
+      }
+      h += '</div>';
+      let anyOk = false;
+      r.results.forEach((res, i) => {
+        if (res.ok) {
+          anyOk = true;
+          const plain = UC.fmtPlain(res.value, n);
+          const sci = UC.fmtSci(res.value, n);
+          const valTxt = plain !== null ? plain : sciHtml(sci);
+          h += '<div class="res"><span class="cbtns">' +
+            '<button class="cbtn" data-copy="' + esc(UC.sigfig(res.value, n)) + '" data-i="' + i + '">copy number</button>' +
+            '<button class="cbtn" data-copy="' + esc(UC.sigfig(res.value, n) + ' ' + res.tgt.str) + '">copy with unit</button>' +
+            '</span><span class="val">' + valTxt + ' ' + esc(res.tgt.str) + '</span>';
+          if (plain !== null) h += '<span class="sci">= ' + sciHtml(sci) + ' ' + esc(res.tgt.str) + '</span>';
+          if (res.usedMW) h += ' <span class="assume">(using MW = ' + r.mw + ' g/mol)</span>';
+          h += '</div>';
+        } else if (res.needMW) {
+          h += '<div class="hint">crossing mol ↔ mass needs a molar mass — add e.g. <b>(MW 44)</b> at the end</div>';
+        } else {
+          h += '<div class="hint err">cannot convert ' + esc(UC.dimHuman(r.src.dim)) +
+               ' to ' + esc(UC.dimHuman(res.tgt.dim)) + ' (“' + esc(res.tgt.str) + '”)</div>';
+        }
+      });
+      if (anyOk) lastGood = inp.value.trim();
+    }
+    out.innerHTML = h;
+  }
+
+  /* history */
+  function loadHist() { try { return JSON.parse(localStorage.getItem(LSKEY)) || []; } catch (e) { return []; } }
+  function saveHist(list) { try { localStorage.setItem(LSKEY, JSON.stringify(list)); } catch (e) {} }
+  function pushHist(q) {
+    if (!q) return;
+    let list = loadHist().filter(x => x !== q);
+    list.unshift(q);
+    if (list.length > 8) list = list.slice(0, 8);
+    saveHist(list); renderHist();
+  }
+  function renderHist() {
+    const list = loadHist();
+    $('histlbl').style.display = list.length ? '' : 'none';
+    $('history').innerHTML = list.map(x =>
+      '<button class="chip" data-fill="' + esc(x) + '">' + esc(x) + '</button>').join('');
+  }
+
+  $('examples').innerHTML = EXAMPLES.map(x =>
+    '<button class="chip" data-fill="' + esc(x) + '">' + esc(x) + '</button>').join('');
+
+  document.addEventListener('click', ev => {
+    const t = ev.target;
+    if (t.dataset && t.dataset.fill !== undefined) {
+      inp.value = t.dataset.fill; inp.focus(); render();
+    } else if (t.dataset && t.dataset.sg !== undefined) {
+      inp.value = inp.value.replace(/\s+$/, '') + ' in ' + t.dataset.sg;
+      inp.focus(); render();
+    } else if (t.dataset && t.dataset.copy !== undefined) {
+      navigator.clipboard.writeText(t.dataset.copy).then(() => {
+        t.classList.add('flash'); const old = t.textContent; t.textContent = 'copied!';
+        setTimeout(() => { t.classList.remove('flash'); t.textContent = old; }, 900);
+      });
+    }
+  });
+
+  inp.addEventListener('input', render);
+  inp.addEventListener('keydown', ev => {
+    if (ev.key === 'ArrowDown') {
+      const sg = out.querySelector('[data-sg]');
+      if (sg) { ev.preventDefault(); sg.click(); }
+    } else if (ev.key === 'Enter') {
+      pushHist(lastGood);
+    }
+  });
+  inp.addEventListener('blur', () => pushHist(lastGood));
+  sigSel.addEventListener('change', render);
+
+  renderHist(); render();
+})();
+</script>
+</body>
+</html>

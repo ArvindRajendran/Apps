@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>McCabe&ndash;Thiele Designer</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --ok: #16a34a; --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --ok: #4ade80; --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1160px; }
+  h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin: 6px 0 18px; }
+  .layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 16px;
+  }
+  .main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  /* ---- controls ---- */
+  .ctl { margin-bottom: 13px; }
+  .ctl:last-child { margin-bottom: 0; }
+  .ctl .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .ctl label { font-size: 0.82rem; font-weight: 600; }
+  .ctl label .d { color: var(--muted); font-weight: 400; }
+  .ctl input[type=number] {
+    width: 84px; text-align: right; font-size: 0.86rem; padding: 4px 7px;
+    border: 1.5px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--text); outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .ctl input[type=number]:focus { border-color: var(--accent); }
+  .ctl input[type=range] { width: 100%; margin-top: 6px; accent-color: var(--accent); }
+  .hint { font-size: 0.74rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .seg { display: flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 6px; }
+  .seg button {
+    flex: 1; border: none; background: transparent; color: var(--muted);
+    padding: 6px 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: #fff; }
+  select {
+    width: 100%; margin-top: 6px; padding: 6px 8px; font-size: 0.84rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  .divider { border-top: 1px solid var(--border); margin: 14px 0; }
+  .grouplbl {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+
+  /* ---- chart ---- */
+  .chartholder { position: relative; width: 100%; }
+  canvas { display: block; width: 100%; border-radius: 8px; }
+  .btns { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btns .lbl { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  button.act {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  }
+  button.act:hover { border-color: var(--accent); color: var(--accent); }
+  button.act.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  button.act.primary:hover { filter: brightness(1.1); color: #fff; }
+  .spacer { flex: 1; }
+
+  /* ---- results ---- */
+  .rgrid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px;
+  }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
+  .stat .num { font-size: 1.15rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat .lbl { color: var(--muted); font-size: 0.72rem; margin-top: 1px; line-height: 1.3; }
+  .eqs {
+    margin-top: 12px; font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.78rem; line-height: 1.75; color: var(--muted); overflow-x: auto; white-space: nowrap;
+  }
+  .eqs b { color: var(--text); font-weight: 600; }
+  .warn { margin-top: 10px; color: var(--danger); font-size: 0.85rem; font-weight: 600; display: none; }
+  .warn.show { display: block; }
+
+  /* ---- stage table ---- */
+  details summary {
+    cursor: pointer; font-size: 0.88rem; font-weight: 700; color: var(--text);
+    list-style-position: inside;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 0.82rem; }
+  th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  th { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  td.feed { color: var(--ok); font-weight: 700; }
+
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>McCabe&ndash;Thiele Distillation Designer</h1>
+  <div class="sub">Binary distillation at constant pressure with constant relative volatility &mdash;
+    equilibrium-stage construction, live as you drag.</div>
+
+  <div class="layout">
+    <aside class="panel">
+      <div class="grouplbl">System</div>
+      <div class="ctl">
+        <div class="top"><label>Relative volatility &alpha;</label>
+          <input type="number" id="alpha_n" min="1.01" step="0.05" value="2.5"></div>
+        <input type="range" id="alpha_r" min="1.05" max="10" step="0.05" value="2.5">
+      </div>
+
+      <div class="divider"></div>
+      <div class="grouplbl">Compositions (mole fraction, light key)</div>
+      <div class="ctl">
+        <div class="top"><label>Distillate x<sub>D</sub></label>
+          <input type="number" id="xd_n" min="0.01" max="0.999" step="0.005" value="0.95"></div>
+        <input type="range" id="xd_r" min="0.5" max="0.995" step="0.005" value="0.95">
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Feed z<sub>F</sub></label>
+          <input type="number" id="zf_n" min="0.005" max="0.995" step="0.005" value="0.5"></div>
+        <input type="range" id="zf_r" min="0.05" max="0.95" step="0.005" value="0.5">
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Bottoms x<sub>B</sub></label>
+          <input type="number" id="xb_n" min="0.001" max="0.99" step="0.005" value="0.05"></div>
+        <input type="range" id="xb_r" min="0.005" max="0.5" step="0.005" value="0.05">
+      </div>
+
+      <div class="divider"></div>
+      <div class="grouplbl">Feed &amp; operation</div>
+      <div class="ctl">
+        <div class="top"><label>Feed quality q</label>
+          <input type="number" id="q_n" step="0.05" value="1"></div>
+        <input type="range" id="q_r" min="-0.5" max="1.5" step="0.05" value="1">
+        <div class="hint" id="qdesc"></div>
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Reflux</label></div>
+        <div class="seg">
+          <button id="modeMult" class="on">R / R<sub>min</sub></button>
+          <button id="modeR">R directly</button>
+        </div>
+      </div>
+      <div class="ctl" id="ctlMult">
+        <div class="top"><label>R / R<sub>min</sub></label>
+          <input type="number" id="mult_n" min="1.01" step="0.05" value="1.5"></div>
+        <input type="range" id="mult_r" min="1.05" max="4" step="0.05" value="1.5">
+      </div>
+      <div class="ctl" id="ctlR" style="display:none">
+        <div class="top"><label>Reflux ratio R</label>
+          <input type="number" id="r_n" min="0.01" step="0.05" value="1.65"></input></div>
+        <input type="range" id="r_r" min="0.1" max="10" step="0.05" value="1.65">
+      </div>
+
+      <div class="divider"></div>
+      <div class="grouplbl">Stage model</div>
+      <div class="ctl">
+        <div class="top"><label>Murphree efficiency E<sub>MV</sub> <span class="d">(%)</span></label>
+          <input type="number" id="eff_n" min="10" max="100" step="5" value="100"></div>
+        <input type="range" id="eff_r" min="30" max="100" step="5" value="100">
+        <div class="hint">100% = equilibrium stages. Applied to plates; a partial condenser stays at equilibrium.</div>
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Condenser</label></div>
+        <select id="cond">
+          <option value="total" selected>Total condenser (distillate = liquid)</option>
+          <option value="partial">Partial condenser (counts as a stage)</option>
+        </select>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="panel">
+        <div class="chartholder"><canvas id="cv"></canvas></div>
+        <div class="btns">
+          <span class="lbl">Stage animation:</span>
+          <button class="act" id="bReset" title="Hide all stages">&#9198;</button>
+          <button class="act" id="bStep">+1 stage</button>
+          <button class="act" id="bPlay">&#9654; Play</button>
+          <button class="act" id="bAll">Show all</button>
+          <span class="spacer"></span>
+          <button class="act primary" id="bPng">&#11015; PNG</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="rgrid" id="rgrid"></div>
+        <div class="eqs" id="eqs"></div>
+        <div class="warn" id="warn"></div>
+      </div>
+
+      <details class="panel">
+        <summary>Stage-by-stage table</summary>
+        <table id="stagetbl"><thead>
+          <tr><th>Stage</th><th>Section</th><th>y<sub>n</sub> (vapor)</th><th>x<sub>n</sub> (liquid)</th></tr>
+        </thead><tbody></tbody></table>
+      </details>
+    </div>
+  </div>
+
+  <div class="footer">
+    Stages numbered from the top; the partial reboiler counts as one equilibrium stage
+    (and a partial condenser, when selected, as stage&nbsp;1).
+    Feed placed at the optimal stage (operating-line switch at the q-line intersection).
+    R<sub>min</sub> from the q-line pinch; N<sub>min</sub> from the Fenske equation.<br>
+    Equilibrium: y = &alpha;x / (1 + (&alpha;&minus;1)x). Works offline &mdash; single file, share freely.
+  
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; July 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/" style="color:inherit">CC BY 4.0</a> &middot; <a href="../Apps.html" style="color:inherit">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= math ================= */
+const eqY = (x, a) => a * x / (1 + (a - 1) * x);
+const eqX = (y, a) => y / (a - (a - 1) * y);
+
+function qLineEqIntersect(p) {
+  // intersection of the q-line with the equilibrium curve
+  const { alpha: a, zF, q } = p;
+  if (Math.abs(q - 1) < 1e-9) return { x: zF, y: eqY(zF, a) };
+  if (Math.abs(q) < 1e-9) return { x: eqX(zF, a), y: zF };
+  const m = q / (q - 1), c = -zF / (q - 1);
+  // (m x + c)(1+(a-1)x) = a x  ->  m(a-1) x^2 + (m + c(a-1) - a) x + c = 0
+  const A = m * (a - 1), B = m + c * (a - 1) - a, C = c;
+  const disc = B * B - 4 * A * C;
+  if (disc < 0) return null;
+  const r1 = (-B + Math.sqrt(disc)) / (2 * A), r2 = (-B - Math.sqrt(disc)) / (2 * A);
+  const cands = [r1, r2].filter(x => x > 1e-9 && x < 1 - 1e-9)
+    .map(x => ({ x, y: m * x + c }))
+    .filter(pt => pt.y >= pt.x - 1e-9 && pt.y <= 1 + 1e-9)
+    .filter(pt => q > 1 ? pt.x >= p.zF - 1e-9 : pt.x <= p.zF + 1e-9);
+  if (!cands.length) return null;
+  cands.sort((u, v) => Math.abs(u.x - p.zF) - Math.abs(v.x - p.zF));
+  return cands[0];
+}
+
+function computeDesign(p) {
+  const d = { warnings: [] };
+  // pinch & Rmin
+  d.pinch = qLineEqIntersect(p);
+  if (!d.pinch) { d.warnings.push("Could not locate the q-line / equilibrium intersection."); return d; }
+  d.Rmin = (p.xD - d.pinch.y) / (d.pinch.y - d.pinch.x);
+  if (d.Rmin < 0) d.Rmin = 0;
+  // Fenske
+  d.Nmin = Math.log((p.xD / (1 - p.xD)) * ((1 - p.xB) / p.xB)) / Math.log(p.alpha);
+  // actual R
+  d.R = p.refluxMode === "mult" ? p.mult * d.Rmin : p.R;
+  if (p.refluxMode === "mult" && d.Rmin < 1e-6)
+    d.warnings.push("Rₘᵢₙ ≈ 0 for these inputs — switch to entering R directly.");
+  // operating lines
+  d.rol = { m: d.R / (d.R + 1), c: p.xD / (d.R + 1) };
+  if (Math.abs(p.q - 1) < 1e-9) {
+    d.xi = p.zF; d.yi = d.rol.m * p.zF + d.rol.c;
+  } else {
+    const mq = p.q / (p.q - 1), cq = -p.zF / (p.q - 1);
+    if (Math.abs(mq - d.rol.m) < 1e-12) { d.warnings.push("q-line parallel to the rectifying line."); return d; }
+    d.xi = (cq - d.rol.c) / (d.rol.m - mq);
+    d.yi = d.rol.m * d.xi + d.rol.c;
+  }
+  d.sol = { m: (d.yi - p.xB) / (d.xi - p.xB), c: 0 };
+  d.sol.c = p.xB - d.sol.m * p.xB;
+  d.feasible = d.R > d.Rmin && d.yi < eqY(d.xi, p.alpha) - 1e-9 && d.yi > d.xi;
+  if (!d.feasible)
+    d.warnings.push("Infeasible: R ≤ Rₘᵢₙ — the operating lines touch/cross the equilibrium curve at the pinch. Increase R.");
+  d.boilup = d.sol.m > 1 + 1e-9 ? 1 / (d.sol.m - 1) : Infinity;
+  d.DoverF = (p.zF - p.xB) / (p.xD - p.xB);
+  if (d.feasible) stepStages(p, d);
+  return d;
+}
+
+function pseudoY(x, p, d) {
+  const yop = x > d.xi ? d.rol.m * x + d.rol.c : d.sol.m * x + d.sol.c;
+  return yop + p.E * (eqY(x, p.alpha) - yop);
+}
+function solvePseudoX(yTarget, xHi, p, d) {
+  let lo = 0, hi = xHi;
+  for (let i = 0; i < 70; i++) {
+    const mid = 0.5 * (lo + hi);
+    if (pseudoY(mid, p, d) > yTarget) hi = mid; else lo = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+function stepStages(p, d) {
+  const MAXN = 60;
+  const stages = [];
+  let x = p.xD, y = p.xD, feedStage = null, pinched = false, Nfrac = null;
+  for (let n = 1; n <= MAXN; n++) {
+    const trueEq = p.E >= 0.999 || (n === 1 && p.condenser === "partial");
+    const xe = trueEq ? eqX(y, p.alpha) : solvePseudoX(y, x, p, d);
+    if (x - xe < 1e-10) { pinched = true; break; }
+    const st = { n, xPrev: x, y, xe };
+    if (xe <= d.xi + 1e-12 && feedStage === null) feedStage = n;
+    if (xe <= p.xB + 1e-12) {           // reached the bottoms spec
+      st.last = true;
+      stages.push(st);
+      Nfrac = (n - 1) + (x - p.xB) / (x - xe);
+      break;
+    }
+    const useROL = xe > d.xi;
+    st.yNew = useROL ? d.rol.m * xe + d.rol.c : d.sol.m * xe + d.sol.c;
+    if (y - st.yNew < 1e-10) { stages.push(st); pinched = true; break; }
+    stages.push(st);
+    x = xe; y = st.yNew;
+  }
+  d.stages = stages;
+  d.feedStage = feedStage;
+  d.Nfrac = Nfrac;
+  d.pinched = pinched || Nfrac === null;
+  if (d.pinched)
+    d.warnings.push("Stepping stalled before reaching xʙ (" + stages.length +
+      "+ stages) — R is too close to Rₘᵢₙ (or Eₘᵥ too low). Increase R.");
+}
+
+/* ================= state & controls ================= */
+const $ = id => document.getElementById(id);
+let refluxMode = "mult";
+let reveal = Infinity;          // stages shown (animation)
+let playTimer = null;
+let mouse = null;
+let design = null, params = null;
+
+function readParams() {
+  return {
+    alpha: parseFloat($("alpha_n").value),
+    xD: parseFloat($("xd_n").value),
+    zF: parseFloat($("zf_n").value),
+    xB: parseFloat($("xb_n").value),
+    q: parseFloat($("q_n").value),
+    mult: parseFloat($("mult_n").value),
+    R: parseFloat($("r_n").value),
+    E: parseFloat($("eff_n").value) / 100,
+    condenser: $("cond").value,
+    refluxMode
+  };
+}
+function validate(p) {
+  const errs = [];
+  if (!(p.alpha > 1)) errs.push("α must be > 1.");
+  for (const [v, s] of [[p.xD, "xᴅ"], [p.zF, "zғ"], [p.xB, "xʙ"]])
+    if (!(v > 0 && v < 1)) errs.push(s + " must be between 0 and 1.");
+  if (!(p.xB < p.zF && p.zF < p.xD)) errs.push("Require xʙ < zғ < xᴅ.");
+  if (p.refluxMode === "mult" ? !(p.mult > 1) : !(p.R > 0))
+    errs.push(p.refluxMode === "mult" ? "R/Rₘᵢₙ must be > 1." : "R must be > 0.");
+  if (!(p.E > 0 && p.E <= 1)) errs.push("Efficiency must be 10–100%.");
+  return errs;
+}
+
+const fmt = (v, n = 3) => !isFinite(v) ? "∞" : v.toFixed(n);
+
+function qDescription(q) {
+  if (Math.abs(q - 1) < 1e-9) return "Saturated liquid (vertical q-line)";
+  if (Math.abs(q) < 1e-9) return "Saturated vapor (horizontal q-line)";
+  if (q > 1) return "Subcooled liquid";
+  if (q > 0) return "Two-phase feed, " + Math.round((1 - q) * 100) + "% vapor";
+  return "Superheated vapor";
+}
+
+function update() {
+  params = readParams();
+  $("qdesc").textContent = qDescription(params.q);
+  const errs = validate(params);
+  const warnEl = $("warn");
+  if (errs.length) {
+    design = null;
+    warnEl.textContent = errs.join(" ");
+    warnEl.classList.add("show");
+    $("rgrid").innerHTML = ""; $("eqs").innerHTML = "";
+    document.querySelector("#stagetbl tbody").innerHTML = "";
+    draw();
+    return;
+  }
+  design = computeDesign(params);
+  if (design.warnings.length) {
+    warnEl.textContent = design.warnings.join(" ");
+    warnEl.classList.add("show");
+  } else warnEl.classList.remove("show");
+  renderResults();
+  renderTable();
+  draw();
+}
+
+function renderResults() {
+  const d = design, p = params;
+  const tiles = [];
+  const add = (num, lbl) => tiles.push('<div class="stat"><div class="num">' + num + '</div><div class="lbl">' + lbl + "</div></div>");
+  if (d.stages && !d.pinched) {
+    add(fmt(d.Nfrac, 1), "Equilibrium stages (total, incl. reboiler" + (p.condenser === "partial" ? " &amp; condenser" : "") + ")");
+    add(Math.ceil(d.Nfrac - 1e-9), "Stages rounded up");
+    add(d.feedStage ?? "–", "Feed stage (from top)");
+  } else if (d.stages) {
+    add(d.stages.length + "+", "Stages (did not converge)");
+  }
+  add(fmt(d.Rmin), "R<sub>min</sub> (pinch)");
+  add(fmt(d.R), "R used" + (p.refluxMode === "mult" ? " (= " + fmt(p.mult, 2) + " × R<sub>min</sub>)" : ""));
+  if (p.refluxMode === "direct" && d.Rmin > 1e-9) add(fmt(d.R / d.Rmin, 2), "R / R<sub>min</sub>");
+  add(fmt(d.Nmin, 1), "N<sub>min</sub>, total reflux (Fenske, incl. reboiler)");
+  add(fmt(d.DoverF, 3), "D / F (mass balance)");
+  add(fmt(d.boilup, 2), "Boil-up ratio V&#772; / B");
+  $("rgrid").innerHTML = tiles.join("");
+  const qs = Math.abs(p.q - 1) < 1e-9 ? "x = " + fmt(p.zF)
+    : "y = " + fmt(p.q / (p.q - 1)) + " x " + (-p.zF / (p.q - 1) >= 0 ? "+ " : "− ") + fmt(Math.abs(p.zF / (p.q - 1)));
+  $("eqs").innerHTML =
+    "<b>Rectifying:</b> y = " + fmt(d.rol.m) + " x + " + fmt(d.rol.c) +
+    " &nbsp;(L/V = R/(R+1))<br>" +
+    "<b>Stripping:</b>&nbsp; y = " + fmt(d.sol.m) + " x " + (d.sol.c >= 0 ? "+ " : "− ") + fmt(Math.abs(d.sol.c)) +
+    " &nbsp;(L&#772;/V&#772;)<br>" +
+    "<b>q-line:</b>&nbsp;&nbsp;&nbsp;&nbsp; " + qs +
+    " &nbsp;&nbsp;<b>Intersection:</b> (" + fmt(d.xi) + ", " + fmt(d.yi) + ")" +
+    " &nbsp;&nbsp;<b>Pinch:</b> (" + fmt(d.pinch.x) + ", " + fmt(d.pinch.y) + ")";
+}
+
+function renderTable() {
+  const tb = document.querySelector("#stagetbl tbody");
+  if (!design || !design.stages) { tb.innerHTML = ""; return; }
+  const p = params, d = design;
+  tb.innerHTML = d.stages.map(st => {
+    let sec;
+    if (p.condenser === "partial" && st.n === 1) sec = "Condenser";
+    else if (st.last && !d.pinched) sec = "Reboiler";
+    else sec = (d.feedStage !== null && st.n >= d.feedStage) ? "Stripping" : "Rectifying";
+    const isFeed = st.n === d.feedStage;
+    return "<tr><td" + (isFeed ? ' class="feed"' : "") + ">" + st.n + (isFeed ? " (feed)" : "") +
+      "</td><td>" + sec + "</td><td>" + fmt(st.y, 4) + "</td><td>" + fmt(st.xe, 4) + "</td></tr>";
+  }).join("");
+}
+
+/* ================= drawing ================= */
+const cv = $("cv"), ctx = cv.getContext("2d");
+const holder = document.querySelector(".chartholder");
+const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
+
+function palette() {
+  const s = getComputedStyle(document.documentElement);
+  const dark = darkMq.matches;
+  return {
+    bg: s.getPropertyValue("--card").trim(), text: s.getPropertyValue("--text").trim(),
+    muted: s.getPropertyValue("--muted").trim(), border: s.getPropertyValue("--border").trim(),
+    accent: s.getPropertyValue("--accent").trim(),
+    q: dark ? "#4ade80" : "#16a34a", rol: dark ? "#fb923c" : "#ea580c",
+    sol: dark ? "#c084fc" : "#9333ea", pinch: dark ? "#f87171" : "#dc2626",
+    grid: dark ? "rgba(148,163,184,.12)" : "rgba(100,116,139,.12)"
+  };
+}
+
+let W = 0, H = 0;
+const M = { l: 52, r: 14, t: 14, b: 44 };
+function px(x) { return M.l + x * (W - M.l - M.r); }
+function py(y) { return H - M.b - y * (H - M.t - M.b); }
+
+function sizeCanvas() {
+  const w = holder.getBoundingClientRect().width;
+  const h = Math.min(Math.max(w * 0.82, 340), 620);
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.height = h + "px";
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = w; H = h;
+}
+
+function line(x1, y1, x2, y2, color, width, dash) {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(px(x1), py(y1)); ctx.lineTo(px(x2), py(y2)); ctx.stroke();
+  ctx.restore();
+}
+function dot(x, y, color, r = 4) {
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(px(x), py(y), r, 0, 2 * Math.PI); ctx.fill();
+}
+
+function draw() {
+  const P = palette();
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = P.bg; ctx.fillRect(0, 0, W, H);
+  const p = params, d = design;
+
+  // axes & grid
+  ctx.font = "11px -apple-system, sans-serif";
+  ctx.fillStyle = P.muted; ctx.strokeStyle = P.grid; ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i++) {
+    const v = i / 10;
+    ctx.beginPath(); ctx.moveTo(px(v), py(0)); ctx.lineTo(px(v), py(1)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px(0), py(v)); ctx.lineTo(px(1), py(v)); ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillText(v.toFixed(1), px(v), H - M.b + 16);
+    ctx.textAlign = "right"; ctx.fillText(v.toFixed(1), M.l - 7, py(v) + 4);
+  }
+  ctx.strokeStyle = P.border; ctx.lineWidth = 1.4;
+  ctx.strokeRect(px(0), py(1), px(1) - px(0), py(0) - py(1));
+  ctx.fillStyle = P.text; ctx.textAlign = "center";
+  ctx.font = "600 12px -apple-system, sans-serif";
+  ctx.fillText("x — liquid mole fraction (light key)", (px(0) + px(1)) / 2, H - 8);
+  ctx.save();
+  ctx.translate(14, (py(0) + py(1)) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText("y — vapor mole fraction (light key)", 0, 0);
+  ctx.restore();
+
+  if (!p || !(p.alpha > 1)) return;
+
+  // 45° line
+  line(0, 0, 1, 1, P.muted, 1, [4, 4]);
+  // equilibrium curve
+  ctx.strokeStyle = P.accent; ctx.lineWidth = 2.2; ctx.beginPath();
+  for (let i = 0; i <= 240; i++) {
+    const x = i / 240, y = eqY(x, p.alpha);
+    i === 0 ? ctx.moveTo(px(x), py(y)) : ctx.lineTo(px(x), py(y));
+  }
+  ctx.stroke();
+
+  if (d && d.pinch) {
+    // pseudo-equilibrium curve (Murphree)
+    if (p.E < 0.999 && d.feasible) {
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]); ctx.beginPath();
+      for (let i = 0; i <= 160; i++) {
+        const x = p.xB + (p.xD - p.xB) * i / 160, y = pseudoY(x, p, d);
+        i === 0 ? ctx.moveTo(px(x), py(y)) : ctx.lineTo(px(x), py(y));
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    // Rmin construction (faint)
+    line(p.xD, p.xD, d.pinch.x, d.pinch.y, P.pinch, 1, [3, 4]);
+    // q-line
+    line(p.zF, p.zF, d.pinch.x, d.pinch.y, P.q, 2);
+    // operating lines
+    line(p.xD, p.xD, d.xi, d.yi, P.rol, 2);
+    line(p.xB, p.xB, d.xi, d.yi, P.sol, 2);
+    // staircase
+    if (d.stages && d.feasible) {
+      const k = Math.min(reveal, d.stages.length);
+      ctx.strokeStyle = P.text; ctx.lineWidth = 1.5;
+      ctx.fillStyle = P.text; ctx.font = "600 11px -apple-system, sans-serif"; ctx.textAlign = "left";
+      for (let i = 0; i < k; i++) {
+        const st = d.stages[i];
+        ctx.beginPath();
+        ctx.moveTo(px(st.xPrev), py(st.y)); ctx.lineTo(px(st.xe), py(st.y));
+        if (st.yNew !== undefined) ctx.lineTo(px(st.xe), py(st.yNew));
+        ctx.stroke();
+        const isFeed = st.n === d.feedStage;
+        ctx.fillStyle = isFeed ? P.q : P.muted;
+        ctx.fillText(String(st.n), px(st.xe) - 14, py(st.y) - 4);
+        ctx.fillStyle = P.text;
+      }
+    }
+    // markers
+    dot(p.xD, p.xD, P.rol); dot(p.xB, p.xB, P.sol); dot(p.zF, p.zF, P.q);
+    dot(d.pinch.x, d.pinch.y, P.pinch, 3.5);
+    ctx.font = "600 11px -apple-system, sans-serif"; ctx.textAlign = "left";
+    ctx.fillStyle = P.rol; ctx.fillText("xᴅ", px(p.xD) + 7, py(p.xD) + 12);
+    ctx.fillStyle = P.q; ctx.fillText("zғ", px(p.zF) + 7, py(p.zF) + 12);
+    ctx.fillStyle = P.sol; ctx.fillText("xʙ", px(p.xB) + 7, py(p.xB) + 12);
+  }
+
+  // legend
+  const items = [
+    ["Equilibrium y(x)", P.accent, false], ["y = x", P.muted, true],
+    ["q-line", P.q, false], ["Rectifying", P.rol, false], ["Stripping", P.sol, false],
+    ["Rₘᵢₙ pinch", P.pinch, true]
+  ];
+  if (p.E < 0.999) items.splice(1, 0, ["Murphree Eₘᵥ = " + Math.round(p.E * 100) + "%", P.accent, true]);
+  ctx.font = "11px -apple-system, sans-serif"; ctx.textAlign = "left";
+  let ly = M.t + 14;
+  for (const [label, color, dashed] of items) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.beginPath(); ctx.moveTo(M.l + 12, ly - 4); ctx.lineTo(M.l + 34, ly - 4); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = P.text; ctx.fillText(label, M.l + 40, ly);
+    ly += 16;
+  }
+
+  // crosshair readout
+  if (mouse) {
+    const mx = (mouse.x - M.l) / (W - M.l - M.r), my = (H - M.b - mouse.y) / (H - M.t - M.b);
+    if (mx >= 0 && mx <= 1 && my >= 0 && my <= 1) {
+      ctx.strokeStyle = P.grid; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px(mx), py(0)); ctx.lineTo(px(mx), py(1));
+      ctx.moveTo(px(0), py(my)); ctx.lineTo(px(1), py(my)); ctx.stroke();
+      ctx.fillStyle = P.muted; ctx.font = "11px -apple-system, sans-serif"; ctx.textAlign = "right";
+      ctx.fillText("x = " + mx.toFixed(3) + ",  y = " + my.toFixed(3) +
+        "   [y_eq(x) = " + eqY(mx, p.alpha).toFixed(3) + "]", px(1) - 6, py(0) - 6);
+    }
+  }
+}
+
+/* ================= wiring ================= */
+function pair(id) {
+  const n = $(id + "_n"), r = $(id + "_r");
+  n.addEventListener("input", () => { r.value = n.value; onParamChange(); });
+  r.addEventListener("input", () => { n.value = r.value; onParamChange(); });
+}
+["alpha", "xd", "zf", "xb", "q", "mult", "r", "eff"].forEach(pair);
+$("cond").addEventListener("change", onParamChange);
+
+$("modeMult").addEventListener("click", () => setMode("mult"));
+$("modeR").addEventListener("click", () => setMode("direct"));
+function setMode(m) {
+  refluxMode = m;
+  $("modeMult").classList.toggle("on", m === "mult");
+  $("modeR").classList.toggle("on", m === "direct");
+  $("ctlMult").style.display = m === "mult" ? "" : "none";
+  $("ctlR").style.display = m === "direct" ? "" : "none";
+  if (m === "direct" && design && isFinite(design.R)) {
+    $("r_n").value = $("r_r").value = design.R.toFixed(2);   // carry over current R
+  }
+  onParamChange();
+}
+
+function onParamChange() { stopPlay(); reveal = Infinity; update(); }
+
+/* animation */
+function stopPlay() {
+  if (playTimer) { clearInterval(playTimer); playTimer = null; $("bPlay").innerHTML = "&#9654; Play"; }
+}
+$("bReset").addEventListener("click", () => { stopPlay(); reveal = 0; draw(); });
+$("bStep").addEventListener("click", () => {
+  stopPlay();
+  if (!design || !design.stages) return;
+  if (!isFinite(reveal)) reveal = 0;
+  reveal = Math.min(reveal + 1, design.stages.length);
+  draw();
+});
+$("bAll").addEventListener("click", () => { stopPlay(); reveal = Infinity; draw(); });
+$("bPlay").addEventListener("click", () => {
+  if (playTimer) { stopPlay(); return; }
+  if (!design || !design.stages) return;
+  if (!isFinite(reveal) || reveal >= design.stages.length) reveal = 0;
+  $("bPlay").innerHTML = "&#9208; Pause";
+  playTimer = setInterval(() => {
+    reveal++;
+    if (reveal >= design.stages.length) stopPlay();
+    draw();
+  }, 650);
+});
+
+/* crosshair */
+cv.addEventListener("mousemove", e => {
+  const rect = cv.getBoundingClientRect();
+  mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  requestAnimationFrame(draw);
+});
+cv.addEventListener("mouseleave", () => { mouse = null; requestAnimationFrame(draw); });
+
+/* export */
+$("bPng").addEventListener("click", () => {
+  cv.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b); a.download = "McCabeThiele.png"; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  });
+});
+
+window.addEventListener("resize", () => { sizeCanvas(); draw(); });
+darkMq.addEventListener("change", () => draw());
+
+sizeCanvas();
+update();
+</script>
+</body>
+</html>
