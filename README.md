@@ -9,8 +9,9 @@ connection needed, no data uploaded or collected — all calculations run
 entirely in your browser. Share an app by sending the one file, or
 share the whole collection by sharing this folder.
 
-**Open `Apps.html`** (or visit the deployed site) for the launcher —
-hover an icon for a description, click to open.
+**Open `index.html`** (or visit the deployed site) for the launcher —
+hover an icon for a description, click to open. (`Apps.html` still
+works — it's a redirect stub kept for old bookmarks/links.)
 
 ## The apps
 
@@ -40,6 +41,7 @@ hover an icon for a description, click to open.
 | 🔭 **Equilibrium Chromatography — Pulse** | Finite pulse injection by wavefront tracking: interacting fans, decaying shocks, collision events re-resolved by envelope construction, peak metrics and mass-balance check. |
 | ⚛️ **Equilibrium Chromatography — 2×2 Systems** | Riemann problems for coupled conservation laws: isothermal binary chromatography with hodograph-plane analysis, exact constant-selectivity Langmuir construction plus a numerical reference solution for arbitrary isotherms. |
 | 🌬️ **Equilibrium Chromatography — Sorption Effect** | Single adsorbable component whose adsorption/desorption changes the fluid velocity (isobaric, fixed inlet velocity): analytical Riemann solution via envelopes on νq vs y/(1−y), twin colour-mapped physical planes for composition and velocity with a linked crosshair. |
+| 🔬 **SMB Triangle Designer** | Simulated moving bed design by triangle theory: complete-separation regions for linear and generalized-Langmuir isotherms, reduced-purity pentagon (linear), clickable (m₂,m₃)/(m₁,m₄) planes with live feed-concentration morphing, and open-loop flow-rate design from a pressure-drop limit. |
 | 🏭 **PSA Simulator** | 1D non-isothermal pressure/vacuum swing adsorption cycle simulator (LDF kinetics, Ergun momentum, WENO finite volumes, stiff integration in a Web Worker): cycle builder, run to cyclic steady state, purity/recovery/energy KPIs, JSON/CSV round-trip. |
 
 More apps are added over time.
@@ -56,8 +58,9 @@ More apps are added over time.
 
 ## Structure
 
-- `Apps.html` — the launcher (compact icon grid; `index.html` redirects
-  here so the deployed site lands on it directly).
+- `index.html` — the launcher (compact icon grid); this is what GitHub
+  Pages (or any static host) serves at the site root automatically.
+  `Apps.html` is a redirect stub to `index.html`, kept for old links.
 - One folder per app, containing the app's single HTML file and a
   README documenting the model, data sources, and validation.
 

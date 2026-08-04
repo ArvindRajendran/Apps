@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMB Triangle Designer</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626; --ok: #16a34a; --warn: #d97706;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171; --ok: #4ade80; --warn: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1150px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative;
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld input[type=number] {
+    padding: 7px 9px; font-size: 0.9rem; width: 88px;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .fld input[type=range] { width: 140px; accent-color: var(--accent); }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  .err { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  .summary { margin-top: 12px; font-size: 0.84rem; line-height: 1.6; color: var(--muted); }
+  .summary b { color: var(--text); }
+  .formula {
+    margin-top: 12px; font-size: 0.98rem; display: flex; align-items: center;
+    gap: 7px; flex-wrap: wrap; font-family: Georgia, "Times New Roman", serif; font-style: italic;
+  }
+  .formula .frac { display: inline-flex; flex-direction: column; text-align: center; line-height: 1.2; }
+  .formula .frac .fn { border-bottom: 1.2px solid currentColor; padding: 0 5px; }
+  .formula .frac .fd { padding: 0 5px; }
+  .plots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 14px; }
+  .plots .pcard { grid-column: span 2; }
+  .plots .pcard.half { grid-column: span 3; }
+  @media (max-width: 860px) { .plots .pcard, .plots .pcard.half { grid-column: span 6; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  #sm-m23, #sm-m14 { cursor: crosshair; touch-action: none; }
+  .pcard .pfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .pcard .pfoot button { font-size: 0.75rem; padding: 4px 9px; }
+  table.res { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 4px; }
+  table.res td, table.res th { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+  table.res th { color: var(--muted); font-weight: 600; text-align: right; }
+  table.res td:first-child, table.res th:first-child { text-align: left; }
+  .kpi { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .kpi .box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; }
+  .kpi .box .v { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi .box .l { font-size: 0.7rem; color: var(--muted); }
+  .regime { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 3px 12px; border-radius: 999px; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  .footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>SMB Triangle Designer</h2>
+  <div class="sub">Equilibrium-theory design of 4-section simulated moving bed units ("triangle theory"):
+    complete-separation regions for linear and generalized-Langmuir isotherms, reduced-purity design
+    (linear), and open-loop flow-rate design from a pressure-drop limit &mdash; all boundaries algebraic.
+    Click or drag the operating points in the two planes.</div>
+
+  <div class="panel">
+    <div class="ctrls">
+      <label class="fld">Isotherm
+        <select id="sm-iso">
+          <option value="lin">Linear</option>
+          <option value="L">Langmuir (L)</option>
+          <option value="A">Anti-Langmuir (A)</option>
+          <option value="M1">Mixed M1 (A anti, B Langmuir)</option>
+          <option value="M2">Mixed M2 (A Langmuir, B anti)</option>
+        </select>
+      </label>
+      <label class="fld"><span>H<sub>A</sub></span><input type="number" id="sm-HA" step="0.1" value="2"></label>
+      <label class="fld"><span>H<sub>B</sub></span><input type="number" id="sm-HB" step="0.1" value="1"></label>
+      <label class="fld" data-nl><span>K<sub>A</sub> (L/g)</span><input type="number" id="sm-KA" step="0.01" value="0.1"></label>
+      <label class="fld" data-nl><span>K<sub>B</sub> (L/g)</span><input type="number" id="sm-KB" step="0.01" value="0.1"></label>
+      <label class="fld"><span>c<sub>A</sub><sup>F</sup> (g/L)</span><input type="number" id="sm-cAF" step="0.5" value="5"></label>
+      <label class="fld"><span>c<sub>B</sub><sup>F</sup> (g/L)</span><input type="number" id="sm-cBF" step="0.5" value="5"></label>
+      <label class="fld">Feed dilution &times;<span id="sm-dilv" style="color:var(--text)">1.00</span>
+        <input type="range" id="sm-dil" min="0.02" max="2" step="0.02" value="1">
+      </label>
+      <label class="fld">Safety &beta; = <span id="sm-betav" style="color:var(--text)">1.00</span>
+        <input type="range" id="sm-beta" min="1" max="1.5" step="0.01" value="1">
+      </label>
+    </div>
+    <div class="ctrls" id="sm-purrow">
+      <label class="fld"><span>Extract purity P<sub>E</sub> (%)</span><input type="number" id="sm-PE" min="55" max="100" step="0.5" value="100"></label>
+      <label class="fld"><span>Raffinate purity P<sub>R</sub> (%)</span><input type="number" id="sm-PR" min="55" max="100" step="0.5" value="100"></label>
+      <span class="fld" style="justify-content:center; max-width:430px">Reduced-purity pentagon (linear only, restrictive case):
+        set either purity &lt; 100% to see the enlarged operating region PQRST.</span>
+    </div>
+    <div class="formula" id="sm-formula"></div>
+    <div class="err" id="sm-err"></div>
+    <div class="summary" id="sm-summary"></div>
+  </div>
+
+  <div class="plots">
+    <div class="pcard">
+      <div class="phead"><h3>(m&#8322;, m&#8323;) plane</h3><span class="pinfo" id="sm-m23info"></span></div>
+      <canvas id="sm-m23"></canvas>
+      <div class="pfoot"><button class="action" id="sm-m23png">&#11015; PNG</button></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>(m&#8321;, m&#8324;) plane</h3><span class="pinfo" id="sm-m14info"></span></div>
+      <canvas id="sm-m14"></canvas>
+      <div class="pfoot"><button class="action" id="sm-m14png">&#11015; PNG</button></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Isotherms at feed</h3><span class="pinfo" id="sm-isoinfo"></span></div>
+      <canvas id="sm-isoplot"></canvas>
+    </div>
+    <div class="pcard half">
+      <div class="phead"><h3>Open-loop design &mdash; column &amp; pressure</h3></div>
+      <div class="ctrls">
+        <label class="fld"><span>Column length L (cm)</span><input type="number" id="sm-Lc" step="1" value="10"></label>
+        <label class="fld"><span>Diameter d (cm)</span><input type="number" id="sm-dc" step="0.1" value="1"></label>
+        <label class="fld"><span>Voidage &epsilon;</span><input type="number" id="sm-eps" step="0.01" min="0.2" max="0.9" value="0.4"></label>
+        <label class="fld"><span>Particle d<sub>p</sub> (&mu;m)</span><input type="number" id="sm-dp" step="1" value="20"></label>
+        <label class="fld"><span>Viscosity &mu; (cP)</span><input type="number" id="sm-mu" step="0.1" value="1"></label>
+        <label class="fld"><span>&Delta;P<sub>max</sub> (bar)</span><input type="number" id="sm-dPmax" step="1" value="30"></label>
+      </div>
+      <div class="ctrls">
+        <label class="fld"><span>Columns per section S&#8321;/S&#8322;/S&#8323;/S&#8324;</span>
+          <span style="display:inline-flex;gap:4px">
+            <input type="number" id="sm-S1" min="1" step="1" value="1" style="width:52px">
+            <input type="number" id="sm-S2" min="1" step="1" value="1" style="width:52px">
+            <input type="number" id="sm-S3" min="1" step="1" value="1" style="width:52px">
+            <input type="number" id="sm-S4" min="1" step="1" value="1" style="width:52px">
+          </span>
+        </label>
+        <div class="fld">&Delta;P model
+          <div class="seg" id="sm-dpmode">
+            <button class="on" data-m="bk">Blake&ndash;Kozeny</button>
+            <button data-m="emp">measured</button>
+          </div>
+        </div>
+        <label class="fld" id="sm-empfld" style="display:none"><span>&Delta;P<sub>ref</sub> (bar) at Q<sub>ref</sub> (mL/min)</span>
+          <span style="display:inline-flex;gap:4px">
+            <input type="number" id="sm-dPref" step="0.5" value="5" style="width:70px">
+            <input type="number" id="sm-Qref" step="0.5" value="5" style="width:70px">
+          </span>
+        </label>
+        <label class="fld"><span>t* multiplier (&ge;1, on t*<sub>min</sub>)</span><input type="number" id="sm-tmult" min="1" step="0.1" value="1"></label>
+      </div>
+    </div>
+    <div class="pcard half">
+      <div class="phead"><h3>Design result</h3><span class="pinfo" id="sm-desinfo"></span></div>
+      <div class="kpi" id="sm-kpi"></div>
+      <table class="res" id="sm-restab"></table>
+    </div>
+  </div>
+
+  <div class="footer">
+    Triangle theory: m<sub>j</sub> = (Q<sub>j</sub>t* &minus; V&epsilon;)/(V(1&minus;&epsilon;)). Complete-separation boundaries
+    from the &omega;-quadratic and Table 2 of Rajendran, Paredes &amp; Mazzotti, J.&nbsp;Chromatogr.&nbsp;A 1216 (2009) 709;
+    reduced-purity pentagon (linear, restrictive case) from Rajendran, J.&nbsp;Chromatogr.&nbsp;A 1185 (2008) 216.
+    Open loop: sections 1&rarr;4 hydraulically in series, outlet at ambient; Blake&ndash;Kozeny sets t*<sub>min</sub> at &Delta;P<sub>max</sub>.
+    Equilibrium theory neglects dispersion and mass-transfer resistance &mdash; keep a safety margin (&beta;) in practice.<br>
+    Works offline &mdash; single file, share freely.
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; August 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> &middot; <a href="../index.html">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script id="sm-script">
+(() => {
+  const $ = id => document.getElementById(id);
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const COL = { regionFill: "rgba(37,99,235,0.18)", regA: "#ef4444", regB: "#3b82f6",
+                ghost: "#94a3b8", pent: "#16a34a", w: "#d97706" };
+
+  /* ================= engine (mirrors validated smb_ref.py) ================= */
+  function omegaRoots(HA, HB, KA, KB, pA, pB, cA, cB) {
+    const a = 1 + pA*KA*cA + pB*KB*cB;
+    if (a <= 0) throw "Isotherm denominator ≤ 0 at feed composition — reduce feed concentration.";
+    const b = -(HB*(1 + pA*KA*cA) + HA*(1 + pB*KB*cB));
+    const c = HA*HB;
+    const disc = b*b - 4*a*c;
+    if (disc < -1e-12) throw "Complex ω roots — check parameters.";
+    const s = Math.sqrt(Math.max(disc, 0));
+    const r1 = (-b - s)/(2*a), r2 = (-b + s)/(2*a);
+    return [Math.min(r1, r2), Math.max(r1, r2)];
+  }
+  const CASES = { L: [1, 1], A: [-1, -1], M1: [-1, 1], M2: [1, -1] };
+
+  function isect(l1, l2) {
+    const det = l1[0]*l2[1] - l2[0]*l1[1];
+    return [(l1[2]*l2[1] - l2[2]*l1[1])/det, (l1[0]*l2[2] - l2[0]*l1[2])/det];
+  }
+  function bisect(f, lo, hi) {
+    let flo = f(lo);
+    for (let i = 0; i < 200; i++) {
+      const mid = 0.5*(lo + hi);
+      if (flo*f(mid) <= 0) hi = mid; else { lo = mid; flo = f(mid); }
+    }
+    return 0.5*(lo + hi);
+  }
+
+  /* Complete separation region. Returns { chainA (a->w incl.), chainB (w->b incl.),
+     w, omegas } — chains ordered so chainA starts at a=(HA,HA), chainB ends at b=(HB,HB). */
+  function csRegion(cs, HA, HB, KA, KB, cA, cB) {
+    if (cs === "lin")
+      return { chainA: [[HA, HA], [HB, HA]], chainB: [[HB, HA], [HB, HB]],
+               w: [HB, HA], omegas: null };
+    const [pA, pB] = CASES[cs];
+    const [w1, w2] = omegaRoots(HA, HB, KA, KB, pA, pB, cA, cB);
+    const ar = m2 => m2 + Math.pow(Math.sqrt(m2) - Math.sqrt(HA), 2)/(KA*cA);
+    const bs = m3 => m3 - Math.pow(Math.sqrt(m3) - Math.sqrt(HB), 2)/(KB*cB);
+    const lrw = [HA*(w1 - HB), HB*(HA - w1), w1*w2*(HA - HB)];
+    const lsw = [HA*(w2 - HB), HB*(HA - w2), w1*w2*(HA - HB)];
+    const lbw = [HA - HB*(1 + pA*KA*cA), pA*KA*cA*HB, HB*(HA - HB)];
+    const law = [-pB*KB*cB*HA, HA*(1 + pB*KB*cB) - HB, HA*(HA - HB)];
+    /* r, s: tangency points of the straight pieces (rw, sw) on the curves (ar, bs).
+       Closed form from d/dm[line(curve)] = 0 — bisection cannot be used since the
+       line is tangent (no sign change). */
+    const rTang = () => {
+      const m2r = HA/Math.pow(1 + KA*cA*(lrw[0] + lrw[1])/lrw[1], 2);
+      return [m2r, ar(m2r)];
+    };
+    const sTang = () => {
+      const m3s = HB/Math.pow(1 - KB*cB*(lsw[0] + lsw[1])/lsw[0], 2);
+      return [bs(m3s), m3s];
+    };
+    const N = 120;
+    let chainA = [], chainB = [], w, rPt = null, sPt = null;
+    if (cs === "L") {
+      w = isect(lrw, lbw);
+      rPt = rTang();
+      for (let i = 0; i <= N; i++) { const m2 = HA + (rPt[0] - HA)*i/N; chainA.push([m2, ar(m2)]); }
+      chainA.push(w);
+      chainB = [w, [HB, HB]];
+    } else if (cs === "A") {
+      w = isect(lsw, law);
+      sPt = sTang();
+      chainA = [[HA, HA], w];
+      chainB = [w];
+      for (let i = 0; i <= N; i++) { const m3 = sPt[1] + (HB - sPt[1])*i/N; chainB.push([bs(m3), m3]); }
+    } else if (cs === "M1") {
+      w = isect(lbw, law);
+      chainA = [[HA, HA], w];
+      chainB = [w, [HB, HB]];
+    } else {
+      w = isect(lrw, lsw);
+      rPt = rTang(); sPt = sTang();
+      for (let i = 0; i <= N; i++) { const m2 = HA + (rPt[0] - HA)*i/N; chainA.push([m2, ar(m2)]); }
+      chainA.push(w);
+      chainB = [w];
+      for (let i = 0; i <= N; i++) { const m3 = sPt[1] + (HB - sPt[1])*i/N; chainB.push([bs(m3), m3]); }
+    }
+    return { chainA, chainB, w, rPt, sPt, omegas: [w1, w2] };
+  }
+
+  function m1min(cs, HA, KA, cA, m2, m3) {
+    if (cs === "lin" || cs === "L" || cs === "M2") return HA;
+    const t = m2 + HA + KA*cA*(m3 - m2);
+    return 0.5*(t + Math.sqrt(Math.max(t*t - 4*m2*HA, 0)));
+  }
+  function m4max(cs, HB, KB, cB, m2, m3) {
+    if (cs === "lin" || cs === "A" || cs === "M2") return HB;
+    const t = m3 + HB + KB*cB*(m3 - m2);
+    return 0.5*(t - Math.sqrt(Math.max(t*t - 4*m3*HB, 0)));
+  }
+
+  /* Reduced-purity pentagon, linear (2008 paper). PE, PR as fractions. */
+  function pentagon(HA, HB, cA, cB, PE, PR) {
+    const HAs = (HB*cB*(PR - 1) + HA*cA*PR)/(cB*(PR - 1) + cA*PR);
+    const HBs = (HB*cB*PE + HA*cA*(PE - 1))/(cB*PE + cA*(PE - 1));
+    return { HAs, HBs,
+      P: [HBs, HAs], Q: [HB, HAs], R: [HA, HA], S: [HB, HB], T: [HBs, HA] };
+  }
+
+  /* Purities at an arbitrary (m2,m3) point — linear isotherm, restrictive case.
+     Closed forms obtained by inverting Eqs. (17)/(20)/(26)/(27) of Rajendran 2008. */
+  function linPurity(m2, m3, HA, HB, cA, cB) {
+    if (m3 <= m2) return { label: "no feed" };
+    if (m2 > HA || m3 < HB) return { label: "flooded" };
+    let PE = 1, PR = 1;
+    if (m3 > HA && m2 >= HB)                        /* region 2: extract pure */
+      PR = cB*(m3 - m2)/(cB*(m3 - m2) + cA*(m3 - HA));
+    else if (m2 < HB && m3 <= HA)                   /* region 3: raffinate pure */
+      PE = cA*(m3 - m2)/(cA*(m3 - m2) + cB*(HB - m2));
+    else if (m2 < HB && m3 > HA) {                  /* region 4: both polluted (decoupled) */
+      PR = cB*(m3 - HB)/((cA + cB)*m3 - HB*cB - HA*cA);
+      PE = cA*(HA - m2)/(HB*cB + HA*cA - m2*(cA + cB));
+    }
+    return { PE, PR };
+  }
+
+  /* point-in-region + regime classification via closest boundary point */
+  function pointInPoly(p, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > p[1]) !== (yj > p[1]) &&
+          p[0] < (xj - xi)*(p[1] - yi)/(yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function closestOnChain(p, chain) {
+    let best = Infinity;
+    for (let i = 0; i + 1 < chain.length; i++) {
+      const [x1, y1] = chain[i], [x2, y2] = chain[i + 1];
+      const dx = x2 - x1, dy = y2 - y1;
+      const t = Math.max(0, Math.min(1, ((p[0] - x1)*dx + (p[1] - y1)*dy)/(dx*dx + dy*dy || 1e-30)));
+      const d = Math.hypot(p[0] - x1 - t*dx, p[1] - y1 - t*dy);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+  function classify(p, reg) {
+    if (p[1] <= p[0]) return { key: "nofeed", label: "infeasible (m₃ ≤ m₂ — no feed)", color: "var(--danger)" };
+    const poly = reg.chainA.concat(reg.chainB.slice(1));
+    if (pointInPoly(p, poly.concat([poly[0]])))
+      return { key: "complete", label: "complete separation", color: "var(--ok)" };
+    const dA = closestOnChain(p, reg.chainA);
+    const dB = closestOnChain(p, reg.chainB);
+    const dW = Math.hypot(p[0] - reg.w[0], p[1] - reg.w[1]);
+    if (Math.abs(dW - dA) < 1e-9 && Math.abs(dW - dB) < 1e-9)
+      return { key: "both", label: "both products polluted", color: "var(--danger)" };
+    if (dA < dB) return { key: "extract", label: "pure extract · raffinate polluted", color: "var(--warn)" };
+    return { key: "raffinate", label: "pure raffinate · extract polluted", color: "var(--warn)" };
+  }
+
+  /* ================= state ================= */
+  const st = { iso: "L", HA: 2, HB: 1, KA: 0.1, KB: 0.1, cAF: 5, cBF: 5, dil: 1,
+               beta: 1, PE: 100, PR: 100,
+               W: null, W14: null,                     /* manual operating points or null=auto */
+               Lc: 10, dc: 1, eps: 0.4, dp: 20, mu: 1, dPmax: 30,
+               S: [1, 1, 1, 1], dpmode: "bk", dPref: 5, Qref: 5, tmult: 1 };
+  const LSKEY = "smbtri_v1";
+  function saveLS() { try { localStorage.setItem(LSKEY, JSON.stringify(st)); } catch (e) {} }
+  let sol = null;
+
+  /* ================= solve ================= */
+  function solve() {
+    const cA = st.cAF*st.dil, cB = st.cBF*st.dil;
+    if (!(st.HA > st.HB && st.HB > 0)) throw "Need HA > HB > 0 (A = more retained).";
+    const reg = csRegion(st.iso, st.HA, st.HB, st.KA, st.KB, cA, cB);
+    /* ghost (dilute) triangle for reference */
+    const ghost = { a: [st.HA, st.HA], v: [st.HB, st.HA], b: [st.HB, st.HB] };
+    /* pentagon (linear + reduced purity) */
+    let pent = null;
+    const PE = st.PE/100, PR = st.PR/100;
+    if (st.iso === "lin" && (PE < 1 || PR < 1))
+      pent = pentagon(st.HA, st.HB, cA, cB, Math.min(PE, 0.9999), Math.min(PR, 0.9999));
+    /* operating point (m2,m3): manual or β-interpolated toward region centroid */
+    let W = st.W;
+    if (!W) {
+      const tgt = pent ? pent.P : reg.w;
+      /* interior target: centroid of triangle (w, a, b) — always inside since the
+         boundary arcs bow outward from the w–a and w–b chords */
+      const cx = (reg.w[0] + st.HA + st.HB)/3, cy = (reg.w[1] + st.HA + st.HB)/3;
+      const f = 0.02 + 0.98*(st.beta - 1)/(1.5 - 1);   /* β=1 → just inside the vertex */
+      W = [tgt[0] + f*(cx - tgt[0]), tgt[1] + f*(cy - tgt[1])];
+    }
+    const m1mn = m1min(st.iso, st.HA, st.KA, cA, W[0], W[1]);
+    const m4mx = m4max(st.iso, st.HB, st.KB, cB, W[0], W[1]);
+    let W14 = st.W14 ? st.W14.slice() : [st.beta*m1mn, m4mx/st.beta];
+    let regime = classify(W, reg);
+    if (pent && regime.key !== "complete" && regime.key !== "nofeed" &&
+        pointInPoly(W, [pent.S, pent.R, pent.Q, pent.P, pent.T]))
+      regime = { key: "specs", label: "meets specified purities P_E/P_R", color: "var(--ok)" };
+    /* design */
+    const Lc = st.Lc/100, dc = st.dc/100, eps = st.eps, dp = st.dp*1e-6, mu = st.mu*1e-3;
+    const A = Math.PI*dc*dc/4, V = A*Lc;
+    let kBK;                                  /* Pa per (m3/s), per column */
+    if (st.dpmode === "bk") kBK = 150*mu*Lc*(1 - eps)*(1 - eps)/(eps*eps*eps*dp*dp*A);
+    else kBK = (st.dPref*1e5)/(st.Qref*1e-6/60);
+    const mj = [W14[0], W[0], W[1], W14[1]];
+    const hold = mj.map(m => (1 - eps)*m + eps);
+    const sumS = st.S.reduce((a, b) => a + b, 0);
+    const tmin = kBK*V/(st.dPmax*1e5)*mj.reduce((acc, m, j) => acc + st.S[j]*hold[j], 0);
+    const tstar = tmin*Math.max(1, st.tmult);
+    const Q = hold.map(h => V*h/tstar);       /* m3/s */
+    const dPj = Q.map((q, j) => kBK*q*st.S[j]);
+    const dPtot = dPj.reduce((a, b) => a + b, 0);
+    const QD = Q[0], QE = Q[0] - Q[1], QF = Q[2] - Q[1], QR = Q[2] - Q[3], QW = Q[3];
+    const cT = cA + cB;
+    const VT = V*sumS;
+    const prod = QF*cT/VT*3600;               /* g feed per L column per h -> (g/m3/h)/1000 */
+    const solvRatio = QF > 0 ? (QD + QF)/QF : NaN;
+    const specSolv = QF > 0 ? (QD + QF)/(QF*cT) : NaN;   /* L per g feed */
+    return { cA, cB, reg, ghost, pent, W, W14, m1mn, m4mx, regime,
+             V, kBK, tmin, tstar, Q, dPj, dPtot, QD, QE, QF, QR, QW,
+             prod, solvRatio, specSolv, PE, PR };
+  }
+
+  /* ================= drawing ================= */
+  function themeCols() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return { card: g("--card"), border: g("--border"), text: g("--text"),
+             muted: g("--muted"), accent: g("--accent"), danger: g("--danger"),
+             ok: g("--ok"), warn: g("--warn") };
+  }
+  const CV = { m23: $("sm-m23"), m14: $("sm-m14"), iso: $("sm-isoplot") };
+  const G = {};
+  const hov = { m23: null, m14: null };
+
+  function crosshair(ctx, th, A, g, p, lines) {
+    const { X, Y, M } = A;
+    const cx = X(p[0]), cy = Y(p[1]);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    ctx.strokeStyle = th.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, M.t); ctx.lineTo(cx, g.h - M.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(M.l, cy); ctx.lineTo(g.w - M.r, cy); ctx.stroke();
+    ctx.setLineDash([]);
+    /* value box near the cursor, kept inside the plot */
+    ctx.font = "10px " + FONT;
+    const wmax = Math.max(...lines.map(t => ctx.measureText(t).width));
+    const bw = wmax + 12, bh = 13*lines.length + 7;
+    let bx = cx + 10, by = cy - bh - 8;
+    if (bx + bw > g.w - M.r) bx = cx - bw - 10;
+    if (by < M.t) by = cy + 10;
+    ctx.fillStyle = th.card; ctx.globalAlpha = 0.92;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = th.border; ctx.stroke();
+    ctx.fillStyle = th.text; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    lines.forEach((t, i) => ctx.fillText(t, bx + 6, by + 4 + 13*i));
+    ctx.restore();
+  }
+  function zoneLabel(ctx, th, A, x, y, lines, color) {
+    const { X, Y, M } = A, g = { };
+    ctx.font = "italic 9.5px " + FONT;
+    ctx.fillStyle = color || th.muted;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    lines.forEach((t, i) => ctx.fillText(t, X(x), Y(y) + 11*i));
+  }
+  function sizeCanvas(cv, ratio) {
+    const w = cv.getBoundingClientRect().width;
+    if (w < 40) return null;
+    const h = Math.round(w*ratio);
+    cv.style.height = h + "px";
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+    return { w, h, dpr };
+  }
+  const fmt = (x, d = 3) => isFinite(x) ? (+x.toFixed(d)).toString() : "—";
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const p = 10 ** Math.floor(Math.log10(raw));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m*p >= raw) return m*p;
+    return 10*p;
+  }
+  function axes(ctx, g, th, x0, x1, y0, y1, xlab, ylab) {
+    const M = { l: 44, r: 10, t: 10, b: 32 };
+    const X = x => M.l + (x - x0)/(x1 - x0)*(g.w - M.l - M.r);
+    const Y = y => g.h - M.b - (y - y0)/(y1 - y0)*(g.h - M.t - M.b);
+    ctx.font = "10px " + FONT; ctx.strokeStyle = th.border; ctx.lineWidth = 1;
+    ctx.fillStyle = th.muted;
+    const xs = niceStep((x1 - x0)/5), ys = niceStep((y1 - y0)/5);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let x = Math.ceil(x0/xs)*xs; x <= x1 + 1e-9; x += xs) {
+      ctx.beginPath(); ctx.moveTo(X(x), M.t); ctx.lineTo(X(x), g.h - M.b); ctx.stroke();
+      ctx.fillText(fmt(x, 4), X(x), g.h - M.b + 4);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let y = Math.ceil(y0/ys)*ys; y <= y1 + 1e-9; y += ys) {
+      ctx.beginPath(); ctx.moveTo(M.l, Y(y)); ctx.lineTo(g.w - M.r, Y(y)); ctx.stroke();
+      ctx.fillText(fmt(y, 4), M.l - 5, Y(y));
+    }
+    ctx.fillStyle = th.text; ctx.font = "11px " + FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(xlab, M.l + (g.w - M.l - M.r)/2, g.h - 5);
+    ctx.save(); ctx.translate(11, M.t + (g.h - M.t - M.b)/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(ylab, 0, 0); ctx.restore();
+    ctx.strokeStyle = th.border;
+    ctx.strokeRect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b);
+    return { X, Y, M, x0, x1, y0, y1 };
+  }
+  function dot(ctx, th, x, y, name, color, r = 5) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI);
+    ctx.fillStyle = color || th.text; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = th.card; ctx.stroke();
+    if (name) {
+      ctx.font = "bold 10.5px " + FONT; ctx.fillStyle = th.text;
+      ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(name, x, y - 8);
+    }
+  }
+
+  function drawM23() {
+    const cv = CV.m23, g = sizeCanvas(cv, 0.9);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    const HA = st.HA, HB = st.HB;
+    let hi = Math.max(HA, sol.reg.w[1]);
+    if (sol.pent) hi = Math.max(hi, sol.pent.HAs);
+    let lo = Math.min(HB, sol.reg.w[0]);
+    if (sol.pent) lo = Math.min(lo, sol.pent.HBs);
+    lo = Math.min(lo, sol.W[0]); hi = Math.max(hi, sol.W[1]);
+    const pad = 0.18*(hi - lo || 1);
+    const A = axes(ctx, g, th, lo - pad, hi + pad, lo - pad, hi + pad, "m₂ (–)", "m₃ (–)");
+    const { X, Y, M } = A;
+    G.m23 = { A, g };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    /* diagonal */
+    ctx.strokeStyle = th.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(X(lo - pad), Y(lo - pad)); ctx.lineTo(X(hi + pad), Y(hi + pad)); ctx.stroke();
+    ctx.setLineDash([]);
+    /* ghost linear triangle (dashed) for nonlinear cases */
+    if (st.iso !== "lin") {
+      ctx.strokeStyle = COL.ghost; ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(X(HA), Y(HA)); ctx.lineTo(X(HB), Y(HA)); ctx.lineTo(X(HB), Y(HB));
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    /* complete separation region */
+    const poly = sol.reg.chainA.concat(sol.reg.chainB.slice(1));
+    ctx.beginPath();
+    poly.forEach((p, i) => i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1])));
+    ctx.closePath();
+    ctx.fillStyle = COL.regionFill; ctx.fill();
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = COL.regA;
+    ctx.beginPath();
+    sol.reg.chainA.forEach((p, i) => i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1])));
+    ctx.stroke();
+    ctx.strokeStyle = COL.regB;
+    ctx.beginPath();
+    sol.reg.chainB.forEach((p, i) => i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1])));
+    ctx.stroke();
+    /* pentagon overlay */
+    if (sol.pent) {
+      const pp = sol.pent;
+      ctx.strokeStyle = COL.pent; ctx.lineWidth = 2;
+      ctx.setLineDash([6, 3]);
+      ctx.beginPath();
+      [[pp.S, pp.Q], null].forEach(() => {});
+      ctx.moveTo(X(pp.S[0]), Y(pp.S[1]));
+      ctx.lineTo(X(pp.R[0]), Y(pp.R[1]));           /* diagonal S->R */
+      ctx.lineTo(X(pp.Q[0]), Y(pp.Q[1]));           /* Eq26 R->Q */
+      ctx.lineTo(X(pp.P[0]), Y(pp.P[1]));           /* top Q->P */
+      ctx.lineTo(X(pp.T[0]), Y(pp.T[1]));           /* left P->T */
+      ctx.lineTo(X(pp.S[0]), Y(pp.S[1]));           /* Eq27 T->S */
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.restore();
+    /* labels + markers */
+    /* zone labels (positions relative to the actual boundary chains) */
+    const rng = A.x1 - A.x0;
+    const midOf = ch => [(ch[0][0] + ch[ch.length-1][0])/2, (ch[0][1] + ch[ch.length-1][1])/2];
+    const mA = midOf(sol.reg.chainA), mB = midOf(sol.reg.chainB);
+    const clampIn = (x, y) => [Math.min(Math.max(x, A.x0 + 0.06*rng), A.x1 - 0.06*rng),
+                               Math.min(Math.max(y, A.y0 + 0.06*rng), A.y1 - 0.05*rng)];
+    let [zx, zy] = clampIn(mA[0] - 0.02*rng, mA[1] + 0.11*rng);
+    zoneLabel(ctx, th, A, zx, zy, ["pure extract", "(raffinate polluted)"]);
+    [zx, zy] = clampIn(Math.min(mB[0], sol.reg.w[0]) - 0.13*rng, mB[1] + 0.01*rng);
+    if (zy > zx + 0.02*rng) zoneLabel(ctx, th, A, zx, zy, ["pure raffinate", "(extract polluted)"]);
+    [zx, zy] = clampIn(sol.reg.w[0] - 0.12*rng, sol.reg.w[1] + 0.16*rng);
+    zoneLabel(ctx, th, A, zx, zy, ["both polluted"]);
+    const polyC = sol.reg.chainA.concat(sol.reg.chainB.slice(1));
+    let ccx = 0, ccy = 0;
+    polyC.forEach(p => { ccx += p[0]; ccy += p[1]; });
+    ccx /= polyC.length; ccy /= polyC.length;
+    zoneLabel(ctx, th, A, ccx, ccy - 0.005*rng, ["complete", "separation"], th.accent);
+    if (st.iso === "lin") {
+      if (A.x1 - HA > 0.22*rng)
+        zoneLabel(ctx, th, A, HA + 0.12*rng, HA + 0.19*rng, ["flooded (feed)"]);
+      if (HB - A.x0 > 0.22*rng)
+        zoneLabel(ctx, th, A, A.x0 + 0.10*rng, A.x0 + 0.145*rng, ["flooded (solvent)"]);
+    }
+    /* markers */
+    dot(ctx, th, X(HA), Y(HA), "a", th.muted, 3.5);
+    dot(ctx, th, X(HB), Y(HB), "b", th.muted, 3.5);
+    if (sol.reg.rPt) dot(ctx, th, X(sol.reg.rPt[0]), Y(sol.reg.rPt[1]), "r", th.muted, 3.5);
+    if (sol.reg.sPt) dot(ctx, th, X(sol.reg.sPt[0]), Y(sol.reg.sPt[1]), "s", th.muted, 3.5);
+    dot(ctx, th, X(sol.reg.w[0]), Y(sol.reg.w[1]), "w", COL.w, 4.5);
+    if (sol.pent) dot(ctx, th, X(sol.pent.P[0]), Y(sol.pent.P[1]), "P", COL.pent, 4);
+    dot(ctx, th, X(sol.W[0]), Y(sol.W[1]), "", th.accent, 6.5);
+    /* crosshair with live values (+ purities for linear) */
+    if (hov.m23) {
+      const p = hov.m23;
+      const lines = ["m2 = " + fmt(p[0], 3) + "   m3 = " + fmt(p[1], 3)];
+      if (st.iso === "lin") {
+        const pu = linPurity(p[0], p[1], HA, HB, sol.cA, sol.cB);
+        lines.push(pu.label ? pu.label :
+          "PE = " + fmt(100*pu.PE, 1) + "%   PR = " + fmt(100*pu.PR, 1) + "%");
+      }
+      crosshair(ctx, th, A, g, p, lines);
+    }
+    let info;
+    if (hov.m23 && st.iso === "lin") {
+      const pu = linPurity(hov.m23[0], hov.m23[1], HA, HB, sol.cA, sol.cB);
+      info = "at cursor: " + (pu.label ? pu.label :
+        "P<sub>E</sub> = " + fmt(100*pu.PE, 1) + "% &middot; P<sub>R</sub> = " + fmt(100*pu.PR, 1) + "%");
+    } else if (hov.m23) {
+      info = "cursor: (" + fmt(hov.m23[0]) + ", " + fmt(hov.m23[1]) + ")";
+    } else {
+      info = "W = (" + fmt(sol.W[0]) + ", " + fmt(sol.W[1]) + ") &middot; " +
+        "<span class='regime' style='background:" + sol.regime.color + "22;color:" + sol.regime.color + "'>" +
+        sol.regime.label + "</span>";
+    }
+    $("sm-m23info").innerHTML = info;
+  }
+
+  function drawM14() {
+    const cv = CV.m14, g = sizeCanvas(cv, 0.9);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    const hi = Math.max(sol.m1mn*1.6, sol.W14[0]*1.2, st.HA*1.6);
+    const A = axes(ctx, g, th, 0, hi, 0, hi, "m₁ (–)", "m₄ (–)");
+    const { X, Y, M } = A;
+    G.m14 = { A, g };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    ctx.strokeStyle = th.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(hi), Y(hi)); ctx.stroke();
+    ctx.setLineDash([]);
+    /* feasible: m1 >= m1min, m4 <= m4max (and m4 < m1) */
+    ctx.fillStyle = COL.regionFill;
+    ctx.beginPath();
+    ctx.moveTo(X(sol.m1mn), Y(0));
+    ctx.lineTo(X(sol.m1mn), Y(Math.min(sol.m4mx, sol.m1mn)));
+    ctx.lineTo(X(Math.max(sol.m4mx, sol.m1mn)), Y(sol.m4mx));
+    ctx.lineTo(X(hi), Y(sol.m4mx));
+    ctx.lineTo(X(hi), Y(0));
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = COL.regA; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(X(sol.m1mn), Y(0)); ctx.lineTo(X(sol.m1mn), Y(Math.min(sol.m4mx, sol.m1mn))); ctx.stroke();
+    ctx.strokeStyle = COL.regB;
+    ctx.beginPath(); ctx.moveTo(X(Math.max(sol.m1mn, sol.m4mx)), Y(sol.m4mx)); ctx.lineTo(X(hi), Y(sol.m4mx)); ctx.stroke();
+    ctx.restore();
+    /* zone labels */
+    const rng14 = A.x1 - A.x0;
+    zoneLabel(ctx, th, A, (sol.m1mn + A.x1)/2, sol.m4mx*0.45,
+              ["complete regeneration"], th.accent);
+    if (sol.m1mn - A.x0 > 0.2*rng14)
+      zoneLabel(ctx, th, A, sol.m1mn - 0.13*rng14, sol.m4mx*0.45, ["extract", "polluted"]);
+    zoneLabel(ctx, th, A, (sol.m1mn + A.x1)/2,
+              Math.min(sol.m4mx + 0.10*rng14, (sol.m1mn + A.x1)/2 - 0.06*rng14),
+              ["raffinate polluted"]);
+    dot(ctx, th, X(sol.m1mn), Y(sol.m4mx), "q", COL.w, 4);
+    dot(ctx, th, X(sol.W14[0]), Y(sol.W14[1]), "", th.accent, 6.5);
+    if (hov.m14)
+      crosshair(ctx, th, A, g, hov.m14,
+        ["m1 = " + fmt(hov.m14[0], 3) + "   m4 = " + fmt(hov.m14[1], 3)]);
+    const ok1 = sol.W14[0] >= sol.m1mn - 1e-9, ok4 = sol.W14[1] <= sol.m4mx + 1e-9;
+    $("sm-m14info").innerHTML = hov.m14
+      ? "cursor: m₁ = " + fmt(hov.m14[0]) + " &middot; m₄ = " + fmt(hov.m14[1]) +
+        " &middot; limits: m₁,min = " + fmt(sol.m1mn) + ", m₄,max = " + fmt(sol.m4mx)
+      : "m₁ = " + fmt(sol.W14[0]) + (ok1 ? "" : " <span style='color:var(--danger)'>&lt; m₁,min!</span>") +
+        " &middot; m₄ = " + fmt(sol.W14[1]) + (ok4 ? "" : " <span style='color:var(--danger)'>&gt; m₄,max!</span>") +
+        " &middot; m₁,min = " + fmt(sol.m1mn) + ", m₄,max = " + fmt(sol.m4mx);
+  }
+
+  function drawIso() {
+    const cv = CV.iso, g = sizeCanvas(cv, 0.9);
+    if (!g) return;
+    const ctx = cv.getContext("2d"), th = themeCols();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.fillStyle = th.card; ctx.fillRect(0, 0, g.w, g.h);
+    if (!sol) return;
+    const [pA, pB] = st.iso === "lin" ? [0, 0] : CASES[st.iso];
+    const cmax = Math.max(sol.cA + sol.cB, 1)*1.3;
+    const nOf = (i, c) => {                    /* pure-component isotherm */
+      const H = i === 0 ? st.HA : st.HB;
+      const p = i === 0 ? pA : pB, K = i === 0 ? st.KA : st.KB;
+      const den = 1 + (st.iso === "lin" ? 0 : p*K*c);
+      return den > 0.05 ? H*c/den : NaN;
+    };
+    let nmax = 0;
+    for (let i = 0; i <= 60; i++) {
+      const c = cmax*i/60;
+      for (const k of [0, 1]) { const n = nOf(k, c); if (isFinite(n)) nmax = Math.max(nmax, n); }
+    }
+    const A = axes(ctx, g, th, 0, cmax, 0, nmax*1.1 || 1, "cᵢ (g/L)", "nᵢ (g/L)");
+    const { X, Y, M } = A;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, g.w - M.l - M.r, g.h - M.t - M.b); ctx.clip();
+    for (const [k, color] of [[0, COL.regA], [1, COL.regB]]) {
+      ctx.strokeStyle = color; ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      let first = true;
+      for (let i = 0; i <= 200; i++) {
+        const c = cmax*i/200, n = nOf(k, c);
+        if (!isFinite(n) || n < 0 || n > nmax*2) { first = true; continue; }
+        first ? ctx.moveTo(X(c), Y(n)) : ctx.lineTo(X(c), Y(n));
+        first = false;
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+    /* feed markers on each pure isotherm */
+    const fa = nOf(0, sol.cA), fb = nOf(1, sol.cB);
+    if (isFinite(fa)) dot(ctx, th, X(sol.cA), Y(fa), "A", COL.regA, 4);
+    if (isFinite(fb)) dot(ctx, th, X(sol.cB), Y(fb), "B", COL.regB, 4);
+    $("sm-isoinfo").innerHTML = sol.reg.omegas
+      ? "&omega;₁ᶠ = " + fmt(sol.reg.omegas[0], 4) + " &middot; &omega;₂ᶠ = " + fmt(sol.reg.omegas[1], 4)
+      : "linear: H<sub>A</sub> = " + fmt(st.HA) + ", H<sub>B</sub> = " + fmt(st.HB);
+  }
+
+  function drawDesign() {
+    if (!sol) return;
+    const mLmin = q => q*6e7;                  /* m3/s -> mL/min */
+    $("sm-kpi").innerHTML =
+      '<div class="box"><div class="v">' + fmt(sol.tstar, 1) + ' s</div><div class="l">switch time t* (t*min = ' + fmt(sol.tmin, 1) + ' s)</div></div>' +
+      '<div class="box"><div class="v">' + fmt(sol.dPtot/1e5, 2) + ' bar</div><div class="l">pump back pressure (limit ' + fmt(st.dPmax, 1) + ')</div></div>' +
+      '<div class="box"><div class="v">' + fmt(sol.prod/1000, 2) + ' g/(L·h)</div><div class="l">productivity (feed per column volume)</div></div>' +
+      '<div class="box"><div class="v">' + fmt(sol.solvRatio, 2) + '</div><div class="l">(Q_D+Q_F)/Q_F solvent ratio</div></div>' +
+      '<div class="box"><div class="v">' + fmt(sol.specSolv*1000, 2) + ' mL/g</div><div class="l">solvent per g feed</div></div>';
+    const rows = [
+      ["Section flows", "Q₁", "Q₂", "Q₃", "Q₄"],
+      ["Q (mL/min)", fmt(mLmin(sol.Q[0]), 2), fmt(mLmin(sol.Q[1]), 2), fmt(mLmin(sol.Q[2]), 2), fmt(mLmin(sol.Q[3]), 2)],
+      ["ΔP section (bar)", fmt(sol.dPj[0]/1e5, 2), fmt(sol.dPj[1]/1e5, 2), fmt(sol.dPj[2]/1e5, 2), fmt(sol.dPj[3]/1e5, 2)],
+      ["External", "Desorbent Q_D", "Extract Q_E", "Feed Q_F", "Raffinate Q_R"],
+      ["Q (mL/min)", fmt(mLmin(sol.QD), 2), fmt(mLmin(sol.QE), 2), fmt(mLmin(sol.QF), 2), fmt(mLmin(sol.QR), 2)]
+    ];
+    $("sm-restab").innerHTML = rows.map((r, i) =>
+      "<tr>" + r.map((c, j) => (i === 0 || i === 3)
+        ? "<th>" + c + "</th>" : "<td>" + c + "</td>").join("") + "</tr>").join("");
+    const negs = [sol.QE, sol.QF, sol.QR].some(q => q < -1e-15);
+    $("sm-desinfo").innerHTML =
+      "open loop &middot; section-4 outlet " + fmt(mLmin(sol.QW), 2) + " mL/min to collection" +
+      (negs ? " &middot; <span style='color:var(--danger)'>negative external flow — move the operating points!</span>" : "");
+  }
+
+  function updateFormula() {
+    const FR = (n, d) => '<span class="frac"><span class="fn">' + n + '</span><span class="fd">' + d + '</span></span>';
+    let h = "n<sub>i</sub>&nbsp;=&nbsp;";
+    if (st.iso === "lin") h += "H<sub>i</sub>·c<sub>i</sub> &nbsp;(H<sub>A</sub> = " + fmt(st.HA) + ", H<sub>B</sub> = " + fmt(st.HB) + ")";
+    else {
+      const [pA, pB] = CASES[st.iso];
+      const s = (p, K, sub) => (p > 0 ? " + " : " − ") + fmt(K) + "·c<sub>" + sub + "</sub>";
+      h += FR("H<sub>i</sub>·c<sub>i</sub>", "1" + s(pA, st.KA, "A") + s(pB, st.KB, "B")) +
+           "&nbsp; (case " + st.iso + ")";
+    }
+    $("sm-formula").innerHTML = h;
+  }
+  function updateSummary() {
+    if (!sol) return;
+    const b = sol.regime;
+    let warn = "";
+    if (sol.W14[0] < sol.m1mn - 1e-9) warn += " · <span style='color:var(--danger)'>section 1 under-regenerated → extract polluted</span>";
+    if (sol.W14[1] > sol.m4mx + 1e-9) warn += " · <span style='color:var(--danger)'>section 4 under-regenerated → raffinate/desorbent polluted</span>";
+    $("sm-summary").innerHTML =
+      "Vertex <b>w</b> = (" + fmt(sol.reg.w[0]) + ", " + fmt(sol.reg.w[1]) + ")" +
+      (sol.reg.omegas ? " from ω₁ᶠ = " + fmt(sol.reg.omegas[0], 4) + ", ω₂ᶠ = " + fmt(sol.reg.omegas[1], 4) : "") +
+      " · operating point <b>W</b> = (" + fmt(sol.W[0]) + ", " + fmt(sol.W[1]) + ") — " +
+      "<span style='color:" + b.color + ";font-weight:700'>" + b.label + "</span>" +
+      (sol.pent ? " · pentagon P = (" + fmt(sol.pent.HBs) + ", " + fmt(sol.pent.HAs) + ") for P_E = " +
+        fmt(sol.PE*100, 1) + "%, P_R = " + fmt(sol.PR*100, 1) + "%" : "") +
+      " · m₃−m₂ = " + fmt(sol.W[1] - sol.W[0]) + warn +
+      "<br>Click a plane to move the operating point (double-click to re-arm the automatic β-placed point).";
+  }
+
+  function drawAll() { drawM23(); drawM14(); drawIso(); drawDesign(); updateSummary(); }
+
+  /* ================= recompute ================= */
+  function readInputs() {
+    st.HA = +$("sm-HA").value; st.HB = +$("sm-HB").value;
+    st.KA = +$("sm-KA").value; st.KB = +$("sm-KB").value;
+    st.cAF = +$("sm-cAF").value; st.cBF = +$("sm-cBF").value;
+    st.PE = +$("sm-PE").value; st.PR = +$("sm-PR").value;
+    st.Lc = +$("sm-Lc").value; st.dc = +$("sm-dc").value; st.eps = +$("sm-eps").value;
+    st.dp = +$("sm-dp").value; st.mu = +$("sm-mu").value; st.dPmax = +$("sm-dPmax").value;
+    st.S = [+$("sm-S1").value, +$("sm-S2").value, +$("sm-S3").value, +$("sm-S4").value].map(x => Math.max(1, Math.round(x || 1)));
+    st.dPref = +$("sm-dPref").value; st.Qref = +$("sm-Qref").value;
+    st.tmult = Math.max(1, +$("sm-tmult").value || 1);
+  }
+  function recompute() {
+    readInputs();
+    const errEl = $("sm-err");
+    try {
+      sol = solve();
+      errEl.classList.remove("show");
+    } catch (msg) {
+      sol = null;
+      errEl.textContent = "⚠ " + (msg && msg.message ? msg.message : msg);
+      errEl.classList.add("show");
+    }
+    window.__smb = sol;
+    updateFormula();
+    saveLS();
+    drawAll();
+  }
+
+  /* ================= interactions ================= */
+  function planePoint(e, cv, geo) {
+    const r = cv.getBoundingClientRect();
+    const { A, g } = geo, M = A.M;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    if (px < M.l || px > g.w - M.r || py < M.t || py > g.h - M.b) return null;
+    return [A.x0 + (px - M.l)/(g.w - M.l - M.r)*(A.x1 - A.x0),
+            A.y0 + (g.h - M.b - py)/(g.h - M.t - M.b)*(A.y1 - A.y0)];
+  }
+  function wirePlane(cv, geoKey, setPt, clearPt, redraw) {
+    let drag = false;
+    cv.addEventListener("pointerdown", e => {
+      const p = planePoint(e, cv, G[geoKey]);
+      if (!p) return;
+      e.preventDefault();
+      drag = true;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+      setPt(p); recompute();
+    });
+    cv.addEventListener("pointermove", e => {
+      const p = planePoint(e, cv, G[geoKey]);
+      hov[geoKey] = p;
+      if (drag && p) { setPt(p); recompute(); }
+      else redraw();
+    });
+    cv.addEventListener("pointerleave", () => { hov[geoKey] = null; redraw(); });
+    const up = () => { drag = false; };
+    cv.addEventListener("pointerup", up);
+    cv.addEventListener("pointercancel", up);
+    cv.addEventListener("dblclick", () => { clearPt(); recompute(); });
+  }
+  wirePlane(CV.m23, "m23", p => { st.W = p; }, () => { st.W = null; }, () => drawM23());
+  wirePlane(CV.m14, "m14", p => { st.W14 = [Math.max(p[0], 1e-6), Math.max(p[1], 0)]; },
+            () => { st.W14 = null; }, () => drawM14());
+
+  $("sm-iso").addEventListener("change", () => {
+    st.iso = $("sm-iso").value;
+    st.W = null; st.W14 = null;
+    document.querySelectorAll("[data-nl]").forEach(el =>
+      el.style.display = st.iso === "lin" ? "none" : "");
+    $("sm-purrow").style.display = st.iso === "lin" ? "" : "none";
+    recompute();
+  });
+  for (const id of ["sm-HA", "sm-HB", "sm-KA", "sm-KB", "sm-cAF", "sm-cBF", "sm-PE", "sm-PR",
+                    "sm-Lc", "sm-dc", "sm-eps", "sm-dp", "sm-mu", "sm-dPmax",
+                    "sm-S1", "sm-S2", "sm-S3", "sm-S4", "sm-dPref", "sm-Qref", "sm-tmult"])
+    $(id).addEventListener("change", () => { if (id === "sm-cAF" || id === "sm-cBF") st.W = null; recompute(); });
+  $("sm-dil").addEventListener("input", () => {
+    st.dil = +$("sm-dil").value;
+    $("sm-dilv").textContent = fmt(st.dil, 2);
+    st.W = null;
+    recompute();
+  });
+  $("sm-beta").addEventListener("input", () => {
+    st.beta = +$("sm-beta").value;
+    $("sm-betav").textContent = fmt(st.beta, 2);
+    st.W = null; st.W14 = null;
+    recompute();
+  });
+  $("sm-dpmode").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    st.dpmode = b.dataset.m;
+    [...$("sm-dpmode").children].forEach(x => x.classList.toggle("on", x === b));
+    $("sm-empfld").style.display = st.dpmode === "emp" ? "" : "none";
+    recompute();
+  });
+  function savePNG(cvEl, name) {
+    cvEl.toBlob(bb => {
+      if (!bb) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(bb);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  }
+  $("sm-m23png").addEventListener("click", () => savePNG(CV.m23, "smb_m2m3.png"));
+  $("sm-m14png").addEventListener("click", () => savePNG(CV.m14, "smb_m1m4.png"));
+
+  /* ================= init ================= */
+  (function init() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(LSKEY)); } catch (e) {}
+    if (s) for (const k of Object.keys(st))
+      if (s[k] !== undefined && k !== "W" && k !== "W14") st[k] = s[k];
+    $("sm-iso").value = st.iso;
+    $("sm-HA").value = st.HA; $("sm-HB").value = st.HB;
+    $("sm-KA").value = st.KA; $("sm-KB").value = st.KB;
+    $("sm-cAF").value = st.cAF; $("sm-cBF").value = st.cBF;
+    $("sm-dil").value = st.dil; $("sm-dilv").textContent = fmt(st.dil, 2);
+    $("sm-beta").value = st.beta; $("sm-betav").textContent = fmt(st.beta, 2);
+    $("sm-PE").value = st.PE; $("sm-PR").value = st.PR;
+    $("sm-Lc").value = st.Lc; $("sm-dc").value = st.dc; $("sm-eps").value = st.eps;
+    $("sm-dp").value = st.dp; $("sm-mu").value = st.mu; $("sm-dPmax").value = st.dPmax;
+    $("sm-S1").value = st.S[0]; $("sm-S2").value = st.S[1]; $("sm-S3").value = st.S[2]; $("sm-S4").value = st.S[3];
+    $("sm-dPref").value = st.dPref; $("sm-Qref").value = st.Qref; $("sm-tmult").value = st.tmult;
+    [...$("sm-dpmode").children].forEach(b => b.classList.toggle("on", b.dataset.m === st.dpmode));
+    $("sm-empfld").style.display = st.dpmode === "emp" ? "" : "none";
+    document.querySelectorAll("[data-nl]").forEach(el =>
+      el.style.display = st.iso === "lin" ? "none" : "");
+    $("sm-purrow").style.display = st.iso === "lin" ? "" : "none";
+    const ro = new ResizeObserver(() => drawAll());
+    ro.observe(document.querySelector(".plots"));
+    window.addEventListener("resize", drawAll);
+    if (window.matchMedia)
+      matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+    recompute();
+  })();
+})();
+</script>
+</body>
+</html>
