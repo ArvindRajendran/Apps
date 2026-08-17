@@ -1199,6 +1199,24 @@
       if (s.dataMode === "raw" || s.dataMode === "smooth") st.dataMode = s.dataMode;
       if (isFinite(s.dataBW) && s.dataBW >= 1 && s.dataBW <= 25) st.dataBW = s.dataBW;
     }
+  /* ---- parameter import from Isotherm Fitter (#import= URL hash) ---- */
+  try {
+    const mIm = location.hash.match(/#import=([\s\S]+)/);
+    if (mIm) {
+      const im = JSON.parse(decodeURIComponent(mIm[1]));
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e2) {}
+      if (im && im.v === 1 && im.model && (MODELS[im.model] && im.model !== "custom" && im.model !== "data")) {
+        st.model = im.model;
+        for (const k in im.pvals) st.pvals[im.model + "." + k] = +im.pvals[k];
+        const tdv = document.createElement("div");
+        tdv.textContent = "Imported \u2014 " + (im.note || im.model);
+        tdv.style.cssText = "position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#2563eb;color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.35);transition:opacity .6s;max-width:90vw";
+        document.body.appendChild(tdv);
+        setTimeout(() => { tdv.style.opacity = "0"; setTimeout(() => tdv.remove(), 700); }, 6000);
+      }
+    }
+  } catch (eIm) {}
+
     $("eq-L").value = st.L; $("eq-v").value = st.v; $("eq-eps").value = st.eps;
     $("eq-ci").value = st.cI; $("eq-cf").value = st.cF; $("eq-expr").value = st.expr;
     $("eq-data").value = st.dataText || "";

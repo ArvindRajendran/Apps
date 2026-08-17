@@ -1,0 +1,3673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAC &mdash; 0-D Cycle Simulator</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626; --warn: #d97706; --ok: #16a34a; --c2: #dc2626;
+    --sads: #1d4ed8; --sevac: #059669; --sheat: #ea580c; --scool: #7c3aed;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171; --warn: #fbbf24; --ok: #4ade80; --c2: #f87171;
+      --sads: #60a5fa; --sevac: #34d399; --sheat: #fb923c; --scool: #a78bfa;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1240px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; line-height: 1.55; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative; margin-bottom: 14px;
+  }
+  .panel h3.ptitle { font-size: 0.95rem; margin-bottom: 10px; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  /* column rows (groups side by side) are top-aligned, not baseline */
+  .ctrls.cols { align-items: flex-start; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld > span { white-space: nowrap; }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.78rem; font-weight: 600; padding: 6px 10px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  button.action:disabled { opacity: .5; cursor: default; }
+  .grp { border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px 12px; flex: 1; min-width: 300px; }
+  .grp .gtitle { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; color: var(--accent); }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.bad { color: var(--danger); border-color: var(--danger); }
+  .note { font-size: 0.78rem; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 4px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kpi .kl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .kv { font-size: 1.22rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi .kd { font-size: 0.7rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  /* simplified-energy-model comparison line inside a KPI card */
+  .kpi .kd .simp { display: block; margin-top: 4px; padding-top: 3px; font-size: 0.64rem;
+    border-top: 1px dashed var(--border); opacity: .9; }
+  .kpis.dim .kv, .kpis.dim .kd { opacity: .35; }
+  /* bottom KPI row: working-capacity card beside the explanatory note */
+  .kpibot { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: stretch; }
+  .kpibot > div:first-child { flex: 0 1 320px; min-width: 250px; }
+  .kpibot .kpi { height: 100%; box-sizing: border-box; }
+  .kpibot .note { flex: 1 1 420px; margin-top: 0; align-self: center; }
+  .kpibot.dim .kv, .kpibot.dim .kd { opacity: .35; }
+  .plots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .plots .pcard { grid-column: span 3; }
+  .plots .pcard.third { grid-column: span 2; }
+  .plots .pcard.full { grid-column: span 6; }
+  @media (max-width: 900px) { .plots .pcard, .plots .pcard.full, .plots .pcard.third { grid-column: span 6; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  .schewrap { overflow-x: auto; }
+  .schewrap svg { display: block; margin: 0 auto; width: 100%; height: auto; max-width: 940px; }
+  .sllab { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--muted); gap: 8px; }
+  .sllab b { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* editable sorbent properties (number boxes, two per row) */
+  .props { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 10px; margin-top: 10px; }
+  /* custom-isotherm parameter grid (wide, panel-level) */
+  .cusgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 7px 12px; margin-top: 8px; }
+  #dac-cuscmp { max-width: 320px; }
+  .pfld { display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; color: var(--muted); }
+  .pfld input {
+    width: 100%; padding: 5px 7px; font-size: 0.82rem; border: 1.5px solid var(--border);
+    border-radius: 7px; background: var(--bg); color: var(--text); outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .pfld input:focus { border-color: var(--accent); }
+  .pfld input:disabled { opacity: .4; }
+  .pfld.mod input { border-color: var(--warn); }
+  .pfld.mod > span { color: var(--warn); }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); cursor: pointer; }
+  .fld.slider { min-width: 168px; flex: 1; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .readout { margin-top: 10px; font-size: 0.8rem; line-height: 1.8; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .readout b { color: var(--text); }
+  .prog { height: 6px; border-radius: 4px; background: var(--border); overflow: hidden; margin-top: 10px; display: none; }
+  .prog.show { display: block; }
+  .prog > div { height: 100%; width: 0%; background: var(--accent); transition: width .15s; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  .footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>DAC &mdash; 0-D Cycle Simulator</h2>
+  <div class="sub">Dynamic 0-D (CSTR) simulation of a 4-step temperature&ndash;vacuum swing
+    direct-air-capture cycle &mdash; adsorption, evacuation, heating&nbsp;+&nbsp;vacuum desorption, and
+    cooling/repressurisation &mdash; run to cyclic steady state.
+    Model structure follows Glaser&nbsp;et&nbsp;al. (2025); equilibria use the Toth/GAB/modified-Toth
+    fits of Balasubramaniam&nbsp;et&nbsp;al.&rsquo;s five-sorbent DAC screening study and the
+    Lewatit VP&nbsp;OC&nbsp;1065 isotherms of Balasubramaniam&nbsp;et&nbsp;al. (<i>Adsorption</i> 2026);
+    energy terms use the same forms as the group&rsquo;s Simplified DAC energy model.
+    Basis: 1&nbsp;m&sup3; of packed contactor.</div>
+
+  <div class="panel">
+    <h3 class="ptitle">Sorbent &amp; cycle</h3>
+    <div class="ctrls cols">
+      <div class="grp" style="flex:0 1 320px; min-width:280px">
+        <div class="gtitle">Sorbent</div>
+        <div class="fld"><span>preset</span>
+          <select id="dac-sorb">
+            <option value="Lewatit" selected>Lewatit VP OC 1065 (Balasubramaniam 2026)</option>
+            <option value="APDES">APDES-NFC-FD-S</option>
+            <option value="TMCM-41">TRI-PE-MCM-41</option>
+            <option value="TPMS">SI-AEATPMS</option>
+            <option value="NbOFFIVE">NbOFFIVE-1-Ni</option>
+            <option value="SIFSIX">SIFSIX-18-Ni-&beta;</option>
+            <option value="Custom">Custom (your own Toth + GAB)</option>
+          </select>
+        </div>
+        <div class="badges" id="dac-sorbinfo"></div>
+        <div class="props">
+          <label class="pfld" id="dac-f-eb"><span>&epsilon;<sub>b</sub> (bed voidage)</span>
+            <input type="number" id="dac-eb" min="0.02" max="0.95" step="0.01"></label>
+          <label class="pfld" id="dac-f-ep"><span>&epsilon;<sub>p</sub> (particle)</span>
+            <input type="number" id="dac-ep" min="0" max="0.98" step="0.01"></label>
+          <label class="pfld" id="dac-f-rhop"><span>&rho;<sub>p</sub> [kg/m&sup3;]</span>
+            <input type="number" id="dac-rhop" min="10" max="3000" step="10"></label>
+          <label class="pfld" id="dac-f-cpsorb"><span>c<sub>p,s</sub> [J/kg/K]</span>
+            <input type="number" id="dac-cpsorb" min="100" max="4000" step="10"></label>
+          <label class="pfld" id="dac-f-dHc"><span>&minus;&Delta;H(CO<sub>2</sub>) [kJ/mol]</span>
+            <input type="number" id="dac-dHc" min="10" max="150" step="0.5"></label>
+          <label class="pfld" id="dac-f-dHw"><span>&minus;&Delta;H(H<sub>2</sub>O) [kJ/mol]</span>
+            <input type="number" id="dac-dHw" min="10" max="120" step="0.5"></label>
+        </div>
+        <div class="ctrls" style="margin-top:9px; gap:8px 12px; align-items:center">
+          <label class="chk"><input type="checkbox" id="dac-unlink">
+            unlink &Delta;H(CO<sub>2</sub>) from the isotherm</label>
+          <button class="action" id="dac-reset">Reset to preset</button>
+        </div>
+      </div>
+      <div class="grp" style="flex:1 1 620px; min-width:340px">
+        <div class="gtitle">Cycle schematic</div>
+        <div class="schewrap" id="dac-scheme"></div>
+      </div>
+    </div>
+    <div class="grp" id="dac-cusgrp" style="display:none; margin-top:12px">
+      <div class="gtitle">Custom isotherm parameters
+        <span id="dac-cussrc" style="text-transform:none; font-weight:400; color:var(--muted)"></span></div>
+      <div class="cusgrid">
+        <label class="pfld"><span>q<sub>s0</sub> [mol/kg]</span><input type="number" id="dac-c-qs0" step="any"></label>
+        <label class="pfld"><span>&chi; [-]</span><input type="number" id="dac-c-chi" step="any"></label>
+        <label class="pfld"><span>T<sub>0</sub> [K]</span><input type="number" id="dac-c-T0" step="any"></label>
+        <label class="pfld"><span>b<sub>0</sub> [Pa&#8315;&sup1;]</span><input type="number" id="dac-c-b0" step="any"></label>
+        <label class="pfld"><span>t<sub>0</sub> [-]</span><input type="number" id="dac-c-w0" step="any"></label>
+        <label class="pfld"><span>&alpha; [-]</span><input type="number" id="dac-c-alpha" step="any"></label>
+      </div>
+      <div class="ctrls" style="margin-top:10px; gap:8px 16px; align-items:flex-end">
+        <div class="fld"><span>CO&#8322;&ndash;H&#8322;O coupling</span>
+          <div class="seg" id="dac-cuscoup">
+            <button data-v="none">none</button><button data-v="mod">modulated (&psi;, &beta;)</button><button data-v="cmp">site competition (b<sub>w</sub>)</button>
+          </div></div>
+        <div class="fld"><span>H&#8322;O isotherm</span>
+          <div class="seg" id="dac-cuswat">
+            <button data-v="gab">GAB</button><button data-v="inert">inert</button>
+          </div></div>
+        <button class="action" id="dac-cusseed">Reseed from preset</button>
+      </div>
+      <div class="cusgrid" id="dac-cusmod">
+        <label class="pfld"><span>&psi; [kg/mol]</span><input type="number" id="dac-c-psi" step="any"></label>
+        <label class="pfld"><span>&beta; [kg/mol]</span><input type="number" id="dac-c-beta" step="any"></label>
+        <label class="pfld"><span>x<sub>max</sub> (RH clamp) [-]</span><input type="number" id="dac-c-xmax" step="any" min="0" max="1"></label>
+      </div>
+      <div class="cusgrid" id="dac-cuscmp" style="display:none">
+        <label class="pfld"><span>b<sub>w0</sub> [Pa&#8315;&sup1;]</span><input type="number" id="dac-c-bw0" step="any"></label>
+      </div>
+      <div class="cusgrid" id="dac-cusgab">
+        <label class="pfld"><span>C<sub>m</sub> [mol/kg]</span><input type="number" id="dac-c-Cm" step="any"></label>
+        <label class="pfld"><span>C<sub>G</sub> [-]</span><input type="number" id="dac-c-CG" step="any"></label>
+        <label class="pfld"><span>K [-]</span><input type="number" id="dac-c-K" step="any"></label>
+      </div>
+      <div class="badges" id="dac-cuswarn"></div>
+      <div class="note">CO&#8322; is Toth with q<sub>s</sub> = q<sub>s0</sub>e<sup>&chi;(1&minus;T/T&#8320;)</sup>,
+        b = b&#8320;exp[&Delta;H&#8320;/(RT&#8320;)(T&#8320;/T&minus;1)], t = t&#8320;+&alpha;(1&minus;T&#8320;/T).
+        <i>Modulated</i>: q<sub>s</sub>/(1&minus;&psi;q<sub>w</sub>), b(1+&beta;q<sub>w</sub>) &mdash;
+        &beta;&gt;0 co-operative, &beta;&lt;0 competitive (Stampi-Bombelli).
+        <i>Site competition</i>: q* = q<sub>s</sub>bp/[1+(bp+b<sub>w</sub>p<sub>w</sub>)<sup>t</sup>]<sup>1/t</sup>
+        with b<sub>w</sub> Arrhenius in T; works with inert water too (p<sub>w</sub> is gas-phase).
+        &minus;&Delta;H(CO&#8322;) in the sorbent box is the Toth &Delta;H&#8320; unless unlinked;
+        &minus;&Delta;H(H&#8322;O) is the GAB heat in the energy balance and the b<sub>w</sub>
+        Arrhenius heat in competition mode.</div>
+    </div>
+    <div class="note" id="dac-sorbnote"></div>
+  </div>
+
+  <div class="panel">
+    <h3 class="ptitle">Conditions, cycle steps &amp; equipment</h3>
+    <div class="ctrls cols">
+      <div style="display:flex; flex-direction:column; gap:10px; flex:1 1 380px; min-width:300px">
+      <div class="grp">
+        <div class="gtitle">Step durations &amp; flows</div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>t<sub>ads</sub></span><b id="dac-tads-v"></b></div>
+            <input type="range" id="dac-tads" min="0.25" max="12" step="0.25" value="3"></div>
+          <div class="fld slider"><div class="sllab"><span>fan flow V&#775;<sub>I</sub></span><b id="dac-Vfan-v"></b></div>
+            <input type="range" id="dac-Vfan" min="0" max="100" step="1" value="77"></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>pump speed (evac)</span><b id="dac-Spump-v"></b></div>
+            <input type="range" id="dac-Spump" min="0" max="100" step="1" value="39"></div>
+          <div class="fld slider"><div class="sllab"><span>t<sub>heat+vac</sub></span><b id="dac-theat-v"></b></div>
+            <input type="range" id="dac-theat" min="0.25" max="8" step="0.25" value="1.5"></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>t<sub>cool</sub></span><b id="dac-tcool-v"></b></div>
+            <input type="range" id="dac-tcool" min="0.1" max="4" step="0.05" value="0.75"></div>
+          <div class="fld slider"><div class="sllab"><span>fan &Delta;P</span><b id="dac-dP-v"></b></div>
+            <input type="range" id="dac-dP" min="0" max="100" step="1" value="50"></div>
+        </div>
+        <div class="note">Evacuation has no duration input: it runs at the pump speed until
+          P reaches P<sub>regen</sub> (t<sub>evac</sub> is an outcome). Flows are per m&sup3; of contactor.</div>
+      </div>
+      <div class="grp">
+        <div class="gtitle">Ambient air &amp; regeneration</div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>T<sub>amb</sub></span><b id="dac-Tamb-v"></b></div>
+            <input type="range" id="dac-Tamb" min="-10" max="45" step="1" value="20"></div>
+          <div class="fld slider"><div class="sllab"><span>relative humidity</span><b id="dac-RH-v"></b></div>
+            <input type="range" id="dac-RH" min="0" max="100" step="1" value="50"></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>T<sub>des</sub></span><b id="dac-Tdes-v"></b></div>
+            <input type="range" id="dac-Tdes" min="60" max="160" step="1" value="120"></div>
+          <div class="fld slider"><div class="sllab"><span>P<sub>regen</sub></span><b id="dac-Pregen-v"></b></div>
+            <input type="range" id="dac-Pregen" min="0.05" max="0.50" step="0.01" value="0.20"></div>
+        </div>
+        <div class="note">Air: 400 ppm CO<sub>2</sub>, balance N<sub>2</sub>, H<sub>2</sub>O from RH at
+          P<sub>amb</sub> = 1 atm. T<sub>des</sub> is the wall set point during heating and
+          P<sub>regen</sub> the pressure the pump holds.</div>
+      </div>
+      </div>
+      <div class="grp">
+        <div class="gtitle">Equipment, heat transfer &amp; kinetics</div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>&eta;<sub>fan</sub></span><b id="dac-etaF-v"></b></div>
+            <input type="range" id="dac-etaF" min="0.3" max="0.9" step="0.01" value="0.70"></div>
+          <div class="fld slider"><div class="sllab"><span>&eta;<sub>vac</sub></span><b id="dac-etaV-v"></b></div>
+            <input type="range" id="dac-etaV" min="0.2" max="0.9" step="0.01" value="0.50"></div>
+          <div class="fld"><span>vacuum-pump work</span>
+            <div class="seg" id="dac-pumpseg">
+              <button data-v="iso" class="on">isothermal</button><button data-v="adia">adiabatic</button>
+            </div></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>&tau;<sub>heat</sub> (wall)</span><b id="dac-tauH-v"></b></div>
+            <input type="range" id="dac-tauH" min="0" max="100" step="1" value="46"></div>
+          <div class="fld slider"><div class="sllab"><span>&tau;<sub>cool</sub> (wall)</span><b id="dac-tauC-v"></b></div>
+            <input type="range" id="dac-tauC" min="0" max="100" step="1" value="46"></div>
+          <div class="fld slider"><div class="sllab"><span>bed&ndash;wall U<sub>a</sub></span><b id="dac-Ua-v"></b></div>
+            <input type="range" id="dac-Ua" min="0" max="100" step="1" value="46"></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>m<sub>str</sub>/m<sub>sorb</sub></span><b id="dac-mstr-v"></b></div>
+            <input type="range" id="dac-mstr" min="0" max="6" step="0.1" value="0"></div>
+          <div class="fld slider"><div class="sllab"><span>c<sub>p,str</sub></span><b id="dac-cpstr-v"></b></div>
+            <input type="range" id="dac-cpstr" min="200" max="1200" step="10" value="710"></div>
+          <div class="fld slider"><div class="sllab"><span>wall thermal mass</span><b id="dac-wcp-v"></b></div>
+            <input type="range" id="dac-wcp" min="0" max="100" step="1" value="0"></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>k<sub>CO2</sub> (20&nbsp;&deg;C)</span><b id="dac-kC-v"></b></div>
+            <input type="range" id="dac-kC" min="0" max="100" step="1" value="50"></div>
+          <div class="fld slider"><div class="sllab"><span>E<sub>a</sub>(CO<sub>2</sub>)</span><b id="dac-EaC-v"></b></div>
+            <input type="range" id="dac-EaC" min="0" max="80" step="1" value="0"></div>
+        </div>
+        <div class="ctrls">
+          <div class="fld slider"><div class="sllab"><span>k<sub>H2O</sub> (20&nbsp;&deg;C)</span><b id="dac-kW-v"></b></div>
+            <input type="range" id="dac-kW" min="0" max="100" step="1" value="77"></div>
+          <div class="fld slider"><div class="sllab"><span>E<sub>a</sub>(H<sub>2</sub>O)</span><b id="dac-EaW-v"></b></div>
+            <input type="range" id="dac-EaW" min="0" max="80" step="1" value="0"></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">Structure (contactor internals, mesh, laminate) is carried as a mass
+      ratio to sorbent with its own c<sub>p</sub> &mdash; the same
+      m<sub>str</sub>&middot;c<sub>p,str</sub> term as the Simplified DAC energy model; it
+      adds to the bed thermal mass and so to the sensible duty.
+      The wall follows a first-order approach to T<sub>des</sub> (heating) or
+      T<sub>amb</sub> (all other steps) and offers no thermal resistance of its own &mdash;
+      the bed couples to it through the volumetric coefficient U<sub>a</sub>.
+      The LDF sliders set k at 20&nbsp;&deg;C; a nonzero activation energy scales
+      each coefficient with the instantaneous bed temperature as
+      k(T)&nbsp;=&nbsp;k<sub>20</sub>&nbsp;exp[&minus;E<sub>a</sub>/R&nbsp;(1/T&nbsp;&minus;&nbsp;1/293.15)]
+      (Arrhenius), so desorption at T<sub>des</sub> is faster than capture at ambient;
+      E<sub>a</sub>&nbsp;=&nbsp;0 reproduces the constant-k model exactly.</div>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:10px">
+      <h3 class="ptitle" style="margin-bottom:0">Cycle KPIs at cyclic steady state</h3>
+      <div class="badges" style="margin-top:0" id="dac-cssbadges"></div>
+    </div>
+    <div class="kpis" id="dac-kpis"></div>
+    <div class="kpibot" id="dac-kpibot">
+      <div id="dac-kpiwc"></div>
+      <div class="note" id="dac-kpinote"></div>
+    </div>
+  </div>
+
+  <div class="plots">
+    <div class="pcard">
+      <div class="phead"><h3>CO<sub>2</sub> isotherms &amp; cycle end states</h3><span class="pinfo" id="dac-isoinfo"></span></div>
+      <canvas id="dac-isoC" height="300"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>H<sub>2</sub>O isotherm (GAB)</h3><span class="pinfo" id="dac-isoWinfo"></span></div>
+      <canvas id="dac-isoW" height="300"></canvas>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Temperature &amp; pressure</h3><span class="pinfo">CSS cycle</span></div>
+      <canvas id="dac-pTP" height="260"></canvas>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Loadings</h3><span class="pinfo">q<sub>CO2</sub> | q<sub>H2O</sub></span></div>
+      <canvas id="dac-pQ" height="260"></canvas>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Gas composition</h3><span class="pinfo">log scale</span></div>
+      <canvas id="dac-pY" height="260"></canvas>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <h3 class="ptitle">Parametric sweep</h3>
+    <div class="ctrls">
+      <div class="fld"><span>x-axis</span><select id="dac-swx"></select></div>
+      <div class="fld"><span>y-axis</span><select id="dac-swy"></select></div>
+      <div class="fld"><span>colour / curve: KPI</span><select id="dac-swk"></select></div>
+      <div class="fld"><span>grid</span>
+        <select id="dac-swn"><option>9</option><option selected>13</option><option>17</option><option>21</option></select></div>
+      <button class="action" id="dac-swrun">Run sweep</button>
+      <button class="action" id="dac-swstop" disabled>Stop</button>
+    </div>
+    <div class="prog" id="dac-swprog"><div></div></div>
+    <div class="pcard" id="dac-swwrap" style="margin-top:12px; box-shadow:none; display:none">
+      <canvas id="dac-swmap" height="420" style="height:420px"></canvas>
+    </div>
+    <div class="readout" id="dac-swread">Pick axes and run &mdash; every grid point is a full
+      cyclic-steady-state simulation, so a 13&times;13 sweep takes a minute or two.</div>
+  </div>
+
+  <div class="footer">
+    Model: 0-D CSTR molar &amp; energy balances with LDF kinetics (Glaser et al.,
+    <i>Sustain. Energy Fuels</i> 2025) &middot; isotherms: Toth / GAB / modified Toth
+    (Stampi-Bombelli protocol) and water-enhanced Toth for Lewatit
+    (Balasubramaniam et al., <i>Adsorption</i> 2026) &middot; energy forms as in the
+    Simplified DAC energy model &middot; validated against an independent Python/scipy
+    reference and MATLAB <code>dac.energyModel</code> &mdash; see the folder README.<br>
+    &copy; 2026 Arvind Rajendran &middot; built with Claude Code &middot; all calculations run locally.<br>
+    <a href="../index.html" style="color:inherit">Part of the Research Apps suite &rarr;</a>
+  </div>
+</div>
+
+<script id="dac-engine">
+"use strict";
+/* ===================================================================== *
+ *  DAC 0-D cycle engine  (Glaser-style dynamics + Rajendran-group
+ *  isotherms and Simplified-DAC energy forms)
+ *
+ *  Basis: 1 m3 of packed contactor (bed).  Solid volume = (1-eb) m3.
+ *  4-step TVSA cycle:
+ *    1. adsorption      fan-driven CSTR at P_amb, duration t_ads
+ *    2. evacuation      closed inlet, pump-speed input; ends at P_regen
+ *    3. heat + vacuum   P held at P_regen, wall -> T_des (1st order),
+ *                       outflow = product; duration t_heat
+ *    4. cooling/repress instantaneous repressurisation with ambient air,
+ *                       then constant-P cooling with inflow only, t_cool
+ *
+ *  State vector x = [N, yc, yw, qc, qw, T, Tw]
+ *    N  total gas moles in the bed voids      [mol]
+ *    yc, yw  CO2 / H2O gas mole fractions     [-]   (yn = 1-yc-yw)
+ *    qc, qw  CO2 / H2O loadings               [mol/kg sorbent]
+ *    T   bed temperature (gas+solid, lumped)  [K]
+ *    Tw  wall temperature                     [K]
+ *
+ *  Isotherms:
+ *    CO2: Toth, modified for water via q_H2O (Stampi-Bombelli):
+ *         qs_wet = qs/(1 - psi*qw),  b_wet = b*(1 + beta*qw)
+ *    H2O: GAB on relative-humidity fraction x (T enters via psat only)
+ *  Both reduce to the published dry forms at qw = 0 / x = 0.
+ *
+ *  Energy forms follow the Simplified DAC model (dac.energyModel):
+ *    fan: isentropic blower work over dP; vacuum: isothermal ln(P) work
+ *    at T_amb (default) or Glaser's adiabatic form (toggle).
+ * ===================================================================== */
+var DacEngine = (function () {
+
+  var R = 8.314;                    // J/mol/K
+  var TREF_LDF = 293.15;            // [K] reference T for the LDF sliders (20 C)
+  var GAM = 1.4;                    // adiabatic constant, air
+  var MW_C = 0.04401;               // kg/mol CO2
+  var MW_W = 0.018015;              // kg/mol H2O
+  var CPG = { c: 37.1, w: 33.6, n: 29.1 };  // gas molar cp [J/mol/K]
+  var CPA_C = 50.0, CPA_W = 75.0;   // adsorbed-phase cp [J/mol/K]
+  var Y_CO2_AIR = 400e-6;           // 400 ppm CO2 in air
+
+  // Antoine (paper SI): log10 P[bar] = A - B/(T+C)
+  function psat(T) { return Math.pow(10, 4.6543 - 1435.264 / (T - 64.848)) * 1e5; } // Pa
+
+  /* ------------------------------------------------------------------ *
+   *  Sorbent presets.
+   *  Toth: qs0 [mol/kg], chi [-], T0 [K], b0 [1/Pa], dH0 [J/mol],
+   *        w0 [-], alpha [-]
+   *  GAB:  Cm [mol/kg], CG [-], K [-]   (null -> H2O inert)
+   *  wet:  psi, beta [kg/mol == g/mmol],  xmax = RH-fraction clamp for
+   *        the coupling (SI: NbOFFIVE 0.75, SIFSIX 0.90)
+   *  dHc, dHw [J/mol] heats used in the energy balance & thermal KPI
+   *  rho_p particle density [kg/m3], eb bed voidage, ep particle voidage
+   *  cps sorbent heat capacity [J/kg/K], kC/kW default LDF [1/s]
+   * ------------------------------------------------------------------ */
+  var PRESETS = {
+    "TMCM-41": {
+      toth: { qs0: 2.7, chi: 0, T0: 298, b0: 0.38776, dH0: 90000, w0: 0.3123, alpha: 0.3472 },
+      gab: null, wet: null, dHc: 90000, dHw: 0,
+      rho_p: 930, eb: 0.40, ep: 0.40, cps: 1000, kC: 2e-4, kW: 0.2,
+      label: "TRI-PE-MCM-41", cls: "chemisorbent (amine silica)"
+    },
+    "TPMS": {
+      toth: { qs0: 1.0, chi: 0, T0: 298, b0: 2.0123, dH0: 90000, w0: 0.2696, alpha: 0.08069 },
+      gab: null, wet: null, dHc: 90000, dHw: 0,
+      rho_p: 1250, eb: 0.40, ep: 0.40, cps: 900, kC: 2e-4, kW: 0.2,
+      label: "SI-AEATPMS", cls: "chemisorbent (amine silica)"
+    },
+    "NbOFFIVE": {
+      toth: { qs0: 2.22, chi: 0, T0: 273, b0: 0.17567, dH0: 50000, w0: 1.166, alpha: -0.4937 },
+      gab: { Cm: 6.159, CG: 36.81, K: 0.4063 },
+      wet: { psi: 0, beta: -0.11707, xmax: 0.75 }, dHc: 50000, dHw: 45036,
+      rho_p: 1173.6, eb: 0.40, ep: 0.40, cps: 1000, kC: 2e-4, kW: 0.2,
+      label: "NbOFFIVE-1-Ni", cls: "physisorbent (MOF)"
+    },
+    "SIFSIX": {
+      toth: { qs0: 3.0, chi: 0, T0: 273, b0: 0.04572, dH0: 52000, w0: 0.5455, alpha: 1.592 },
+      gab: { Cm: 0.4067, CG: 93.13, K: 0.7859 },
+      wet: { psi: 0, beta: -0.6772, xmax: 0.90 }, dHc: 52000, dHw: 45036,
+      rho_p: 786, eb: 0.40, ep: 0.40, cps: 1000, kC: 2e-4, kW: 0.2,
+      label: "SIFSIX-18-Ni-β", cls: "physisorbent (MOF)"
+    },
+    "APDES": {
+      toth: { qs0: 2.2, chi: 0, T0: 296, b0: 0.373, dH0: 60000, w0: 0.4247, alpha: -0.4921 },
+      gab: { Cm: 36.48, CG: 0.1489, K: 0.5751 },
+      wet: { psi: 0.00958, beta: 3.448, xmax: 1.0 }, dHc: 60000, dHw: 43800,
+      rho_p: 61, eb: 0.092, ep: 0.9614, cps: 2070, kC: 2e-4, kW: 0.2,
+      label: "APDES-NFC-FD-S", cls: "chemisorbent (amine cellulose)"
+    },
+    "Lewatit": {
+      toth: { qs0: 3.93873034, chi: 0, T0: 303.15, b0: 20112.4573 / 1e5, dH0: 70999, w0: 0.26906407, alpha: 0.04501535 },
+      gab: { Cm: 3.8640, CG: 1.7950, K: 0.76830 },
+      wet: { psi: 4.70e-3, beta: 0.569, xmax: 1.0 }, dHc: 70999, dHw: 43800,
+      rho_p: 760, eb: 0.37, ep: 0.35, cps: 1580, kC: 4e-3, kW: 0.2,
+      label: "Lewatit VP OC 1065", cls: "chemisorbent (amine resin)"
+    }
+  };
+
+  /* --------------------------- isotherms ---------------------------- */
+
+  // GAB water loading [mol/kg] from RH fraction x (clamped to 0.999)
+  function qstarW(x, S) {
+    if (!S.gab) return 0;
+    var g = S.gab, a = Math.min(Math.max(x, 0), 0.999);
+    var Ka = g.K * a;
+    return g.Cm * g.CG * Ka / ((1 - Ka) * (1 + (g.CG - 1) * Ka));
+  }
+
+  // Arrhenius LDF coefficient: k(T) = k_ref exp[-Ea/R (1/T - 1/Tref)].
+  // k_ref is the slider value at TREF_LDF (20 C); Ea in J/mol, 0/absent
+  // reproduces the constant-k behaviour bit-for-bit.
+  function kLDF(kref, Ea, T) {
+    return Ea ? kref * Math.exp(-(Ea / R) * (1 / T - 1 / TREF_LDF)) : kref;
+  }
+
+  // Modified-Toth CO2 loading [mol/kg]; p in Pa, qw in mol/kg.
+  // Water coupling is EITHER S.wet (Stampi-Bombelli modulation of qs and
+  // b by the water LOADING qw) OR S.cmp (extended/competitive Toth: the
+  // water PARTIAL PRESSURE pw [Pa] joins the shared denominator,
+  // q* = qs b p / [1 + (b p + b_w pw)^t]^(1/t), b_w Arrhenius on the
+  // Toth T0). pw is only read by the cmp branch and may be omitted.
+  function qstarC(p, T, qw, S, pw) {
+    var t = S.toth;
+    var qs = t.qs0 * Math.exp(t.chi * (1 - T / t.T0));
+    var b = t.b0 * Math.exp((t.dH0 / (R * t.T0)) * (t.T0 / T - 1));
+    var w = t.w0 + t.alpha * (1 - t.T0 / T);
+    if (S.wet && qw > 0) {
+      var qwEff = S.wet.qwClamp != null ? Math.min(qw, S.wet.qwClamp) : qw;
+      var den = 1 - S.wet.psi * qwEff;
+      qs = den > 0.05 ? qs / den : qs / 0.05;      // guard qs_wet > 0
+      b = Math.max(b * (1 + S.wet.beta * qwEff), 0);
+    }
+    var f = b * Math.max(p, 0);
+    if (f <= 0) return 0;
+    var g = f;
+    if (S.cmp && S.cmp.bw0 > 0) {
+      var bw = S.cmp.bw0 * Math.exp((S.cmp.dHw / (R * t.T0)) * (t.T0 / T - 1));
+      g = f + bw * Math.max(pw || 0, 0);
+    }
+    return qs * f / Math.pow(1 + Math.pow(g, w), 1 / w);
+  }
+
+  /* ------------------------ parameter assembly ----------------------- */
+  // User params (all per m3 of bed):
+  //   sorbent, Tamb [K], RH [%], Tdes [K], Pregen [Pa], Pamb [Pa],
+  //   t_ads, t_heat, t_cool [s], Vfan [m3/h], Spump [m3/h],
+  //   dPfan [Pa], etaFan, etaVac, pumpModel 'iso'|'adia',
+  //   tauHeat, tauCool [s], Ua [W/m3/K], wallCp [J/K], kC, kW [1/s at 20 C],
+  //   EaC, EaW [J/mol] optional Arrhenius activation energies for the LDF ks
+  function buildModel(u) {
+    // "Custom" carries its full isotherm/property spec in u.iso — the
+    // same shape as a PRESETS entry (toth, gab, wet, cmp, eb, ep, rho_p,
+    // cps, dHc, dHw), seeded by the UI from a source preset.
+    var S = (u.sorbent === "Custom" && u.iso) ? u.iso : PRESETS[u.sorbent];
+    if (!S) throw new Error("unknown sorbent " + u.sorbent);
+    var pick = function (v, d) { return (v != null && isFinite(v)) ? v : d; };
+    // sorbent properties may be overridden by the user (defaults = preset)
+    var eb = pick(u.eb, S.eb), ep = pick(u.ep, S.ep);
+    var rho_p = pick(u.rhop, S.rho_p), cps = pick(u.cps, S.cps);
+    var dHc = pick(u.dHc, S.dHc);
+    var dHw = S.gab ? pick(u.dHw, S.dHw) : 0;
+    var epsT = eb + (1 - eb) * ep;              // total voidage
+    var ms = rho_p * (1 - eb);                  // kg sorbent per m3 bed
+    var VC = epsT * 1.0;                        // gas volume [m3]
+    var Vsolid = (1 - eb) * 1.0;                // sorbent volume [m3]
+    // The Toth temperature coefficient IS the heat of adsorption
+    // (Clausius-Clapeyron), so an edited dHc moves the isotherm too unless
+    // the user explicitly unlinks the two to test sensitivity.
+    var toth = S.toth;
+    if (!u.unlinkDH && dHc !== S.dHc) {
+      toth = { qs0: toth.qs0, chi: toth.chi, T0: toth.T0, b0: toth.b0,
+               dH0: dHc, w0: toth.w0, alpha: toth.alpha };
+    }
+    // clamp loading used in the CO2-H2O coupling (SI RH clamps)
+    var wet = S.wet ? {
+      psi: S.wet.psi, beta: S.wet.beta,
+      qwClamp: (S.wet.xmax < 1 && S.gab) ? qstarW(S.wet.xmax, S) : null
+    } : null;
+    // competitive (shared-denominator) coupling: b_w0 from the spec, its
+    // Arrhenius heat from the ΔH(H2O) box — works with inert water too,
+    // since the competition acts through the gas-phase pw
+    var cmp = (S.cmp && S.cmp.bw0 > 0) ? {
+      bw0: S.cmp.bw0, dHw: pick(u.dHw, S.dHw || 0)
+    } : null;
+    var Seff = { toth: toth, gab: S.gab, wet: wet, cmp: cmp };
+    // ambient air
+    var pw = (u.RH / 100) * psat(u.Tamb);
+    var ywA = pw / u.Pamb;
+    var yA = { c: Y_CO2_AIR * (1 - ywA), w: ywA, n: 0 };
+    yA.n = 1 - yA.c - yA.w;
+    return {
+      u: u, S: Seff, dHc: dHc, dHw: dHw,
+      eb: eb, epsT: epsT, ms: ms, VC: VC, Vsolid: Vsolid,
+      cps: cps, yAir: yA,
+      cpaC: (u.cpaC != null) ? u.cpaC : CPA_C,
+      cpaW: (u.cpaW != null) ? u.cpaW : CPA_W,
+      // structure carried along with the sorbent: mass ratio m_str/m_sorb
+      // times its cp [J/kg/K] (same term as dac.energyModel's mstr*Cpstr)
+      cpStr: (u.mstr || 0) * (u.cpstr || 0),
+      ndotFan: u.Pamb * (u.Vfan / 3600) / (R * u.Tamb),  // mol/s at ambient
+      inertW: !S.gab
+    };
+  }
+
+  /* ---------------------- step right-hand sides ---------------------- *
+   * x = [N, yc, yw, qc, qw, T, Tw];  returns dx/dt.
+   * mode: "ads" | "evac" | "heat" | "cool"
+   * Also fills out.rates = {ndotO, ndotI, Qext, Wvac, Wfan} for
+   * quadrature (evaluated at accepted solution points).
+   * ------------------------------------------------------------------ */
+  function rhs(M, mode, x, out) {
+    var u = M.u;
+    var N = x[0], yc = x[1], yw = x[2], qc = x[3], qw = x[4], T = x[5], Tw = x[6];
+    var yn = 1 - yc - yw;
+    var P = N * R * T / M.VC;
+
+    // equilibria & LDF rates (mol/s per m3 bed)
+    var xRH = Math.max(yw, 0) * P / psat(T);
+    var qwS = M.inertW ? 0 : qstarW(xRH, M.S);
+    var qcS = qstarC(Math.max(yc, 0) * P, T, Math.max(qw, 0), M.S,
+                     Math.max(yw, 0) * P);
+    var rc = kLDF(u.kC, u.EaC, T) * (qcS - qc) * M.ms;
+    var rw = M.inertW ? 0 : kLDF(u.kW, u.EaW, T) * (qwS - qw) * M.ms;
+    var dqc = rc / M.ms, dqw = M.inertW ? 0 : rw / M.ms;
+    var rSum = rc + rw;
+
+    // heat capacity of the lumped bed [J/K per m3 bed]
+    var Cgas = N * (yc * CPG.c + yw * CPG.w + yn * CPG.n);
+    var Ctot = M.ms * (M.cps + M.cpStr) + Cgas + M.ms * (qc * M.cpaC + qw * M.cpaW);
+
+    var Qext = u.Ua * (Tw - T);       // W per m3 bed (wall -> bed)
+    var Hads = M.dHc * rc + M.dHw * rw;  // W released by adsorption
+
+    var ndotI = 0, ndotO = 0, dN, dT, dyc, dyw, dTw;
+
+    if (mode === "heat") {
+      dTw = (u.Tdes - Tw) / u.tauHeat;
+    } else {
+      dTw = (u.Tamb - Tw) / u.tauCool;
+    }
+
+    if (mode === "ads" || mode === "cool") {
+      // constant pressure: dN/dt = -(N/T) dT/dt
+      if (mode === "ads") {
+        ndotI = M.ndotFan;
+        // energy: Ctot*dT = ndotI*cpg*(Tamb-T) + Hads + Qext
+        var cpgI = CPG.c * M.yAir.c + CPG.w * M.yAir.w + CPG.n * M.yAir.n;
+        dT = (ndotI * cpgI * (u.Tamb - T) + Hads + Qext) / Ctot;
+        dN = -(N / T) * dT;
+        ndotO = ndotI - rSum - dN;
+        dyc = (ndotI * (M.yAir.c - yc) - rc + yc * rSum) / N;
+        dyw = (ndotI * (M.yAir.w - yw) - rw + yw * rSum) / N;
+      } else {
+        // cooling: inflow only (ndotO = 0), inflow at ambient composition
+        // dT appears in ndotI = rSum + dN/dt = rSum - (N/T) dT  -> linear solve
+        var cpgI2 = CPG.c * M.yAir.c + CPG.w * M.yAir.w + CPG.n * M.yAir.n;
+        // Ctot*dT = ndotI*cpgI*(Tamb-T) + Hads + Qext
+        //         = (rSum - (N/T)dT)*cpgI*(Tamb-T) + Hads + Qext
+        var A = Ctot + (N / T) * cpgI2 * (u.Tamb - T);
+        dT = (rSum * cpgI2 * (u.Tamb - T) + Hads + Qext) / A;
+        dN = -(N / T) * dT;
+        ndotI = rSum + dN;
+        if (ndotI < 0) {  // gas would need to leave: vent excess instead
+          ndotI = 0;
+          dT = (Hads + Qext) / Ctot;
+          dN = -(N / T) * dT;
+          ndotO = -(dN + rSum) > 0 ? -(dN + rSum) : 0;
+        }
+        dyc = (ndotI * (M.yAir.c - yc) - rc + yc * rSum) / N;
+        dyw = (ndotI * (M.yAir.w - yw) - rw + yw * rSum) / N;
+      }
+    } else if (mode === "evac") {
+      // pump withdraws Spump m3/h at column conditions; V*dP/dt work term
+      ndotO = (u.Spump / 3600) * N / M.VC;
+      dN = -ndotO - rSum;
+      // energy with gas-expansion term V dP/dt = R(T dN + N dT)
+      // Ctot*dT = Hads + Qext + R*(T*dN + N*dT)  ->  (Ctot - R N) dT = ...
+      dT = (Hads + Qext + R * T * dN) / (Ctot - R * N);
+      // species: d(N yi)/dt = -ndotO yi - ri  ->  N dyi = -ri + yi*rSum
+      dyc = (-rc + yc * rSum) / N;
+      dyw = (-rw + yw * rSum) / N;
+    } else { // heat: constant P = Pregen, outflow only
+      // dN = -(N/T) dT ; ndotO = -rSum - dN
+      // Ctot*dT = Hads + Qext  (no inflow; P const -> no pdV term at const P
+      //           beyond enthalpy of leaving gas at T which cancels for CSTR)
+      dT = (Hads + Qext) / Ctot;
+      dN = -(N / T) * dT;
+      ndotO = -rSum - dN;
+      if (ndotO < 0) ndotO = 0;   // no reverse flow through the pump
+      dyc = (-rc + yc * rSum) / N;
+      dyw = (-rw + yw * rSum) / N;
+    }
+
+    if (out) {
+      out.ndotI = ndotI; out.ndotO = ndotO; out.P = P;
+      out.Qext = Qext; out.rc = rc; out.rw = rw;
+      out.yc = yc; out.yw = yw; out.T = T;
+    }
+    return [dN, dyc, dyw, dqc, dqw, dT, dTw];
+  }
+
+  /* ------------------- TR-BDF2 implicit integrator ------------------- */
+  var TRGAM = 2 - Math.SQRT2, TRD = TRGAM / 2;
+
+  function solve7(Aa, bb) {  // Gaussian elim with partial pivoting, n=7
+    var n = 7, i, j, k;
+    var A = [], b = bb.slice();
+    for (i = 0; i < n; i++) A.push(Aa[i].slice());
+    for (k = 0; k < n; k++) {
+      var p = k, mx = Math.abs(A[k][k]);
+      for (i = k + 1; i < n; i++) if (Math.abs(A[i][k]) > mx) { mx = Math.abs(A[i][k]); p = i; }
+      if (p !== k) { var t = A[p]; A[p] = A[k]; A[k] = t; var tb = b[p]; b[p] = b[k]; b[k] = tb; }
+      if (A[k][k] === 0) return null;
+      for (i = k + 1; i < n; i++) {
+        var m = A[i][k] / A[k][k];
+        if (m === 0) continue;
+        for (j = k; j < n; j++) A[i][j] -= m * A[k][j];
+        b[i] -= m * b[k];
+      }
+    }
+    var xx = new Array(n);
+    for (i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (j = i + 1; j < n; j++) s -= A[i][j] * xx[j];
+      xx[i] = s / A[i][i];
+    }
+    return xx;
+  }
+
+  function jacFD(M, mode, x, f0) {
+    var n = 7, J = [];
+    for (var i = 0; i < n; i++) J.push(new Array(n));
+    for (var j = 0; j < n; j++) {
+      var h = 1e-7 * Math.max(Math.abs(x[j]), 1e-6);
+      var xp = x.slice(); xp[j] += h;
+      var fp = rhs(M, mode, xp, null);
+      for (var i2 = 0; i2 < n; i2++) J[i2][j] = (fp[i2] - f0[i2]) / h;
+    }
+    return J;
+  }
+
+  // solve z - c*h*f(z) = rvec  by Newton, initial guess zg
+  function newtonStage(M, mode, ch, rvec, zg) {
+    var z = zg.slice();
+    for (var it = 0; it < 12; it++) {
+      var f = rhs(M, mode, z, null);
+      var res = new Array(7), nrm = 0;
+      for (var i = 0; i < 7; i++) {
+        res[i] = z[i] - ch * f[i] - rvec[i];
+        var sc = Math.max(Math.abs(z[i]), 1e-8);
+        nrm = Math.max(nrm, Math.abs(res[i]) / sc);
+      }
+      if (nrm < 1e-12) return z;
+      var J = jacFD(M, mode, z, f);
+      var A = [];
+      for (var r = 0; r < 7; r++) {
+        A.push(new Array(7));
+        for (var c = 0; c < 7; c++) A[r][c] = (r === c ? 1 : 0) - ch * J[r][c];
+      }
+      var dz = solve7(A, res);
+      if (!dz) return null;
+      var ok = true;
+      for (var i3 = 0; i3 < 7; i3++) { z[i3] -= dz[i3]; if (!isFinite(z[i3])) ok = false; }
+      if (!ok) return null;
+      if (nrm < 1e-10 && it > 1) return z;
+    }
+    return z; // accept last iterate (residual checked via error control)
+  }
+
+  /* Integrate one step-mode from t0 to tend.
+   * opts: { event: function(x, P) -> signed value (stop at zero cross,
+   *         from positive to negative), record: fn(t, x, aux) }
+   * Accumulates quadratures in Q = {feedC, feedW, feedN, outC, outW, outN,
+   *   Wfan, Wvac, Qheat, QheatPos}
+   */
+  function integrateStep(M, mode, x0, t0, tend, Q, rec, eventFn) {
+    var x = x0.slice(), t = t0;
+    var h = Math.min(5, (tend - t0) / 20);
+    var hmin = 1e-6, hmax = (tend - t0) / 4;
+    var aux = {};
+    var u = M.u;
+    var quadLast = null;
+
+    function auxRates(xx) {
+      var o = {};
+      rhs(M, mode, xx, o);
+      // instantaneous powers
+      // isentropic blower over dPfan (same form as dac.energyModel)  [W]
+      o.Wfan = (mode === "ads")
+        ? (GAM / (GAM - 1)) * (u.Pamb / u.etaFan) *
+          (Math.pow((u.Pamb + u.dPfan) / u.Pamb, (GAM - 1) / GAM) - 1) * (u.Vfan / 3600)
+        : 0;
+      var Wv = 0;
+      if ((mode === "evac" || mode === "heat") && o.ndotO > 0 && o.P < u.Pamb) {
+        if (u.pumpModel === "adia") {
+          Wv = (1 / u.etaVac) * (GAM / (GAM - 1)) * o.ndotO * R * xx[5] *
+               (Math.pow(u.Pamb / o.P, (GAM - 1) / GAM) - 1);
+        } else {
+          Wv = o.ndotO * R * u.Tamb * Math.log(u.Pamb / o.P) / u.etaVac;
+        }
+      }
+      o.Wvac = Wv;
+      return o;
+    }
+
+    var steps = 0;
+    while (t < tend - 1e-9) {
+      if (t + h > tend) h = tend - t;
+      var f0 = rhs(M, mode, x, null);
+      // TR stage to t + gamma*h
+      var r1 = new Array(7);
+      for (var i = 0; i < 7; i++) r1[i] = x[i] + TRD * h * f0[i];
+      var zg = new Array(7);
+      for (var i1 = 0; i1 < 7; i1++) zg[i1] = x[i1] + TRGAM * h * f0[i1];
+      var z = newtonStage(M, mode, TRD * h, r1, zg);
+      if (!z) { h /= 4; if (h < hmin) throw new Error("step failure (TR)"); continue; }
+      // BDF2 stage to t + h
+      var c1 = 1 / (TRGAM * (2 - TRGAM)), c2 = (1 - TRGAM) * (1 - TRGAM) / (TRGAM * (2 - TRGAM));
+      var r2 = new Array(7);
+      for (var i4 = 0; i4 < 7; i4++) r2[i4] = c1 * z[i4] - c2 * x[i4];
+      var x1 = newtonStage(M, mode, TRD * h, r2, z);
+      if (!x1) { h /= 4; if (h < hmin) throw new Error("step failure (BDF2)"); continue; }
+
+      // error estimate from 3-point divided difference of f
+      var fz = rhs(M, mode, z, null), f1 = rhs(M, mode, x1, null);
+      var err = 0;
+      for (var i5 = 0; i5 < 7; i5++) {
+        var dd = ((f1[i5] - fz[i5]) / ((1 - TRGAM) * h) - (fz[i5] - f0[i5]) / (TRGAM * h));
+        var lte = 0.06 * h * h * Math.abs(dd);   // ~C*h^3*|x'''|
+        var sc = 1e-10 + 1e-8 * Math.abs(x1[i5]) +
+                 (i5 === 1 ? 1e-12 : i5 === 2 ? 1e-12 : i5 >= 5 ? 1e-7 : 1e-10);
+        err = Math.max(err, lte / sc);
+      }
+      if (err > 1 && h > hmin * 2) { h = Math.max(h * Math.max(0.2, 0.9 * Math.pow(err, -1 / 3)), hmin); continue; }
+
+      // event check (linear in x over the step)
+      if (eventFn) {
+        var e0 = eventFn(x), e1 = eventFn(x1);
+        if (e0 > 0 && e1 <= 0) {
+          // bisect on h for the crossing
+          var lo = 0, hi = h;
+          for (var bit = 0; bit < 40; bit++) {
+            var mid = 0.5 * (lo + hi);
+            var rm = new Array(7);
+            for (var i6 = 0; i6 < 7; i6++) rm[i6] = x[i6] + TRD * mid * f0[i6];
+            var zm = newtonStage(M, mode, TRD * mid, rm,
+              x.map(function (v, k) { return v + TRGAM * mid * f0[k]; }));
+            var r2m = new Array(7);
+            for (var i7 = 0; i7 < 7; i7++) r2m[i7] = c1 * zm[i7] - c2 * x[i7];
+            var xm = newtonStage(M, mode, TRD * mid, r2m, zm);
+            if (eventFn(xm) <= 0) hi = mid; else { lo = mid; }
+            if (hi - lo < 1e-8 * h + 1e-9) { x1 = xm; h = mid; break; }
+            x1 = xm;
+          }
+          // accept the crossing step then stop
+          acceptStep();
+          return { x: x, t: t, stopped: true };
+        }
+      }
+
+      acceptStep();
+
+      function acceptStep() {
+        // trapezoidal quadrature of flows/powers over [t, t+h]
+        var a0 = quadLast || auxRates(x);
+        var a1 = auxRates(x1);
+        var w = 0.5 * h;
+        if (Q) {
+          Q.feedC += w * (a0.ndotI * M.yAir.c + a1.ndotI * M.yAir.c);
+          Q.feedW += w * (a0.ndotI * M.yAir.w + a1.ndotI * M.yAir.w);
+          Q.feedN += w * (a0.ndotI * M.yAir.n + a1.ndotI * M.yAir.n);
+          var key = (mode === "heat") ? "prod" : "vent";
+          Q[key + "C"] += w * (a0.ndotO * a0.yc + a1.ndotO * a1.yc);
+          Q[key + "W"] += w * (a0.ndotO * a0.yw + a1.ndotO * a1.yw);
+          Q[key + "N"] += w * (a0.ndotO * (1 - a0.yc - a0.yw) + a1.ndotO * (1 - a1.yc - a1.yw));
+          Q.Wfan += w * (a0.Wfan + a1.Wfan);
+          Q.Wvac += w * (a0.Wvac + a1.Wvac);
+          if (mode === "heat") {
+            Q.Qheat += w * (Math.max(a0.Qext, 0) + Math.max(a1.Qext, 0));
+            // wall sensible while heating (prescribed Tw ODE)
+            Q.Qwall += u.wallCp * Math.max(x1[6] - x[6], 0);
+          }
+        }
+        quadLast = a1;
+        x = x1; t += h;
+        if (rec) rec(t, x, a1, mode);
+        steps++;
+        if (err > 0) {
+          var fac = Math.min(3, Math.max(0.3, 0.85 * Math.pow(Math.max(err, 1e-8), -1 / 3)));
+          h = Math.min(h * fac, hmax);
+        }
+      }
+      if (steps > 200000) throw new Error("too many steps in " + mode);
+    }
+    return { x: x, t: t, stopped: false };
+  }
+
+  /* --------------------------- one cycle ----------------------------- */
+  function newQuad() {
+    return { feedC: 0, feedW: 0, feedN: 0, prodC: 0, prodW: 0, prodN: 0,
+             ventC: 0, ventW: 0, ventN: 0, Wfan: 0, Wvac: 0, Qheat: 0, Qwall: 0 };
+  }
+
+  function runCycle(M, x0, rec) {
+    var u = M.u, Q = newQuad();
+    var t = 0;
+
+    // 1) adsorption
+    var s1 = integrateStep(M, "ads", x0, t, t + u.t_ads, Q, rec, null);
+    t = s1.t;
+    var tAdsEnd = t;
+
+    // 2) evacuation: until P <= Pregen (or guard time)
+    var evGuard = t + Math.max(4 * 3600, u.t_ads);
+    var s2 = integrateStep(M, "evac", s1.x, t, evGuard, Q, rec, function (xx) {
+      return xx[0] * R * xx[5] / M.VC - u.Pregen;   // + above Pregen
+    });
+    t = s2.t;
+    var tEvacEnd = t, evacReached = s2.stopped;
+
+    // clamp state exactly onto P = Pregen (event lands within tolerance)
+    var x2 = s2.x.slice();
+    x2[0] = u.Pregen * M.VC / (R * x2[5]);
+
+    // 3) heat + vacuum at P = Pregen
+    var s3 = integrateStep(M, "heat", x2, t, t + u.t_heat, Q, rec, null);
+    t = s3.t;
+    var tHeatEnd = t;
+
+    // 4) instantaneous repressurisation with ambient air, then cooling
+    var x3 = s3.x.slice();
+    var Nadd = Math.max((u.Pamb - u.Pregen) * M.VC / (R * x3[5]), 0);
+    var N3 = x3[0];
+    var Nn = N3 + Nadd;
+    var yc4 = (N3 * x3[1] + Nadd * M.yAir.c) / Nn;
+    var yw4 = (N3 * x3[2] + Nadd * M.yAir.w) / Nn;
+    Q.feedC += Nadd * M.yAir.c; Q.feedW += Nadd * M.yAir.w; Q.feedN += Nadd * M.yAir.n;
+    var x4 = [Nn, yc4, yw4, x3[3], x3[4], x3[5], x3[6]];
+    var s4 = integrateStep(M, "cool", x4, t, t + u.t_cool, Q, rec, null);
+    t = s4.t;
+
+    return { x: s4.x, Q: Q, t_cycle: t,
+             times: { ads: tAdsEnd, evac: tEvacEnd - tAdsEnd, heat: tHeatEnd - tEvacEnd,
+                      cool: t - tHeatEnd },
+             // step-boundary states: richest (end of adsorption) and leanest
+             // (end of the heating step) — the working capacity and the
+             // temperature swing the simplified energy model asks for
+             marks: { qcAds: s1.x[3], qwAds: s1.x[4], Tads: s1.x[5],
+                      qcDes: s3.x[3], qwDes: s3.x[4], Tdes: s3.x[5] },
+             evacReached: evacReached };
+  }
+
+  /* ------------------------ cycles to CSS ---------------------------- */
+  function initialState(M) {
+    var u = M.u;
+    var N0 = u.Pamb * M.VC / (R * u.Tamb);
+    var x = (u.RH / 100);
+    var qw0 = M.inertW ? 0 : qstarW(x, M.S);
+    var qc0 = qstarC(M.yAir.c * u.Pamb, u.Tamb, qw0, M.S, M.yAir.w * u.Pamb);
+    return [N0, M.yAir.c, M.yAir.w, qc0, qw0, u.Tamb, u.Tamb];
+  }
+
+  function runToCSS(u, opts) {
+    opts = opts || {};
+    var M = buildModel(u);
+    var x = opts.x0 || initialState(M);
+    var tolCSS = opts.tolCSS || 1e-5, maxCyc = opts.maxCycles || 60;
+    var cyc = null, nCyc = 0, delta = Infinity;
+    var scale = [1, 1e-4, 1e-2, 1, 1, 100, 100];
+    for (var k = 0; k < maxCyc; k++) {
+      var rec = (opts.recordLast && k === maxCyc - 1) ? opts.recordLast : null;
+      cyc = runCycle(M, x, rec);
+      nCyc++;
+      delta = 0;
+      for (var i = 0; i < 7; i++) {
+        delta = Math.max(delta, Math.abs(cyc.x[i] - x[i]) /
+          (Math.abs(x[i]) + scale[i] * 1e-3));
+      }
+      x = cyc.x;
+      if (delta < tolCSS) break;
+    }
+    // one more recorded cycle at CSS for profiles/KPIs
+    var profile = [];
+    var recFn = opts.record !== false ? function (t, xx, a, mode) {
+      profile.push({ t: t, P: a.P, T: xx[5], Tw: xx[6], yc: a.yc, yw: a.yw,
+                     qc: xx[3], qw: xx[4], mode: mode });
+    } : null;
+    cyc = runCycle(M, x, recFn);
+    var kpi = computeKPIs(M, cyc);
+    return { M: M, cycles: nCyc, cssDelta: delta, state: cyc.x, cyc: cyc,
+             kpi: kpi, profile: profile };
+  }
+
+  /* ------------- Simplified-DAC energy model (comparison) ------------ *
+   * The forms of dac.energyModel, evaluated with THIS cycle's own working
+   * capacity, temperature swing and capture fraction, so the comparison
+   * isolates the model-form differences only:
+   *   - the void-gas inventory (the simplified model neglects it),
+   *   - sensible heat swept out with the desorbing gas,
+   *   - CO2 released during evacuation instead of in the product step.
+   * The wall thermal mass has no analogue in the simplified model; it is
+   * added to the sensible term so a non-zero wall does not by itself make
+   * the two disagree.
+   * ------------------------------------------------------------------- */
+  function simplifiedEnergy(M, cyc) {
+    var u = M.u, mk = cyc.marks;
+    var dqc = mk.qcAds - mk.qcDes;              // working capacity [mol/kg]
+    var dqw = mk.qwAds - mk.qwDes;
+    var dT = mk.Tdes - mk.Tads;                 // actual bed swing [K]
+    if (!(dqc > 1e-9) || !(dT > 1e-9)) return null;
+    // sensible: sorbent + structure + adsorbed phases  [J/mol CO2]
+    var thermalMass = M.cps + M.cpStr + dqc * M.cpaC + dqw * M.cpaW;  // J/kg/K
+    var Esens = thermalMass * dT / dqc;
+    if (u.wallCp > 0) Esens += u.wallCp * dT / (M.ms * dqc);
+    var Ec = M.dHc, Ew = (dqw / dqc) * M.dHw;   // desorption [J/mol CO2]
+    // blower: same isentropic work per m3 air, over the CO2 actually captured
+    var wAir = (GAM / (GAM - 1)) * (u.Pamb / u.etaFan) *
+      (Math.pow((u.Pamb + u.dPfan) / u.Pamb, (GAM - 1) / GAM) - 1);   // J/m3
+    var cCO2air = M.yAir.c * u.Pamb / (R * u.Tamb);                   // mol/m3
+    var nBlown = M.ndotFan * M.yAir.c * u.t_ads;   // mol CO2 offered on ads
+    var etaCap = cyc.Q.prodC / Math.max(nBlown, 1e-30);
+    var Eblow = wAir / (cCO2air * Math.max(etaCap, 1e-12));
+    // vacuum: isothermal, CO2 + co-desorbed water (void gas neglected)
+    var Evac = (R * u.Tamb / u.etaVac) * Math.log(u.Pamb / u.Pregen) * (1 + dqw / dqc);
+    var conv = 1 / (1e6 * MW_C);                // J/mol CO2 -> MJ/kg CO2
+    return {
+      Esens: Esens * conv, EdesC: Ec * conv, EdesW: Ew * conv,
+      Eth: (Esens + Ec + Ew) * conv,
+      Efan: Eblow * conv, Evac: Evac * conv, Eel: (Eblow + Evac) * conv,
+      Etot: (Esens + Ec + Ew + Eblow + Evac) * conv,
+      dqC: dqc, dqW: dqw, dT: dT, etaCap: etaCap * 100
+    };
+  }
+
+  /* ----------------------------- KPIs -------------------------------- */
+  function computeKPIs(M, cyc) {
+    var Q = cyc.Q, u = M.u;
+    var mCO2 = Q.prodC * MW_C;                     // kg per cycle per m3 bed
+    var tc = cyc.t_cycle;
+    var puDry = Q.prodC / Math.max(Q.prodC + Q.prodN, 1e-30);
+    var re = Q.prodC / Math.max(Q.feedC, 1e-30);
+    var Eth = (Q.Qheat + Q.Qwall) / Math.max(mCO2, 1e-30) / 1e6;   // MJ/kg
+    var Efan = Q.Wfan / Math.max(mCO2, 1e-30) / 1e6;
+    var Evac = Q.Wvac / Math.max(mCO2, 1e-30) / 1e6;
+    var prContact = mCO2 / tc * 3600;              // kg/m3 bed/h
+    var prSorb = prContact / (1 - M.eb);           // kg/m3 sorbent/h
+    return {
+      purityDry: puDry * 100, recovery: re * 100,
+      Eth: Eth, Efan: Efan, Evac: Evac, Eel: Efan + Evac, Etot: Eth + Efan + Evac,
+      prContact: prContact, prSorb: prSorb,
+      prContactTPD: prContact * 24 / 1000, prSorbTPD: prSorb * 24 / 1000,
+      waterPerCO2: Q.prodW / Math.max(Q.prodC, 1e-30),
+      simp: simplifiedEnergy(M, cyc),
+      mCO2cycle: mCO2, t_cycle: tc, times: cyc.times,
+      evacReached: cyc.evacReached,
+      prodC: Q.prodC, prodW: Q.prodW, prodN: Q.prodN,
+      feedC: Q.feedC, ventC: Q.ventC,
+      Qheat: Q.Qheat, Qwall: Q.Qwall, Wfan: Q.Wfan, Wvac: Q.Wvac
+    };
+  }
+
+  /* ------------------- mole-balance closure check -------------------- */
+  // over a CSS cycle: feed - vent - prod - d(inventory) = 0 per species
+  function moleBalance(M, x0, cyc) {
+    var Q = cyc.Q, x1 = cyc.x;
+    var invC0 = x0[0] * x0[1] + x0[3] * M.ms, invC1 = x1[0] * x1[1] + x1[3] * M.ms;
+    var invW0 = x0[0] * x0[2] + x0[4] * M.ms, invW1 = x1[0] * x1[2] + x1[4] * M.ms;
+    var nb0 = x0[0] * (1 - x0[1] - x0[2]), nb1 = x1[0] * (1 - x1[1] - x1[2]);
+    return {
+      C: (Q.feedC - Q.ventC - Q.prodC - (invC1 - invC0)) / Math.max(Q.feedC, 1e-30),
+      W: (Q.feedW - Q.ventW - Q.prodW - (invW1 - invW0)) / Math.max(Q.feedW, 1e-30),
+      N: (Q.feedN - Q.ventN - Q.prodN - (nb1 - nb0)) / Math.max(Q.feedN, 1e-30)
+    };
+  }
+
+  return {
+    R: R, PRESETS: PRESETS, psat: psat,
+    qstarW: qstarW, qstarC: qstarC, kLDF: kLDF,
+    buildModel: buildModel, initialState: initialState,
+    runCycle: runCycle, runToCSS: runToCSS,
+    computeKPIs: computeKPIs, simplifiedEnergy: simplifiedEnergy,
+    moleBalance: moleBalance,
+    integrateStep: integrateStep, rhs: rhs, newQuad: newQuad
+  };
+})();
+if (typeof module !== "undefined") module.exports = DacEngine;
+</script>
+<script id="dac-report-core">
+/* == report-core v1 ==
+ * Shared figure-export + report module for the Research Apps suite.
+ *
+ * CANONICAL COPY: Apps/_shared/report_core.js
+ * Every app carries a byte-identical copy pasted between the sentinel
+ * comments.  Do NOT edit a copy in place — edit this file and re-paste,
+ * then run Apps/_shared/check_report_core.sh to confirm all copies match.
+ *
+ * What it provides
+ *   Report.init(cfg)        one-time wiring (app name, version, redraw hook)
+ *   Report.figure(f)        register a figure (id = canvas id)
+ *   Report.spec(id, spec)   record the last declarative plot spec -> auto CSV
+ *   Report.mount()          insert the PNG/CSV buttons into every .phead
+ *   Report.content(c)       supply the report prose, equations and tables
+ *   Report.open()           open the generate-report dialog
+ *
+ * Two deliberate behaviours
+ *   1. Exports force the LIGHT palette on an opaque white background,
+ *      whatever the screen theme is, so figures are publication-ready.
+ *      This is done by disabling the app's prefers-color-scheme media
+ *      rules for the duration of the capture — no per-app palette copy.
+ *   2. Equations and figures are cross-referenced by id ({{eq:toth}},
+ *      {{fig:isoC}}) and numbered automatically at build time, so the
+ *      numbering can never collide or drift as sections are edited.
+ * ------------------------------------------------------------------- */
+var Report = (function () {
+  "use strict";
+
+  var CFG = null;          // init() config
+  var FIGS = [];           // registered figures, in registration order
+  var BYID = {};           // id -> figure
+  var SPEC = {};           // canvas id -> last plot spec
+  var C = {};              // content bundle from content()
+
+  /* ----------------------------- utils ----------------------------- */
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function num(v, p) {
+    if (v == null || v === "" || !isFinite(v)) return "";
+    return String(+(+v).toPrecision(p || 10));
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function stamp(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  function fileStamp(d) {
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+      "_" + pad(d.getHours()) + pad(d.getMinutes());
+  }
+  function download(name, blob) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+
+  /* --------------------- forced light-palette capture ---------------
+   * The apps define the light palette on a bare :root and override it
+   * inside @media (prefers-color-scheme: dark).  Disabling those media
+   * rules restores the light values for every app without duplicating
+   * any palette here.  Canvas drawing reads the CSS variables, so the
+   * host's redraw() then produces light figures.
+   * ------------------------------------------------------------------ */
+  function darkRules() {
+    var out = [], i, j, ss, rules, r;
+    for (i = 0; i < document.styleSheets.length; i++) {
+      ss = document.styleSheets[i];
+      try { rules = ss.cssRules; } catch (e) { continue; }   // cross-origin
+      if (!rules) continue;
+      for (j = 0; j < rules.length; j++) {
+        r = rules[j];
+        if (r.media && /prefers-color-scheme\s*:\s*dark/.test(r.conditionText || r.media.mediaText))
+          out.push(r);
+      }
+    }
+    return out;
+  }
+  // re-entrancy guard: capturing many figures must flip and redraw once,
+  // not once per figure
+  var lightDepth = 0;
+  function withLight(fn) {
+    if (lightDepth > 0) return fn();
+    var rules = darkRules(), saved = rules.map(function (r) { return r.media.mediaText; });
+    var flipped = false;
+    lightDepth++;
+    try {
+      rules.forEach(function (r) { r.media.mediaText = "not all"; });
+      flipped = rules.length > 0;
+      if (flipped && CFG && CFG.redraw) CFG.redraw();
+      return fn();
+    } finally {
+      lightDepth--;
+      rules.forEach(function (r, i) { r.media.mediaText = saved[i]; });
+      if (flipped && CFG && CFG.redraw) CFG.redraw();
+    }
+  }
+  // opaque white copy of a canvas (canvases are cleared transparent)
+  function onWhite(cv) {
+    var o = document.createElement("canvas");
+    o.width = cv.width; o.height = cv.height;
+    var c = o.getContext("2d");
+    c.fillStyle = "#ffffff";
+    c.fillRect(0, 0, o.width, o.height);
+    c.drawImage(cv, 0, 0);
+    return o;
+  }
+  function shot(id) {
+    var cv = $(id);
+    if (!cv) return null;
+    return withLight(function () { return onWhite(cv); });
+  }
+
+  /* ------------------------------ CSV ------------------------------ */
+  function axName(ax) {
+    if (!ax) return "x";
+    return ax.label || ax.sym || "x";
+  }
+  function serName(s, spec) {
+    var n = s.label || "y";
+    var u = s.unit || null;
+    if (!u) {
+      var ax = s.axis === "y2" ? spec.y2 : spec.y;
+      var mm = ax && ax.label ? /\[([^\]]*)\]/.exec(ax.label) : null;
+      if (mm) u = mm[1];
+    }
+    return u && n.indexOf("[") < 0 ? n + " [" + u + "]" : n;
+  }
+  function csvCell(v) {
+    var s = typeof v === "number" ? num(v) : String(v == null ? "" : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function csvText(head, rows, notes) {
+    var s = "﻿";                                   // BOM: Excel-friendly
+    (notes || []).forEach(function (n) { s += "# " + n + "\n"; });
+    s += head.map(csvCell).join(",") + "\n";
+    rows.forEach(function (r) { s += r.map(csvCell).join(",") + "\n"; });
+    return s;
+  }
+  // Generic CSV from a declarative plot spec: wide table when every series
+  // shares one abscissa, long format otherwise.
+  function csvFromSpec(spec) {
+    var S = (spec.series || []).filter(function (s) { return s.pts && s.pts.length; });
+    if (!S.length) return null;
+    var n = S[0].pts.length;
+    var same = S.every(function (s) {
+      return s.pts.length === n && s.pts.every(function (p, i) {
+        return Math.abs(p[0] - S[0].pts[i][0]) <= 1e-12 * (Math.abs(p[0]) + 1);
+      });
+    });
+    var head, rows = [], i;
+    if (same) {
+      head = [axName(spec.x)].concat(S.map(function (s) { return serName(s, spec); }));
+      for (i = 0; i < n; i++) {
+        rows.push([S[0].pts[i][0]].concat(S.map(function (s) { return s.pts[i][1]; })));
+      }
+    } else {
+      head = ["series", axName(spec.x), "value"];
+      S.forEach(function (s) {
+        s.pts.forEach(function (p) { rows.push([serName(s, spec), p[0], p[1]]); });
+      });
+    }
+    var notes = [];
+    (spec.marks || []).forEach(function (mk) {
+      notes.push("marker " + (mk.label || "") + ": " + axName(spec.x) + " = " +
+        num(mk.x) + ", " + axName(spec.y) + " = " + num(mk.y));
+    });
+    return { head: head, rows: rows, notes: notes };
+  }
+
+  /* --------------------------- registration ------------------------ */
+  function figure(f) {
+    if (BYID[f.id]) {                       // re-registration replaces
+      FIGS[FIGS.indexOf(BYID[f.id])] = f;
+    } else {
+      FIGS.push(f);
+    }
+    BYID[f.id] = f;
+    return f;
+  }
+  // spec(id, null) clears a stale spec — call it when a canvas is drawn by
+  // something other than the declarative plotter, so CSV cannot export the
+  // previous configuration's data
+  function spec(id, s) { if (s) SPEC[id] = s; else delete SPEC[id]; }
+  function ready(f) {
+    try { return f.ready ? !!f.ready() : true; } catch (e) { return false; }
+  }
+  // -> {head, rows, notes} | null.  A figure's own csv() may return null to
+  // defer to the plotted spec — MAPLE's sweep canvas does this, supplying a
+  // grid only while it is showing a heatmap and falling back to the spec in
+  // its one-dimensional mode.
+  function table(f) {
+    if (f.csv) {
+      try { var t = f.csv(); if (t) return t; } catch (e) { /* fall through */ }
+    }
+    return SPEC[f.id] ? csvFromSpec(SPEC[f.id]) : null;
+  }
+
+  /* ---------------------------- downloads -------------------------- */
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  }
+  function baseName(f) { return CFG.filePrefix + "_" + (f.file || slug(f.title)); }
+  function png(id) {
+    var f = BYID[id], o = shot(id);
+    if (!o) return;
+    o.toBlob(function (b) { if (b) download(baseName(f) + ".png", b); }, "image/png");
+  }
+  function csv(id) {
+    var f = BYID[id], t = table(f);
+    if (!t) return;
+    var notes = [CFG.app + " " + CFG.version + " — " + f.title,
+                 "generated " + stamp(new Date())];
+    if (CFG.meta) { try { notes = notes.concat(CFG.meta()); } catch (e) {} }
+    download(baseName(f) + ".csv",
+      new Blob([csvText(t.head, t.rows, notes.concat(t.notes || []))],
+        { type: "text/csv;charset=utf-8" }));
+  }
+
+  /* --------------------- per-figure button rows -------------------- *
+   * A card holding a single figure gets its buttons in the card header,
+   * beside the title.  A card holding several (MAPLE stacks eight in its
+   * optimizer panel) gets a small right-aligned row under each canvas
+   * instead, so every figure has its own pair.
+   * ------------------------------------------------------------------ */
+  function cardOf(cv) { return cv.closest(".pcard") || cv.parentNode; }
+  function mount() {
+    var perCard = {};
+    FIGS.forEach(function (f) {
+      var cv = $(f.id);
+      if (!cv) return;
+      var card = cardOf(cv);
+      card._rpn = (card._rpn || 0) + 1;
+      perCard[f.id] = card;
+    });
+    FIGS.forEach(function (f) {
+      var cv = $(f.id);
+      if (!cv || f._box) return;
+      var card = perCard[f.id], solo = card._rpn === 1, head;
+      if (solo) {
+        head = card.querySelector(".phead");
+        if (!head) {
+          head = document.createElement("div");
+          head.className = "phead";
+          card.insertBefore(head, card.firstChild);
+        }
+      } else {
+        head = document.createElement("div");
+        head.className = "figrow";
+        cv.parentNode.insertBefore(head, cv.nextSibling);
+      }
+      var box = document.createElement("span");
+      box.className = "figx";
+      box.innerHTML =
+        '<button class="figbtn" data-fx="png" title="Download this figure as PNG">&#11015; PNG</button>' +
+        '<button class="figbtn" data-fx="csv" title="Download the plotted data as CSV">&#11015; CSV</button>';
+      box.querySelector('[data-fx="png"]').addEventListener("click", function () { png(f.id); });
+      box.querySelector('[data-fx="csv"]').addEventListener("click", function () { csv(f.id); });
+      head.appendChild(box);
+      f._box = box;
+    });
+    refresh();
+  }
+  // enable/disable the buttons as results appear or go stale
+  function refresh() {
+    FIGS.forEach(function (f) {
+      if (!f._box) return;
+      var ok = ready(f), hasData = ok && !!table(f);
+      f._box.querySelector('[data-fx="png"]').disabled = !ok;
+      f._box.querySelector('[data-fx="csv"]').disabled = !hasData;
+    });
+  }
+
+  /* ---------------------------- content ---------------------------- */
+  function content(c) { C = c || {}; }
+
+  /* ------------------------ report assembly ------------------------ *
+   * Two passes: number every equation and figure in document order,
+   * then substitute {{eq:id}} / {{fig:id}} in all prose.
+   * ------------------------------------------------------------------ */
+  function buildRefs(sections, figs) {
+    var eqn = {}, n = 0;
+    (C.model || []).forEach(function (sec) {
+      (sec.eqs || []).forEach(function (e) { eqn[e.id] = ++n; });
+    });
+    var fign = {};
+    figs.forEach(function (f, i) { fign[f.id] = i + 1; });
+    return { eq: eqn, fig: fign };
+  }
+  function sub(html, R) {
+    return String(html == null ? "" : html)
+      .replace(/\{\{eq:([a-zA-Z0-9_-]+)\}\}/g, function (m, k) {
+        return R.eq[k] ? "(" + R.eq[k] + ")" : "(?)";
+      })
+      .replace(/\{\{fig:([a-zA-Z0-9_-]+)\}\}/g, function (m, k) {
+        return R.fig[k] ? "Figure " + R.fig[k] : "Figure ?";
+      });
+  }
+  function tableHTML(t) {
+    if (!t) return "";
+    var s = '<div class="tw"><table><thead><tr>';
+    (t.head || []).forEach(function (h) { s += "<th>" + h + "</th>"; });
+    s += "</tr></thead><tbody>";
+    (t.rows || []).forEach(function (r) {
+      s += "<tr>";
+      r.forEach(function (c, i) {
+        s += (i === 0 ? '<th scope="row">' : "<td>") + (c == null ? "" : c) +
+          (i === 0 ? "</th>" : "</td>");
+      });
+      s += "</tr>";
+    });
+    return s + "</tbody></table></div>";
+  }
+  function groupsHTML(groups) {
+    var s = "";
+    (groups || []).forEach(function (g) {
+      s += '<h3>' + esc(g.title) + "</h3>" +
+        tableHTML({ head: g.head || ["Quantity", "Value", "Unit"], rows: g.rows });
+      if (g.note) s += '<p class="small">' + g.note + "</p>";
+    });
+    return s;
+  }
+
+  var CSS = [
+    ':root{--ink:#111827;--mut:#5b6473;--rule:#d7dce3;--accent:#1d4ed8;--soft:#f6f7f9}',
+    '*{box-sizing:border-box;margin:0;padding:0}',
+    'body{background:#fff;color:var(--ink);font:16px/1.65 Georgia,"Times New Roman",serif;',
+    '  padding:48px 20px 72px;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+    'main{max-width:52rem;margin:0 auto}',
+    'header{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:26px}',
+    'h1{font-size:1.7rem;line-height:1.25;font-weight:700;letter-spacing:-.01em}',
+    'header .meta{color:var(--mut);font-size:.85rem;margin-top:8px;font-family:system-ui,sans-serif}',
+    'h2{font-size:1.12rem;margin:30px 0 10px;padding-bottom:4px;border-bottom:1px solid var(--rule)}',
+    'h3{font-size:.98rem;margin:20px 0 8px;color:var(--accent)}',
+    'p{margin:9px 0;text-align:justify;hyphens:auto}',
+    'ul,ol{margin:9px 0 9px 26px}li{margin:4px 0}',
+    '.abstract{background:var(--soft);border-left:3px solid var(--accent);padding:14px 18px;margin:18px 0}',
+    '.abstract h2{border:none;margin:0 0 6px;font-size:.95rem}',
+    '.small{font-size:.84rem;color:var(--mut)}',
+    /* wide content scrolls inside its own box — the page body never does */
+    '.tw{overflow-x:auto;margin:12px 0}',
+    'table{border-collapse:collapse;width:100%;min-width:22rem;font-size:.86rem;',
+    '  font-family:system-ui,sans-serif}',
+    'th,td{border:1px solid var(--rule);padding:5px 9px;text-align:left;vertical-align:top}',
+    'thead th{background:var(--soft);font-weight:700}',
+    'tbody th{font-weight:400}',
+    'td{font-variant-numeric:tabular-nums}',
+    '.eq{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;',
+    '  margin:14px 0;page-break-inside:avoid;overflow-x:auto}',
+    '.eq math{font-size:1.06em}',
+    '.eq .tag{color:var(--mut);font-size:.86rem;font-family:system-ui,sans-serif}',
+    '.eq .where{grid-column:1/-1;font-size:.84rem;color:var(--mut);text-align:center;margin-top:2px}',
+    'figure{margin:20px 0;page-break-inside:avoid}',
+    'figure img{width:100%;height:auto;border:1px solid var(--rule);border-radius:4px;display:block}',
+    'figcaption{font-size:.85rem;color:var(--mut);margin-top:7px;font-family:system-ui,sans-serif}',
+    'figcaption b{color:var(--ink)}',
+    '.missing{border:1px dashed var(--rule);padding:20px;text-align:center;color:var(--mut);',
+    '  font-style:italic;font-size:.88rem}',
+    'footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--rule);',
+    '  color:var(--mut);font-size:.8rem;font-family:system-ui,sans-serif}',
+    '@media print{body{padding:0;font-size:11pt}main{max-width:none}',
+    '  h2{page-break-after:avoid}table{page-break-inside:avoid}',
+    '  @page{margin:18mm 16mm}}'
+  ].join("\n");
+
+  function build(opts) {
+    var now = new Date();
+    var figs = FIGS.filter(function (f) { return opts.figs.indexOf(f.id) >= 0; });
+    // capture every figure in ONE forced-light pass (two redraws total)
+    var imgs = withLight(function () {
+      var o = {};
+      figs.forEach(function (f) {
+        var cv = ready(f) ? $(f.id) : null;
+        if (cv) o[f.id] = onWhite(cv).toDataURL("image/png");
+      });
+      return o;
+    });
+    var R = buildRefs(opts.secs, figs);
+    var S = function (h) { return sub(h, R); };
+    var n = 0, body = "";
+
+    body += "<header><h1>" + esc(C.title || CFG.app) + "</h1>" +
+      '<div class="meta">' + esc(CFG.app) + " " + esc(CFG.version) +
+      " &middot; report generated " + esc(stamp(now)) +
+      (C.author ? " &middot; " + esc(C.author) : "") + "</div></header>";
+
+    if (opts.notes && opts.notes.trim()) {
+      body += '<div class="abstract"><h2>Case notes</h2><p>' +
+        esc(opts.notes).replace(/\n\n+/g, "</p><p>").replace(/\n/g, "<br>") + "</p></div>";
+    }
+    if (opts.secs.intro && C.intro) {
+      body += "<h2>" + (++n) + ". Introduction</h2>" + S(C.intro);
+    }
+    if (opts.secs.obj && C.objectives) {
+      body += "<h2>" + (++n) + ". Objectives</h2>" + S(C.objectives);
+    }
+    if (opts.secs.model && C.model) {
+      body += "<h2>" + (++n) + ". Mathematical model</h2>";
+      C.model.forEach(function (sec) {
+        if (sec.heading) body += "<h3>" + esc(sec.heading) + "</h3>";
+        if (sec.html) body += S(sec.html);
+        (sec.eqs || []).forEach(function (e) {
+          body += '<div class="eq">' + e.ml + '<span class="tag">(' + R.eq[e.id] + ")</span>" +
+            (e.where ? '<span class="where">' + S(e.where) + "</span>" : "") + "</div>";
+        });
+        if (sec.after) body += S(sec.after);
+      });
+      if (C.nomenclature) {
+        body += "<h3>Nomenclature</h3>" +
+          tableHTML({ head: ["Symbol", "Meaning", "Unit"], rows: C.nomenclature });
+      }
+    }
+    if (opts.secs.method && C.method) {
+      body += "<h2>" + (++n) + ". Numerical method</h2>" + S(C.method);
+    }
+    if (opts.secs.cond) {
+      body += "<h2>" + (++n) + ". Conditions</h2>";
+      if (C.condIntro) body += S(C.condIntro);
+      body += groupsHTML(C.conditions ? C.conditions() : []);
+    }
+    if (opts.secs.res) {
+      body += "<h2>" + (++n) + ". Results</h2>";
+      var res = C.results ? C.results() : null;
+      if (!res) {
+        body += '<p class="missing">No converged result was available when this report was generated.</p>';
+      } else {
+        if (res.html) body += S(res.html);
+        body += groupsHTML(res.groups);
+      }
+      figs.forEach(function (f, i) {
+        body += "<figure>";
+        if (imgs[f.id]) {
+          body += '<img alt="' + esc(f.title) + '" src="' + imgs[f.id] + '">';
+        } else {
+          body += '<div class="missing">' + esc(f.title) +
+            " &mdash; not computed in this session.</div>";
+        }
+        body += "<figcaption><b>Figure " + (i + 1) + ".</b> " +
+          S(f.caption || f.title) + "</figcaption></figure>";
+      });
+    }
+    if (opts.secs.refs && C.references) {
+      body += "<h2>" + (++n) + ". References</h2><ol>" +
+        C.references.map(function (r) { return "<li>" + r + "</li>"; }).join("") + "</ol>";
+    }
+    body += "<footer>" + (C.footer || "") +
+      "<p>Generated by " + esc(CFG.app) + " " + esc(CFG.version) +
+      ", part of the Research Apps suite. All calculations were performed locally in the " +
+      "browser; this report is self-contained and requires no network access.</p>" +
+      "<p>These tools are provided &ldquo;as is&rdquo;, for educational and research purposes, " +
+      "without warranty of any kind. Results should be verified independently before use in " +
+      "any critical application.</p></footer>";
+
+    return "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n" +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+      "<title>" + esc(C.title || CFG.app) + " &mdash; report " + esc(stamp(now)) + "</title>\n" +
+      "<style>\n" + CSS + "\n</style>\n</head>\n<body>\n<main>\n" + body +
+      "\n</main>\n</body>\n</html>\n";
+  }
+
+  /* ---------------------------- dialog ----------------------------- */
+  var SECS = [
+    { k: "intro", t: "Introduction" },
+    { k: "obj", t: "Objectives" },
+    { k: "model", t: "Mathematical model &amp; equations" },
+    { k: "method", t: "Numerical method" },
+    { k: "cond", t: "Conditions (all input parameters)" },
+    { k: "res", t: "Results, KPI tables &amp; figures" },
+    { k: "refs", t: "References" }
+  ];
+  function dialogHTML() {
+    var s = '<div class="rpbox" role="dialog" aria-modal="true" aria-label="Generate report">' +
+      "<h3>Generate report</h3>" +
+      '<p class="rpnote">A self-contained HTML document describing the model, the ' +
+      "conditions of this run and its results. Open it in any browser; print to PDF " +
+      "for a paper-style document.</p>" +
+      '<label class="rplab" for="rp-notes">Case notes <span>(optional &mdash; appears as an ' +
+      "abstract at the top)</span></label>" +
+      '<textarea id="rp-notes" rows="3" placeholder="Purpose of this run, what is being ' +
+      'compared, what to look for&hellip;"></textarea>' +
+      '<div class="rpcols"><div><div class="rphd">Sections</div>';
+    SECS.forEach(function (x) {
+      s += '<label class="rpchk"><input type="checkbox" checked data-sec="' + x.k + '"> ' +
+        x.t + "</label>";
+    });
+    s += '</div><div><div class="rphd">Figures</div>';
+    FIGS.forEach(function (f) {
+      var ok = ready(f);
+      s += '<label class="rpchk' + (ok ? "" : " off") + '"><input type="checkbox"' +
+        (ok ? " checked" : " disabled") + ' data-fig="' + esc(f.id) + '"> ' +
+        esc(f.title) + (ok ? "" : " <i>(not computed)</i>") + "</label>";
+    });
+    s += "</div></div>" +
+      '<div class="rpact"><button class="action" id="rp-cancel">Cancel</button>' +
+      '<button class="action" id="rp-go">Download report</button></div></div>';
+    return s;
+  }
+  var DLG_CSS = [
+    '.rpwrap{position:fixed;inset:0;background:rgba(15,20,32,.55);display:flex;',
+    '  align-items:center;justify-content:center;padding:20px;z-index:9999}',
+    '.rpbox{background:var(--card);color:var(--text);border:1px solid var(--border);',
+    '  border-radius:14px;box-shadow:var(--shadow);padding:20px 22px;width:100%;',
+    '  max-width:620px;max-height:88vh;overflow:auto}',
+    '.rpbox h3{font-size:1rem;margin-bottom:6px}',
+    '.rpnote{font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:12px}',
+    '.rplab{display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px}',
+    '.rplab span{opacity:.8}',
+    '.rpbox textarea{width:100%;padding:8px 10px;font:inherit;font-size:.85rem;',
+    '  border:1.5px solid var(--border);border-radius:8px;background:var(--bg);',
+    '  color:var(--text);outline:none;resize:vertical}',
+    '.rpbox textarea:focus{border-color:var(--accent)}',
+    '.rpcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));',
+    '  gap:8px 18px;margin:14px 0 4px}',
+    '.rphd{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;',
+    '  color:var(--accent);margin-bottom:6px}',
+    '.rpchk{display:flex;align-items:flex-start;gap:6px;font-size:.78rem;color:var(--text);',
+    '  cursor:pointer;margin:3px 0;line-height:1.4}',
+    '.rpchk.off{color:var(--muted);cursor:default}',
+    '.rpchk i{color:var(--muted)}',
+    '.rpact{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}',
+    /* the Generate-report button sits top right, level with the app title,
+       in every app — the core builds this row itself so the four cycle
+       apps cannot drift apart */
+    '.apphd{display:flex;justify-content:space-between;align-items:center;',
+    '  gap:12px;flex-wrap:wrap}',
+    '.apphd > h2{flex:1 1 auto}',
+    '@media print{.apphd .action{display:none}}',
+    /* per-figure export buttons live in the card header */
+    '.figx{display:inline-flex;gap:5px;margin-left:auto}',
+    '.figrow{display:flex;justify-content:flex-end;margin:2px 0 4px}',
+    '.figbtn{border:1px solid var(--border);background:var(--card);color:var(--muted);',
+    '  border-radius:6px;padding:3px 7px;font-size:.66rem;font-weight:600;cursor:pointer;',
+    '  white-space:nowrap;font-family:inherit;transition:border-color .15s,color .15s}',
+    '.figbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}',
+    '.figbtn:disabled{opacity:.38;cursor:default}',
+    '@media print{.figx{display:none}}'
+  ].join("\n");
+
+  function open() {
+    refresh();
+    var w = document.createElement("div");
+    w.className = "rpwrap";
+    w.innerHTML = dialogHTML();
+    function close() { document.removeEventListener("keydown", key); w.remove(); }
+    function key(e) { if (e.key === "Escape") close(); }
+    w.addEventListener("mousedown", function (e) { if (e.target === w) close(); });
+    document.addEventListener("keydown", key);
+    document.body.appendChild(w);
+    w.querySelector("#rp-cancel").addEventListener("click", close);
+    w.querySelector("#rp-go").addEventListener("click", function () {
+      var secs = {}, figs = [];
+      w.querySelectorAll("[data-sec]").forEach(function (b) { secs[b.dataset.sec] = b.checked; });
+      w.querySelectorAll("[data-fig]").forEach(function (b) {
+        if (b.checked) figs.push(b.dataset.fig);
+      });
+      var html = build({ secs: secs, figs: figs, notes: w.querySelector("#rp-notes").value });
+      download(CFG.filePrefix + "_report_" + fileStamp(new Date()) + ".html",
+        new Blob([html], { type: "text/html;charset=utf-8" }));
+      close();
+    });
+    w.querySelector("#rp-notes").focus();
+  }
+
+  /* ------------------------------ init ----------------------------- *
+   * The report button is built here, not in each app's markup: every app
+   * in the suite opens with `<div class="wrap"><h2>Title</h2>`, so the
+   * core wraps that heading in a flex row and hangs the button off its
+   * right-hand end.  One definition, one position, every app.
+   * ------------------------------------------------------------------ */
+  function mountButton() {
+    var h = document.querySelector(".wrap > h2") || document.querySelector("h2");
+    if (!h || (h.parentNode && h.parentNode.classList.contains("apphd"))) return;
+    var row = document.createElement("div");
+    row.className = "apphd";
+    h.parentNode.insertBefore(row, h);
+    row.appendChild(h);
+    var b = document.createElement("button");
+    b.className = "action";
+    b.id = "rp-open";
+    b.type = "button";
+    b.innerHTML = "&#11015; Generate report";
+    b.title = "Download a self-contained HTML report of this run";
+    b.addEventListener("click", open);
+    row.appendChild(b);
+  }
+  function init(cfg) {
+    CFG = cfg;
+    var st = document.createElement("style");
+    st.textContent = DLG_CSS;
+    document.head.appendChild(st);
+    if (cfg.button !== false) mountButton();
+    return API;
+  }
+
+  var API = { init: init, figure: figure, spec: spec, mount: mount, refresh: refresh,
+              content: content, open: open, png: png, csv: csv, build: build,
+              csvText: csvText, num: num, figures: function () { return FIGS; } };
+  return API;
+})();
+/* == /report-core == */
+</script>
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var cssVar = function (n) {
+    return getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  };
+
+  /* ------------------------- slider machinery ------------------------- */
+  // Log sliders use integer positions 0..100; others use native values.
+  var SLIDERS = {
+    Tamb:   { el: "dac-Tamb",   fmt: function (v) { return v + " °C"; } },
+    RH:     { el: "dac-RH",     fmt: function (v) { return v + " %"; } },
+    Tdes:   { el: "dac-Tdes",   fmt: function (v) { return v + " °C"; } },
+    Pregen: { el: "dac-Pregen", fmt: function (v) { return (+v).toFixed(2) + " bar"; } },
+    tads:   { el: "dac-tads",   fmt: function (v) { return (+v).toFixed(2) + " h"; } },
+    theat:  { el: "dac-theat",  fmt: function (v) { return (+v).toFixed(2) + " h"; } },
+    tcool:  { el: "dac-tcool",  fmt: function (v) { return (+v).toFixed(2) + " h"; } },
+    etaF:   { el: "dac-etaF",   fmt: function (v) { return (+v).toFixed(2); } },
+    etaV:   { el: "dac-etaV",   fmt: function (v) { return (+v).toFixed(2); } },
+    wcp:    { el: "dac-wcp",    lin: [0, 500e3],
+              fmt: function (v) { return (v / 1e3).toFixed(0) + " kJ/K"; } },
+    mstr:   { el: "dac-mstr",   fmt: function (v) { return (+v).toFixed(1) + " kg/kg"; } },
+    cpstr:  { el: "dac-cpstr",  fmt: function (v) { return v.toFixed(0) + " J/kg/K"; } },
+    Vfan:   { el: "dac-Vfan",   log: [1e2, 1e5],
+              fmt: function (v) { return fmtSI(v) + " m³/h"; } },
+    Spump:  { el: "dac-Spump",  log: [5, 2000],
+              fmt: function (v) { return fmtSI(v) + " m³/h"; } },
+    dP:     { el: "dac-dP",     log: [50, 5000],
+              fmt: function (v) { return v.toFixed(0) + " Pa"; } },
+    tauH:   { el: "dac-tauH",   log: [10, 3600],
+              fmt: function (v) { return v < 100 ? v.toFixed(0) + " s" : fmtSI(v) + " s"; } },
+    tauC:   { el: "dac-tauC",   log: [10, 3600],
+              fmt: function (v) { return v < 100 ? v.toFixed(0) + " s" : fmtSI(v) + " s"; } },
+    Ua:     { el: "dac-Ua",     log: [1e2, 1e6],
+              fmt: function (v) { return fmtSI(v) + " W/m³/K"; } },
+    kC:     { el: "dac-kC",     log: [1e-5, 1e-1],
+              fmt: function (v) { return v.toExponential(1) + " s⁻¹"; } },
+    kW:     { el: "dac-kW",     log: [1e-3, 1],
+              fmt: function (v) { return v.toExponential(1) + " s⁻¹"; } },
+    EaC:    { el: "dac-EaC",    fmt: function (v) { return v + " kJ/mol"; } },
+    EaW:    { el: "dac-EaW",    fmt: function (v) { return v + " kJ/mol"; } }
+  };
+  function fmtSI(v) {
+    if (v >= 1e6) return (v / 1e6).toPrecision(3) + "M";
+    if (v >= 1e4) return (v / 1e3).toPrecision(3) + "k";
+    if (v >= 100) return v.toFixed(0);
+    return v.toPrecision(3);
+  }
+  function sGet(k) {
+    var s = SLIDERS[k], p = +$(s.el).value;
+    if (s.log) return Math.pow(10, Math.log10(s.log[0]) +
+      (p / 100) * (Math.log10(s.log[1]) - Math.log10(s.log[0])));
+    if (s.lin) return s.lin[0] + (p / 100) * (s.lin[1] - s.lin[0]);
+    return p;
+  }
+  function sSet(k, v) {
+    var s = SLIDERS[k];
+    if (s.log) $(s.el).value = Math.round(100 * (Math.log10(v) - Math.log10(s.log[0])) /
+      (Math.log10(s.log[1]) - Math.log10(s.log[0])));
+    else if (s.lin) $(s.el).value = Math.round(100 * (v - s.lin[0]) / (s.lin[1] - s.lin[0]));
+    else $(s.el).value = v;
+    sLabel(k);
+  }
+  function sLabel(k) {
+    var s = SLIDERS[k];
+    $(s.el + "-v").textContent = s.fmt(sGet(k));
+  }
+
+  var DEFAULTS = { Tamb: 20, RH: 50, Tdes: 120, Pregen: 0.20, tads: 3, theat: 1.5,
+    tcool: 0.75, Vfan: 2e4, Spump: 50, dP: 1013, etaF: 0.70, etaV: 0.50,
+    tauH: 300, tauC: 300, Ua: 2e4, wcp: 0, kC: 4e-3, kW: 0.2,
+    EaC: 0, EaW: 0, mstr: 0, cpstr: 710 };
+
+  var pumpModel = "iso";
+
+  /* ---------------- editable sorbent properties ---------------------- *
+   * Number boxes seeded from the preset. `pv` reads the preset value in
+   * display units, `si` converts a display value to what the engine wants.
+   * ------------------------------------------------------------------- */
+  var PROPS = {
+    eb:     { el: "dac-eb",     fld: "dac-f-eb",     pv: function (S) { return S.eb; },       si: function (v) { return v; }, dec: 3 },
+    ep:     { el: "dac-ep",     fld: "dac-f-ep",     pv: function (S) { return S.ep; },       si: function (v) { return v; }, dec: 3 },
+    rhop:   { el: "dac-rhop",   fld: "dac-f-rhop",   pv: function (S) { return S.rho_p; },    si: function (v) { return v; }, dec: 1 },
+    cps:    { el: "dac-cpsorb", fld: "dac-f-cpsorb", pv: function (S) { return S.cps; },      si: function (v) { return v; }, dec: 1 },
+    dHc:    { el: "dac-dHc",    fld: "dac-f-dHc",    pv: function (S) { return S.dHc / 1e3; }, si: function (v) { return v * 1e3; }, dec: 3 },
+    dHw:    { el: "dac-dHw",    fld: "dac-f-dHw",    pv: function (S) { return S.gab ? S.dHw / 1e3 : 0; }, si: function (v) { return v * 1e3; }, dec: 3 }
+  };
+  /* ------------------- custom sorbent (v1.7) -------------------------- *
+   * "Custom" is a virtual preset: CUSBASE holds a deep copy of the source
+   * preset (seeded on first activation or via the Reseed button) and
+   * serves as the defaults object for the property boxes; the isotherm
+   * evaluation itself always goes through u.iso (readIso), so CUSBASE is
+   * never handed to qstarC/qstarW directly.
+   * -------------------------------------------------------------------- */
+  var CUSBASE = null, cusSrc = null, cusCoup = "none", cusWat = "gab";
+  var lastPreset = "Lewatit";
+  var CUSFLD = { qs0: "dac-c-qs0", chi: "dac-c-chi", T0: "dac-c-T0",
+                 b0: "dac-c-b0", w0: "dac-c-w0", alpha: "dac-c-alpha" };
+  function isCustom() { return $("dac-sorb").value === "Custom"; }
+  function preset() {
+    return isCustom() ? CUSBASE : DacEngine.PRESETS[$("dac-sorb").value];
+  }
+  function cusSeg(id, v) {
+    Array.prototype.forEach.call($(id).querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", b.dataset.v === v);
+    });
+  }
+  function seedCustom(src) {
+    cusSrc = src;
+    CUSBASE = JSON.parse(JSON.stringify(DacEngine.PRESETS[src]));
+    Object.keys(CUSFLD).forEach(function (k) {
+      $(CUSFLD[k]).value = +CUSBASE.toth[k].toPrecision(8);
+    });
+    cusCoup = CUSBASE.wet ? "mod" : "none";
+    cusWat = CUSBASE.gab ? "gab" : "inert";
+    $("dac-c-psi").value = CUSBASE.wet ? CUSBASE.wet.psi : 0;
+    $("dac-c-beta").value = CUSBASE.wet ? CUSBASE.wet.beta : 0;
+    $("dac-c-xmax").value = CUSBASE.wet ? CUSBASE.wet.xmax : 1;
+    $("dac-c-bw0").value = 0;
+    $("dac-c-Cm").value = CUSBASE.gab ? CUSBASE.gab.Cm : 3.86;
+    $("dac-c-CG").value = CUSBASE.gab ? CUSBASE.gab.CG : 1.80;
+    $("dac-c-K").value = CUSBASE.gab ? CUSBASE.gab.K : 0.768;
+    cusSeg("dac-cuscoup", cusCoup); cusSeg("dac-cuswat", cusWat);
+    cusPanels();
+    $("dac-cussrc").textContent = "· seeded from " + CUSBASE.label;
+  }
+  function cusPanels() {
+    $("dac-cusmod").style.display = cusCoup === "mod" ? "" : "none";
+    $("dac-cuscmp").style.display = cusCoup === "cmp" ? "" : "none";
+    $("dac-cusgab").style.display = cusWat === "gab" ? "" : "none";
+  }
+  function dHwActive() {
+    if (!isCustom()) return !!preset().gab;
+    return cusWat === "gab" || cusCoup === "cmp";
+  }
+  function cnum(id, d) {
+    var v = +$(id).value;
+    return ($(id).value !== "" && isFinite(v)) ? v : d;
+  }
+  function readIso() {
+    var B = CUSBASE;
+    return {
+      toth: { qs0: Math.max(cnum("dac-c-qs0", B.toth.qs0), 1e-6),
+              chi: cnum("dac-c-chi", B.toth.chi),
+              T0: Math.max(cnum("dac-c-T0", B.toth.T0), 100),
+              b0: Math.max(cnum("dac-c-b0", B.toth.b0), 0),
+              dH0: B.toth.dH0,
+              w0: cnum("dac-c-w0", B.toth.w0),
+              alpha: cnum("dac-c-alpha", B.toth.alpha) },
+      gab: cusWat === "gab" ? { Cm: Math.max(cnum("dac-c-Cm", 3.86), 0),
+                                CG: Math.max(cnum("dac-c-CG", 1.80), 0),
+                                K: Math.max(cnum("dac-c-K", 0.768), 0) } : null,
+      wet: cusCoup === "mod" ? { psi: cnum("dac-c-psi", 0),
+                                 beta: cnum("dac-c-beta", 0),
+                                 xmax: Math.min(Math.max(cnum("dac-c-xmax", 1), 0.01), 1) } : null,
+      cmp: cusCoup === "cmp" ? { bw0: Math.max(cnum("dac-c-bw0", 0), 0) } : null,
+      eb: B.eb, ep: B.ep, rho_p: B.rho_p, cps: B.cps,
+      dHc: B.dHc, dHw: B.dHw, label: "custom", cls: B.cls
+    };
+  }
+  function cusWarnings(iso, TdesK) {
+    var w = [];
+    if (iso.gab && iso.gab.K >= 1)
+      w.push("GAB K &ge; 1 &mdash; q*(H&#8322;O) diverges below 100 % RH");
+    var t = iso.toth, td = t.w0 + t.alpha * (1 - t.T0 / TdesK);
+    if (td <= 0.05)
+      w.push("Toth exponent t(T<sub>des</sub>) &le; 0.05 &mdash; nonphysical");
+    if (iso.wet && iso.gab && iso.wet.psi > 0) {
+      var qwm = DacEngine.qstarW(iso.wet.xmax, { gab: iso.gab });
+      if (iso.wet.psi * qwm >= 0.95)
+        w.push("&psi;&middot;q<sub>w</sub> reaches " +
+               (iso.wet.psi * qwm).toFixed(2) + " &mdash; q<sub>s,wet</sub> guard active");
+    }
+    return w;
+  }
+  function loadProps() {
+    var S = preset();
+    Object.keys(PROPS).forEach(function (k) {
+      $(PROPS[k].el).value = +PROPS[k].pv(S).toFixed(6);
+    });
+    $("dac-dHw").disabled = !dHwActive();   // water inert: ΔH(H2O) unused
+    $("dac-unlink").checked = false;
+    markProps();
+  }
+  // a property counts as modified when it differs from the preset value
+  function propModified(k) {
+    var p = PROPS[k], v = +$(p.el).value;
+    return isFinite(v) && Math.abs(v - p.pv(preset())) > Math.pow(10, -p.dec);
+  }
+  function anyPropModified() { return Object.keys(PROPS).some(propModified); }
+  function markProps() {
+    Object.keys(PROPS).forEach(function (k) {
+      $(PROPS[k].fld).classList.toggle("mod", propModified(k));
+    });
+    var un = $("dac-unlink");
+    un.disabled = !propModified("dHc");
+    if (un.disabled) un.checked = false;
+  }
+  function propsU(u) {
+    var S = preset();
+    Object.keys(PROPS).forEach(function (k) {
+      var v = +$(PROPS[k].el).value;
+      if ($(PROPS[k].el).value !== "" && isFinite(v)) u[k] = PROPS[k].si(v);
+    });
+    // guards: an empty or unphysical box falls back to the preset value
+    // (ε_p = 0 is legitimate — a non-porous particle — so it is allowed)
+    if (!(u.eb > 0 && u.eb < 1)) u.eb = S.eb;
+    if (!(u.ep >= 0 && u.ep < 1)) u.ep = S.ep;
+    if (!(u.rhop > 0)) u.rhop = S.rho_p;
+    if (!(u.cps > 0)) u.cps = S.cps;
+    if (!(u.dHc > 0)) u.dHc = S.dHc;
+    if (!(u.dHw >= 0)) u.dHw = S.dHw || 0;
+    u.unlinkDH = $("dac-unlink").checked;
+    return u;
+  }
+
+  function collectU() {
+    return propsU({
+      sorbent: $("dac-sorb").value,
+      iso: isCustom() ? readIso() : undefined,
+      Tamb: sGet("Tamb") + 273.15, RH: sGet("RH"), Tdes: sGet("Tdes") + 273.15,
+      Pregen: sGet("Pregen") * 1e5, Pamb: 101325,
+      t_ads: sGet("tads") * 3600, t_heat: sGet("theat") * 3600, t_cool: sGet("tcool") * 3600,
+      Vfan: sGet("Vfan"), Spump: sGet("Spump"), dPfan: sGet("dP"),
+      etaFan: sGet("etaF"), etaVac: sGet("etaV"), pumpModel: pumpModel,
+      tauHeat: sGet("tauH"), tauCool: sGet("tauC"), Ua: sGet("Ua"), wallCp: sGet("wcp"),
+      mstr: sGet("mstr"), cpstr: sGet("cpstr"),
+      kC: sGet("kC"), kW: sGet("kW"),
+      EaC: sGet("EaC") * 1000, EaW: sGet("EaW") * 1000   // kJ/mol -> J/mol
+    });
+  }
+
+  /* ---------------------------- worker ------------------------------- */
+  var engineSrc = document.getElementById("dac-engine").textContent;
+  var glue = "\n" + [
+    "onmessage = function(e){ var m = e.data;",
+    " if (m.cmd === 'run') {",
+    "   try {",
+    "     var r = DacEngine.runToCSS(m.u, {});",
+    "     postMessage({cmd:'run', id:m.id, ok:true, kpi:r.kpi, cycles:r.cycles,",
+    "       cssDelta:r.cssDelta, state:r.state, profile:r.profile});",
+    "   } catch (err) { postMessage({cmd:'run', id:m.id, ok:false, msg:String(err)}); }",
+    " } else if (m.cmd === 'sweep') {",
+    "   var nx = m.xvals.length, ny = m.yvals.length, grid = [];",
+    "   for (var j = 0; j < ny; j++) {",
+    "     grid.push(new Array(nx));",
+    "     for (var i = 0; i < nx; i++) {",
+    "       var u = JSON.parse(JSON.stringify(m.base));",
+    "       u[m.xkey] = m.xvals[i];",
+    "       if (m.ykey) u[m.ykey] = m.yvals[j];",
+    "       try {",
+    "         var r2 = DacEngine.runToCSS(u, { record: false, tolCSS: 1e-4, maxCycles: 40 });",
+    "         var k = r2.kpi;",
+    "         grid[j][i] = { Pu: k.purityDry, Re: k.recovery, Eth: k.Eth,",
+    "           Eel: k.Eel, Etot: k.Etot, PrC: k.prContactTPD, PrS: k.prSorbTPD,",
+    "           wc: k.waterPerCO2 };",
+    "       } catch (e2) { grid[j][i] = null; }",
+    "       postMessage({cmd:'prog', done: j * nx + i + 1, total: nx * ny});",
+    "     }",
+    "   }",
+    "   postMessage({cmd:'sweep', grid: grid});",
+    " }",
+    "};"
+  ].join("\n");
+  function makeWorker() {
+    var blob = new Blob([engineSrc, glue], { type: "text/javascript" });
+    return new Worker(URL.createObjectURL(blob));
+  }
+  var worker = makeWorker();
+  var runId = 0, lastRes = null, running = false;
+  worker.onmessage = function (e) { handleMsg(e.data); };
+
+  function handleMsg(m) {
+    if (m.cmd === "run") {
+      if (m.id !== runId) return;   // stale
+      running = false;
+      $("dac-kpis").classList.remove("dim");
+      $("dac-kpibot").classList.remove("dim");
+      if (!m.ok) { renderError(m.msg); return; }
+      lastRes = m;
+      renderAll(m);
+    } else if (m.cmd === "prog") {
+      var el = $("dac-swprog");
+      el.classList.add("show");
+      el.firstElementChild.style.width = (100 * m.done / m.total).toFixed(1) + "%";
+    } else if (m.cmd === "sweep") {
+      sweepDone(m.grid);
+    }
+  }
+
+  var runTimer = null;
+  function scheduleRun() {
+    if (runTimer) clearTimeout(runTimer);
+    runTimer = setTimeout(doRun, 220);
+  }
+  function doRun() {
+    runId++;
+    running = true;
+    $("dac-kpis").classList.add("dim");
+    $("dac-kpibot").classList.add("dim");
+    worker.postMessage({ cmd: "run", id: runId, u: collectU() });
+  }
+  function renderError(msg) {
+    $("dac-kpinote").textContent = "Simulation failed: " + msg;
+  }
+
+  /* --------------------------- KPI cards ----------------------------- */
+  function kcard(label, val, det) {
+    return '<div class="kpi"><div class="kl">' + label + '</div><div class="kv">' +
+      val + '</div><div class="kd">' + (det || "") + "</div></div>";
+  }
+  function f(v, d) { return (+v).toFixed(d); }
+  var KWH_PER_MJKG = 1000 / 3.6;   // MJ/kg CO2 -> kWh/tonne CO2
+  function kwh(mjkg, d) { return f(mjkg * KWH_PER_MJKG, d == null ? 0 : d); }
+  // small line comparing the Simplified DAC energy model, evaluated with this
+  // cycle's own working capacity / swing / capture fraction
+  function simpLine(s, key, dyn) {
+    if (!s || !isFinite(s[key])) return "";
+    return '<span class="simp">simplified ' + f(s[key], 2) + " MJ/kg · " +
+      kwh(s[key]) + " kWh/t · " + f(s[key] / Math.max(dyn, 1e-30), 2) + "&times;</span>";
+  }
+  function renderKPIs(m) {
+    var k = m.kpi;
+    var el = $("dac-kpis");
+    el.innerHTML =
+      kcard("Purity (dry)", f(k.purityDry, 2) + " %",
+        "CO₂/(CO₂+N₂) in product; water: " + f(k.waterPerCO2, 2) + " mol/mol CO₂") +
+      kcard("Recovery", f(k.recovery, 2) + " %",
+        "captured / CO₂ fed over the whole cycle") +
+      kcard("E thermal", f(k.Eth, 2) + " MJ/kg",
+        kwh(k.Eth) + " kWh/tonne · heater duty " + f(k.Qheat / 1e6, 1) + " MJ" +
+        (k.Qwall > 0 ? " + wall " + f(k.Qwall / 1e6, 1) + " MJ" : "") +
+        simpLine(k.simp, "Eth", k.Eth)) +
+      kcard("E electrical", f(k.Eel, 2) + " MJ/kg",
+        "<b style='color:var(--text)'>" + kwh(k.Eel) + " kWh/tonne</b><br>" +
+        "fan " + kwh(k.Efan) + " + vacuum " + kwh(k.Evac) + " kWh/tonne" +
+        simpLine(k.simp, "Eel", k.Eel)) +
+      kcard("E total", f(k.Etot, 2) + " MJ/kg",
+        kwh(k.Etot) + " kWh/tonne · thermal + electrical (not COP-weighted)" +
+        simpLine(k.simp, "Etot", k.Etot)) +
+      kcard("Productivity (contactor)", f(k.prContactTPD, 4) + " TPD/m³",
+        f(k.prContact, 3) + " kg m⁻³ h⁻¹ of bed") +
+      kcard("Productivity (sorbent)", f(k.prSorbTPD, 4) + " TPD/m³",
+        f(k.prSorb, 3) + " kg m⁻³ h⁻¹ of sorbent volume");
+    $("dac-kpiwc").innerHTML =
+      kcard("Working capacity",
+        (k.simp ? f(k.simp.dqC, 3) : "—") + " mmol/g",
+        (k.simp ? "Δq<sub>CO2</sub> (end of ads − end of heat) · Δq<sub>H2O</sub> " +
+          f(k.simp.dqW, 2) + " mmol/g · ΔT " + f(k.simp.dT, 1) + " K<br>" : "") +
+        "cycle " + f(k.t_cycle / 3600, 2) + " h (ads " + f(k.times.ads / 3600, 2) +
+        " / evac " + f(k.times.evac / 3600, 2) + " / heat " + f(k.times.heat / 3600, 2) +
+        " / cool " + f(k.times.cool / 3600, 2) + ")");
+    var badges = '<span class="badge ok">CSS in ' + m.cycles + " cycle" +
+      (m.cycles > 1 ? "s" : "") + "</span>";
+    if (!k.evacReached)
+      badges += '<span class="badge bad">pump never reached Pₓ — raise pump speed</span>';
+    if (k.times.evac > 0.25 * k.t_cycle)
+      badges += '<span class="badge warn">evacuation is ' +
+        f(100 * k.times.evac / k.t_cycle, 0) + " % of the cycle</span>";
+    $("dac-cssbadges").innerHTML = badges;
+    $("dac-kpinote").innerHTML = "Product = the heating/desorption outflow only; the " +
+      "evacuation stream is vented. Thermal energy is the jacket duty (plus wall mass, if set); " +
+      "electrical energy is isentropic fan work over ΔP plus " +
+      (collectU().pumpModel === "iso" ? "isothermal" : "adiabatic") + " vacuum-pump work. " +
+      "The <i>simplified</i> line is the group's Simplified DAC energy model (<code>dac.energyModel</code>) " +
+      "evaluated with this cycle's own working capacity Δq, temperature swing ΔT and capture fraction (" +
+      (k.simp ? f(k.simp.etaCap, 1) + " %" : "—") + "), so the gap is the model-form difference only: " +
+      "void-gas inventory, sensible heat swept out with the desorbing gas, and CO₂ released during " +
+      "evacuation rather than in the product step.";
+  }
+
+  /* ------------------ SVG schematic (horizontal chain) ---------------- *
+   * 1 → 2 → 3 → 4 left to right, with a dashed return to the next cycle
+   * underneath.  Outlet streams leave upwards, inlet air enters from below.
+   * ------------------------------------------------------------------- */
+  function renderScheme(k) {
+    var bw = 210, pitch = 238, bh = 100, x0 = 10, yB = 44;
+    var W = x0 + 3 * pitch + bw + 10, H = 214, yBot = yB + bh, yRet = 200;
+    var steps = [
+      { name: "1 · Adsorption", col: cssVar("--sads"),
+        sub: "air at Pₐₘᵦ, Tₐₘᵦ", t: k ? f(k.times.ads / 3600, 2) + " h" : "" },
+      { name: "2 · Evacuation", col: cssVar("--sevac"),
+        sub: "closed inlet → P_regen", t: k ? f(k.times.evac / 60, 1) + " min" : "" },
+      { name: "3 · Heat + vacuum", col: cssVar("--sheat"),
+        sub: "jacket → T_des at P_regen", t: k ? f(k.times.heat / 3600, 2) + " h" : "" },
+      { name: "4 · Cool / repress.", col: cssVar("--scool"),
+        sub: "ambient air back in", t: k ? f(k.times.cool / 3600, 2) + " h" : "" }
+    ];
+    steps.forEach(function (st, i) { st.x = x0 + i * pitch; });
+    var txt = cssVar("--text"), mut = cssVar("--muted"), bg = cssVar("--card");
+    var s = '<svg viewBox="0 0 ' + W + " " + H +
+      '" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">';
+    steps.forEach(function (st) {
+      s += '<rect x="' + st.x + '" y="' + yB + '" width="' + bw + '" height="' + bh +
+        '" rx="12" fill="' + bg + '" stroke="' + st.col + '" stroke-width="2.5"/>';
+      s += '<text x="' + (st.x + bw / 2) + '" y="' + (yB + 26) + '" text-anchor="middle" font-size="14" font-weight="700" fill="' + st.col + '">' + st.name + "</text>";
+      s += '<text x="' + (st.x + bw / 2) + '" y="' + (yB + 46) + '" text-anchor="middle" font-size="10.5" fill="' + mut + '">' + st.sub + "</text>";
+      s += '<text x="' + (st.x + bw / 2) + '" y="' + (yB + bh - 16) + '" text-anchor="middle" font-size="13" font-weight="600" fill="' + txt + '">' + st.t + "</text>";
+    });
+    // step-to-step arrows
+    for (var i = 0; i < 3; i++)
+      s += arrow(steps[i].x + bw + 4, yB + bh / 2, steps[i + 1].x - 4, yB + bh / 2, mut);
+    // outlets (upwards) and inlets (upwards into the box bottom)
+    function outlet(st, label, col, bold) {
+      return arrow(st.x + 150, yB - 2, st.x + 150, yB - 26, col) +
+        '<text x="' + (st.x + 150) + '" y="' + (yB - 32) + '" text-anchor="middle" font-size="' +
+        (bold ? 11 : 10.5) + '" font-weight="' + (bold ? 700 : 400) + '" fill="' +
+        (bold ? col : mut) + '">' + label + "</text>";
+    }
+    function inlet(st, label, col) {
+      return arrow(st.x + 50, yBot + 28, st.x + 50, yBot + 2, col) +
+        '<text x="' + (st.x + 50) + '" y="' + (yBot + 42) + '" text-anchor="middle" font-size="10.5" fill="' + mut + '">' + label + "</text>";
+    }
+    s += outlet(steps[0], "CO₂-lean air", mut, false);
+    s += outlet(steps[1], "vent", steps[1].col, false);
+    s += outlet(steps[2], "CO₂ product", steps[2].col, true);
+    s += inlet(steps[0], "ambient air", steps[0].col);
+    s += inlet(steps[3], "ambient air", steps[3].col);
+    // jacket-heat squiggle under step 3
+    s += '<path d="M ' + (steps[2].x + 96) + " " + (yBot + 14) +
+      " q 9 -11 18 0 t 18 0 t 18 0 t 18 0" +
+      '" fill="none" stroke="' + steps[2].col + '" stroke-width="2"/>' +
+      '<text x="' + (steps[2].x + 132) + '" y="' + (yBot + 32) + '" font-size="10" fill="' + mut + '" text-anchor="middle">jacket heat</text>';
+    // dashed return: end of step 4 back to the start of the next cycle
+    var xa = steps[3].x + 150, xb = steps[0].x + 105;
+    s += '<path d="M ' + xa + " " + (yBot + 2) + " L " + xa + " " + yRet + " L " +
+      xb + " " + yRet + " L " + xb + " " + (yBot + 10) +
+      '" fill="none" stroke="' + mut + '" stroke-width="1.6" stroke-dasharray="5 4"/>' +
+      '<polygon points="' + xb + "," + (yBot + 2) + " " + (xb - 4) + "," + (yBot + 12) +
+      " " + (xb + 4) + "," + (yBot + 12) + '" fill="' + mut + '"/>' +
+      '<text x="' + ((xa + xb) / 2) + '" y="' + (yRet - 6) +
+      '" text-anchor="middle" font-size="10" fill="' + mut + '">next cycle</text>';
+    s += "</svg>";
+    $("dac-scheme").innerHTML = s;
+
+    function arrow(ax1, ay1, ax2, ay2, col) {
+      var dx = ax2 - ax1, dy = ay2 - ay1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+      var bx = ax2 - 8 * ux, by = ay2 - 8 * uy;
+      return '<line x1="' + ax1 + '" y1="' + ay1 + '" x2="' + bx + '" y2="' + by +
+        '" stroke="' + col + '" stroke-width="2"/>' +
+        '<polygon points="' + ax2 + "," + ay2 + " " + (bx - 4 * uy) + "," + (by + 4 * ux) +
+        " " + (bx + 4 * uy) + "," + (by - 4 * ux) + '" fill="' + col + '"/>';
+    }
+  }
+
+  /* ------------------------- canvas plotting ------------------------- */
+  function prepCanvas(cv) {
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth || cv.parentNode.clientWidth || 500;
+    // design height cached ONCE — assigning cv.height below mutates the
+    // height attribute, so re-reading it each call compounds by dpr per
+    // redraw (canvas grows exponentially and kills the GPU context)
+    var h = +(cv.dataset.baseH || (cv.dataset.baseH = cv.getAttribute("height")));
+    var W = Math.round(w * dpr), H = Math.round(h * dpr);
+    // reallocate the backing store only when the size actually changed
+    if (cv.width !== W || cv.height !== H) {
+      cv.width = W; cv.height = H;
+      cv.style.height = h + "px";
+    }
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    return { ctx: ctx, w: w, h: h, dpr: dpr };
+  }
+  function niceTicks(a, b, n) {
+    var span = b - a, step = Math.pow(10, Math.floor(Math.log10(span / n)));
+    var err = span / n / step;
+    step *= err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+    var t = [], v = Math.ceil(a / step) * step;
+    for (; v <= b + 1e-9 * span; v += step) t.push(v);
+    return t;
+  }
+  function fmtTick(v) {
+    if (v === 0) return "0";
+    var a = Math.abs(v);
+    if (a >= 1e4 || a < 1e-3) return v.toExponential(0).replace("e", "e");
+    return +v.toPrecision(4) + "";
+  }
+
+  // generic plot: spec = { x:{min,max,log,label}, y:{min,max,log,label},
+  //   y2:{...}, series:[{pts, color, width, dash, axis, label}],
+  //   bands:[{x0,x1,color}], marks:[{x,y,color,label,axis}] }
+  function plot(cv, spec) {
+    var p = prepCanvas(cv), ctx = p.ctx, W = p.w, H = p.h;
+    var mL = 52, mR = spec.y2 ? 52 : 14, mT = 10, mB = 34;
+    var txt = cssVar("--text"), mut = cssVar("--muted"), bor = cssVar("--border");
+    function xm(v) {
+      var a = spec.x.log ? Math.log10(spec.x.min) : spec.x.min;
+      var b = spec.x.log ? Math.log10(spec.x.max) : spec.x.max;
+      var vv = spec.x.log ? Math.log10(Math.max(v, 1e-300)) : v;
+      return mL + (vv - a) / (b - a) * (W - mL - mR);
+    }
+    function ym(v, ax) {
+      var Y = ax === "y2" ? spec.y2 : spec.y;
+      var a = Y.log ? Math.log10(Y.min) : Y.min, b = Y.log ? Math.log10(Y.max) : Y.max;
+      var vv = Y.log ? Math.log10(Math.max(v, 1e-300)) : v;
+      return H - mB - (vv - a) / (b - a) * (H - mT - mB);
+    }
+    // bands
+    (spec.bands || []).forEach(function (b) {
+      ctx.fillStyle = b.color;
+      ctx.fillRect(xm(b.x0), mT, xm(b.x1) - xm(b.x0), H - mT - mB);
+    });
+    // frame + ticks
+    ctx.strokeStyle = bor; ctx.lineWidth = 1;
+    ctx.strokeRect(mL, mT, W - mL - mR, H - mT - mB);
+    ctx.fillStyle = mut; ctx.font = "10.5px -apple-system, sans-serif";
+    var xt = spec.x.log ? logTicks(spec.x.min, spec.x.max) : niceTicks(spec.x.min, spec.x.max, 6);
+    xt.forEach(function (v) {
+      var x = xm(v);
+      ctx.strokeStyle = bor; ctx.beginPath();
+      ctx.moveTo(x, H - mB); ctx.lineTo(x, H - mB + 4); ctx.stroke();
+      ctx.textAlign = "center";
+      ctx.fillText(spec.x.log ? expLabel(v) : fmtTick(v), x, H - mB + 15);
+    });
+    function drawYAxis(Y, ax, side) {
+      var yt = Y.log ? logTicks(Y.min, Y.max) : niceTicks(Y.min, Y.max, 5);
+      yt.forEach(function (v) {
+        var y = ym(v, ax);
+        ctx.strokeStyle = bor; ctx.beginPath();
+        if (side === "l") { ctx.moveTo(mL - 4, y); ctx.lineTo(mL, y); }
+        else { ctx.moveTo(W - mR, y); ctx.lineTo(W - mR + 4, y); }
+        ctx.stroke();
+        ctx.textAlign = side === "l" ? "right" : "left";
+        ctx.fillStyle = mut;
+        ctx.fillText(Y.log ? expLabel(v) : fmtTick(v), side === "l" ? mL - 7 : W - mR + 7, y + 3.5);
+      });
+      ctx.save();
+      ctx.translate(side === "l" ? 12 : W - 6, (mT + H - mB) / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center"; ctx.fillStyle = txt;
+      ctx.font = "11px -apple-system, sans-serif";
+      ctx.fillText(Y.label || "", 0, 0);
+      ctx.restore();
+    }
+    drawYAxis(spec.y, "y", "l");
+    if (spec.y2) drawYAxis(spec.y2, "y2", "r");
+    ctx.textAlign = "center"; ctx.fillStyle = txt;
+    ctx.font = "11px -apple-system, sans-serif";
+    ctx.fillText(spec.x.label || "", (mL + W - mR) / 2, H - 6);
+    // clip and draw series
+    ctx.save();
+    ctx.beginPath(); ctx.rect(mL, mT, W - mL - mR, H - mT - mB); ctx.clip();
+    (spec.series || []).forEach(function (s) {
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.8;
+      ctx.setLineDash(s.dash || []);
+      ctx.beginPath();
+      var started = false;
+      s.pts.forEach(function (pt) {
+        if (!isFinite(pt[1])) { started = false; return; }
+        var x = xm(pt[0]), y = ym(pt[1], s.axis || "y");
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    (spec.marks || []).forEach(function (mk) {
+      var x = xm(mk.x), y = ym(mk.y, mk.axis || "y");
+      ctx.fillStyle = mk.color;
+      ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.strokeStyle = cssVar("--card"); ctx.lineWidth = 1.5; ctx.stroke();
+      if (mk.label) {
+        ctx.font = "700 11px -apple-system, sans-serif";
+        ctx.fillStyle = mk.color; ctx.textAlign = "left";
+        ctx.fillText(mk.label, x + 7, y - 6);
+      }
+    });
+    if (spec.arrow) {
+      var a = spec.arrow;
+      var x1 = xm(a.x0), y1 = ym(a.y0, "y"), x2 = xm(a.x1), y2 = ym(a.y1, "y");
+      ctx.strokeStyle = mut; ctx.lineWidth = 1.3; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.setLineDash([]);
+      var dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      ctx.fillStyle = mut;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 8 * ux - 4 * uy, y2 - 8 * uy + 4 * ux);
+      ctx.lineTo(x2 - 8 * ux + 4 * uy, y2 - 8 * uy - 4 * ux);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    // legend
+    if (spec.legend) {
+      var lx = mL + 10, ly = mT + 14;
+      ctx.font = "11px -apple-system, sans-serif";
+      spec.series.forEach(function (s) {
+        if (!s.label) return;
+        ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.8;
+        ctx.setLineDash(s.dash || []);
+        ctx.beginPath(); ctx.moveTo(lx, ly - 3); ctx.lineTo(lx + 20, ly - 3); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = txt; ctx.textAlign = "left";
+        ctx.fillText(s.label, lx + 25, ly);
+        ly += 15;
+      });
+    }
+    function logTicks(a, b) {
+      var t = [];
+      for (var e = Math.ceil(Math.log10(a) - 1e-9); Math.pow(10, e) <= b * (1 + 1e-9); e++)
+        t.push(Math.pow(10, e));
+      return t;
+    }
+    function expLabel(v) {
+      var e = Math.round(Math.log10(v));
+      if (e >= -2 && e <= 3) return fmtTick(v);
+      return "1e" + e;
+    }
+    // cache geometry + a bitmap snapshot so the crosshair can blit instead
+    // of re-rendering (see HANDOFF: full redraws on mousemove killed the GPU)
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    cv._snap = ctx.getImageData(0, 0, cv.width, cv.height);
+    ctx.restore();
+    cv._geo = { mL: mL, mR: mR, mT: mT, mB: mB, W: W, H: H, dpr: p.dpr,
+                ym: ym, spec: spec };
+    wireCross(cv);
+    // hand the declarative spec to the report module: CSV export and the
+    // report's figure list are both derived from it, so they can never
+    // disagree with what was plotted
+    Report.spec(cv.id, spec);
+  }
+
+  /* --------------------------- crosshairs ---------------------------- */
+  function restoreSnap(cv) {
+    var ctx = cv.getContext("2d");
+    if (cv._snap) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.putImageData(cv._snap, 0, 0);
+      ctx.restore();
+    }
+    return ctx;
+  }
+  // linear interpolation of a series at x (pts ascending in x)
+  function interpAt(pts, x) {
+    var n = pts.length;
+    if (n < 2 || x < pts[0][0] || x > pts[n - 1][0]) return NaN;
+    var lo = 0, hi = n - 1;
+    while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (pts[mid][0] <= x) lo = mid; else hi = mid; }
+    var x0 = pts[lo][0], x1 = pts[hi][0], y0 = pts[lo][1], y1 = pts[hi][1];
+    if (!isFinite(y0) || !isFinite(y1)) return NaN;
+    return x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+  }
+  function sig(v, n) {
+    if (!isFinite(v)) return "—";
+    var a = Math.abs(v);
+    if (a !== 0 && (a < 1e-3 || a >= 1e5)) return v.toExponential(2);
+    return "" + +v.toPrecision(n || 4);
+  }
+  function wireCross(cv) {
+    if (cv._crossWired) return;
+    cv._crossWired = true;
+    cv.style.cursor = "crosshair";
+    cv.addEventListener("mousemove", function (ev) { drawCross(cv, ev); });
+    cv.addEventListener("mouseleave", function () { restoreSnap(cv); });
+  }
+  function drawCross(cv, ev) {
+    var g = cv._geo;
+    if (!g || !cv._snap) return;
+    var spec = g.spec;
+    var r = cv.getBoundingClientRect();
+    var px = ev.clientX - r.left, py = ev.clientY - r.top;
+    if (px < g.mL || px > g.W - g.mR || py < g.mT || py > g.H - g.mB) {
+      restoreSnap(cv); return;
+    }
+    var fx = (px - g.mL) / (g.W - g.mL - g.mR);
+    var xv = spec.x.log
+      ? Math.pow(10, Math.log10(spec.x.min) + fx * (Math.log10(spec.x.max) - Math.log10(spec.x.min)))
+      : spec.x.min + fx * (spec.x.max - spec.x.min);
+    var ctx = restoreSnap(cv);
+    ctx.save();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    var mut = cssVar("--muted"), txt = cssVar("--text"), card = cssVar("--card"),
+      bor = cssVar("--border");
+    ctx.strokeStyle = mut; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(px, g.mT); ctx.lineTo(px, g.H - g.mB); ctx.stroke();
+    ctx.setLineDash([]);
+    // dots on every series + readout rows
+    var rows = [];
+    (spec.series || []).forEach(function (s) {
+      var yv = interpAt(s.pts, xv);
+      if (!isFinite(yv)) return;
+      var yy = g.ym(yv, s.axis || "y");
+      if (yy < g.mT - 1 || yy > g.H - g.mB + 1) return;
+      ctx.fillStyle = s.color;
+      ctx.beginPath(); ctx.arc(px, yy, 3.6, 0, 2 * Math.PI); ctx.fill();
+      ctx.strokeStyle = card; ctx.lineWidth = 1.2; ctx.stroke();
+      rows.push({ c: s.color,
+        t: (s.label || "y") + " " + sig(yv, 4) + (s.unit ? " " + s.unit : "") });
+    });
+    // header: x value (+ step name for time plots)
+    var head = (spec.x.sym || "x") + " = " + sig(xv, 4) +
+      (spec.x.unit ? " " + spec.x.unit : "");
+    var headCol = txt;
+    if (spec.stepAt) {
+      var st = spec.stepAt(xv);
+      if (st) { head += "  ·  " + st.name; headCol = st.color; }
+    }
+    // readout box, placed on whichever side has room
+    ctx.font = "11px -apple-system, sans-serif";
+    var wMax = ctx.measureText(head).width;
+    rows.forEach(function (rw) { wMax = Math.max(wMax, ctx.measureText(rw.t).width + 12); });
+    var bw = wMax + 16, bh = 16 + rows.length * 14 + 6;
+    var bx = px + 12, by = Math.max(g.mT + 4, Math.min(py - 10, g.H - g.mB - bh - 2));
+    if (bx + bw > g.W - g.mR - 2) bx = px - 12 - bw;
+    if (bx < g.mL + 2) bx = g.mL + 2;
+    ctx.globalAlpha = 0.94;
+    ctx.fillStyle = card; ctx.strokeStyle = bor; ctx.lineWidth = 1;
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill(); ctx.stroke(); }
+    else { ctx.fillRect(bx, by, bw, bh); ctx.strokeRect(bx, by, bw, bh); }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left";
+    ctx.font = "700 11px -apple-system, sans-serif";
+    ctx.fillStyle = headCol;
+    ctx.fillText(head, bx + 8, by + 13);
+    ctx.font = "11px -apple-system, sans-serif";
+    rows.forEach(function (rw, i) {
+      var yy2 = by + 27 + i * 14;
+      ctx.fillStyle = rw.c;
+      ctx.beginPath(); ctx.arc(bx + 12, yy2 - 3.5, 3.2, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = txt;
+      ctx.fillText(rw.t, bx + 20, yy2);
+    });
+    ctx.restore();
+  }
+
+  /* -------------------- isotherm + profile plots ---------------------- */
+  var STEPCOL = { ads: "--sads", evac: "--sevac", heat: "--sheat", cool: "--scool" };
+
+  function isoPlots(m) {
+    var u = collectU();
+    var M = DacEngine.buildModel(u);
+    var st = m.state;
+    // end-of-ads / end-of-heat states from the profile
+    var prof = m.profile, A = null, B = null;
+    for (var i = 0; i < prof.length; i++) {
+      if (prof[i].mode === "ads") A = prof[i];
+      if (prof[i].mode === "heat") B = prof[i];
+    }
+    if (!A || !B) return;
+    var col1 = cssVar("--sads"), col2 = cssVar("--sheat"), mut = cssVar("--muted");
+    // CO2 isotherm curves (p in bar, log axis)
+    var pmin = 1e-5, pmax = 1;
+    function curve(T, qw, pw) {
+      var pts = [];
+      for (var j = 0; j <= 160; j++) {
+        var pb = Math.pow(10, Math.log10(pmin) + j / 160 * (Math.log10(pmax) - Math.log10(pmin)));
+        pts.push([pb, DacEngine.qstarC(pb * 1e5, T, qw, M.S, pw)]);
+      }
+      return pts;
+    }
+    // pw only matters for the site-competition custom form; each curve
+    // uses the water partial pressure of the state it is labelled with
+    var cAdry = curve(u.Tamb, 0, 0),
+        cAwet = curve(u.Tamb, A.qw, A.yw * A.P),
+        cB = curve(u.Tdes, B.qw, B.yw * B.P);
+    var qmax = 0;
+    [cAdry, cAwet, cB].forEach(function (c) {
+      c.forEach(function (pt) { qmax = Math.max(qmax, pt[1]); });
+    });
+    var pA = Math.max(A.yc * A.P / 1e5, 1.2e-5), pB = Math.max(B.yc * B.P / 1e5, 1.2e-5);
+    var series = [
+      { pts: cAwet, color: col1, width: 2, unit: "mol/kg",
+        label: "T_amb, humid (q_w at end of ads)" },
+      { pts: cAdry, color: col1, width: 1.4, dash: [5, 4], unit: "mol/kg", label: "T_amb, dry" },
+      { pts: cB, color: col2, width: 2, unit: "mol/kg", label: "T_des (q_w at end of heat)" }
+    ];
+    plot($("dac-isoC"), {
+      x: { min: pmin, max: pmax, log: true, label: "p(CO₂) [bar]", sym: "p", unit: "bar" },
+      y: { min: 0, max: qmax * 1.08 + 1e-6, label: "q* [mol/kg]" },
+      series: series, legend: true,
+      marks: [
+        { x: pA, y: A.qc, color: col1, label: "A" },
+        { x: pB, y: B.qc, color: col2, label: "B" }],
+      arrow: { x0: pA, y0: A.qc, x1: pB, y1: B.qc }
+    });
+    // kept short so the card header stays on one line beside the export buttons
+    $("dac-isoinfo").textContent = "Δq(CO₂) = " + (A.qc - B.qc).toFixed(3) +
+      " mol/kg (A→B)";
+    // H2O isotherm
+    if (M.inertW) {
+      // no curve is plotted — drop any spec left by a previous sorbent so
+      // the CSV button cannot export the wrong material's isotherm
+      Report.spec("dac-isoW", null);
+      var pc = prepCanvas($("dac-isoW"));
+      pc.ctx.fillStyle = mut;
+      pc.ctx.font = "13px -apple-system, sans-serif";
+      pc.ctx.textAlign = "center";
+      pc.ctx.fillText("H₂O treated as inert for this sorbent", pc.w / 2, pc.h / 2 - 8);
+      pc.ctx.font = "11px -apple-system, sans-serif";
+      pc.ctx.fillText(isCustom() ? "(H₂O isotherm set to inert in the custom panel)"
+        : "(no pure-H₂O isotherm data; per the source paper's base case)",
+        pc.w / 2, pc.h / 2 + 12);
+      $("dac-isoWinfo").textContent = "";
+    } else {
+      var gpts = [];
+      for (var jj = 0; jj <= 100; jj++)
+        gpts.push([jj, DacEngine.qstarW(jj / 100, M.S)]);
+      var qwmax = gpts[100][1];
+      plot($("dac-isoW"), {
+        x: { min: 0, max: 100, label: "relative humidity [%]", sym: "RH", unit: "%" },
+        y: { min: 0, max: qwmax * 1.1 + 1e-6, label: "q*(H₂O) [mol/kg]" },
+        series: [{ pts: gpts, color: cssVar("--scool"), width: 2,
+                   label: "q*(H₂O)", unit: "mol/kg" }],
+        marks: [
+          { x: u.RH, y: DacEngine.qstarW(u.RH / 100, M.S), color: col1, label: "feed" },
+          { x: 100 * B.yw * B.P / DacEngine.psat(B.T), y: B.qw, color: col2, label: "end of heat" }
+        ]
+      });
+      $("dac-isoWinfo").textContent = "Δq(H₂O) over the cycle = " +
+        (A.qw - B.qw).toFixed(2) + " mol/kg";
+    }
+  }
+
+  function profilePlots(m) {
+    var prof = m.profile;
+    if (!prof.length) return;
+    var tEnd = prof[prof.length - 1].t / 3600;
+    // step bands
+    var bands = [], cur = prof[0].mode, t0 = 0;
+    for (var i = 1; i < prof.length; i++) {
+      if (prof[i].mode !== cur) {
+        bands.push({ x0: t0, x1: prof[i].t / 3600, mode: cur });
+        cur = prof[i].mode; t0 = prof[i].t / 3600;
+      }
+    }
+    bands.push({ x0: t0, x1: tEnd, mode: cur });
+    var bandCols = bands.map(function (b) {
+      var c = cssVar(STEPCOL[b.mode]);
+      return { x0: b.x0, x1: b.x1, color: hexA(c, 0.07) };
+    });
+    var STEPNAME = { ads: "1 · adsorption", evac: "2 · evacuation",
+                     heat: "3 · heat + vacuum", cool: "4 · cool / repress." };
+    // which step is active at time t [h] — used in the crosshair header
+    function stepAt(t) {
+      for (var b = 0; b < bands.length; b++)
+        if (t >= bands[b].x0 - 1e-9 && t <= bands[b].x1 + 1e-9)
+          return { name: STEPNAME[bands[b].mode], color: cssVar(STEPCOL[bands[b].mode]) };
+      return null;
+    }
+    var xAxis = { min: 0, max: tEnd, label: "t [h]", sym: "t", unit: "h" };
+    function seq(fn) { return prof.map(function (p) { return [p.t / 3600, fn(p)]; }); }
+    var Tpts = seq(function (p) { return p.T - 273.15; });
+    var Twpts = seq(function (p) { return p.Tw - 273.15; });
+    var Tmin = Infinity, Tmax = -Infinity;
+    Tpts.concat(Twpts).forEach(function (p) {
+      Tmin = Math.min(Tmin, p[1]); Tmax = Math.max(Tmax, p[1]);
+    });
+    var Ppts = seq(function (p) { return p.P / 1e5; });
+    plot($("dac-pTP"), {
+      x: xAxis, stepAt: stepAt,
+      y: { min: Tmin - 4, max: Tmax + 4, label: "T [°C]" },
+      y2: { min: 0, max: 1.12, label: "P [bar]" },
+      bands: bandCols, legend: true,
+      series: [
+        { pts: Tpts, color: cssVar("--sheat"), width: 2, label: "T bed", unit: "°C" },
+        { pts: Twpts, color: cssVar("--muted"), width: 1.5, dash: [5, 4],
+          label: "T wall", unit: "°C" },
+        { pts: Ppts, color: cssVar("--sevac"), width: 2, axis: "y2",
+          label: "P", unit: "bar" }]
+    });
+    var qcp = seq(function (p) { return p.qc; }), qwp = seq(function (p) { return p.qw; });
+    var qcmax = 0, qwmax = 0;
+    qcp.forEach(function (p) { qcmax = Math.max(qcmax, p[1]); });
+    qwp.forEach(function (p) { qwmax = Math.max(qwmax, p[1]); });
+    plot($("dac-pQ"), {
+      x: xAxis, stepAt: stepAt,
+      y: { min: 0, max: qcmax * 1.15 + 1e-3, label: "q(CO₂) [mol/kg]" },
+      y2: { min: 0, max: qwmax * 1.15 + 1e-3, label: "q(H₂O) [mol/kg]" },
+      bands: bandCols, legend: true,
+      series: [
+        { pts: qcp, color: cssVar("--sads"), width: 2, label: "q CO₂", unit: "mol/kg" },
+        { pts: qwp, color: cssVar("--scool"), width: 2, dash: [6, 3], axis: "y2",
+          label: "q H₂O", unit: "mol/kg" }]
+    });
+    var ycp = seq(function (p) { return Math.max(p.yc, 1e-7); });
+    var ywp = seq(function (p) { return Math.max(p.yw, 1e-7); });
+    plot($("dac-pY"), {
+      x: xAxis, stepAt: stepAt,
+      y: { min: 1e-5, max: 1.5, log: true, label: "mole fraction" },
+      bands: bandCols, legend: true,
+      series: [
+        { pts: ycp, color: cssVar("--sads"), width: 2, label: "y CO₂" },
+        { pts: ywp, color: cssVar("--scool"), width: 2, dash: [6, 3], label: "y H₂O" }]
+    });
+  }
+  function hexA(hex, a) {
+    hex = hex.trim();
+    var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16),
+      b = parseInt(hex.slice(5, 7), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+
+  function renderAll(m) {
+    renderKPIs(m);
+    renderScheme(m.kpi);
+    isoPlots(m);
+    profilePlots(m);
+    Report.refresh();      // enable/disable the per-figure export buttons
+  }
+
+  /* ------------------------- sorbent info ---------------------------- */
+  function renderSorbInfo() {
+    var key = $("dac-sorb").value, S = preset();
+    var b = [];
+    if (isCustom()) {
+      var iso = readIso();
+      b.push('<span class="badge">custom sorbent</span>');
+      if (!iso.gab) b.push('<span class="badge warn">H₂O inert</span>');
+      if (anyPropModified())
+        b.push('<span class="badge warn">properties edited vs seed</span>');
+      if ($("dac-unlink").checked)
+        b.push('<span class="badge bad">ΔH unlinked — isotherm no longer consistent</span>');
+      $("dac-sorbinfo").innerHTML = b.join("");
+      $("dac-cuswarn").innerHTML = cusWarnings(iso, sGet("Tdes") + 273.15)
+        .map(function (w) { return '<span class="badge bad">' + w + "</span>"; }).join("");
+      $("dac-sorbnote").innerHTML = "Custom sorbent — isotherm parameters above, " +
+        "physical properties in the boxes on the left (seeded from " +
+        (CUSBASE ? CUSBASE.label : "") + "; Reset restores the seed). These numbers " +
+        "are yours, not a published fit: check the isotherm panel against your data " +
+        "before believing the cycle KPIs.";
+      return;
+    }
+    b.push('<span class="badge">' + S.cls + "</span>");
+    if (!S.gab) b.push('<span class="badge warn">H₂O inert</span>');
+    if (anyPropModified())
+      b.push('<span class="badge warn">properties edited — not the published sorbent</span>');
+    if ($("dac-unlink").checked)
+      b.push('<span class="badge bad">ΔH unlinked — isotherm no longer consistent</span>');
+    $("dac-sorbinfo").innerHTML = b.join("");
+    var notes = {
+      "Lewatit": "Water-enhanced Toth + GAB from the group’s Lewatit paper; water boosts CO₂ uptake.",
+      "APDES": "Modified Toth (ψ, β > 0): strong co-operative water uplift. Very light bed (εₕ = 0.092).",
+      "TMCM-41": "Dry CO₂ Toth only — water treated as inert in this app.",
+      "TPMS": "Dry CO₂ Toth only — water treated as inert in this app.",
+      "NbOFFIVE": "Water competes (β < 0); coupling clamped at 75 % RH per the source paper.",
+      "SIFSIX": "Water competes strongly (β < 0); coupling clamped at 90 % RH."
+    };
+    $("dac-sorbnote").innerHTML = (notes[key] || "") +
+      " Properties are editable; the preset values are restored whenever the " +
+      "sorbent is changed. −ΔH(CO₂) is also the Toth temperature coefficient, " +
+      "so editing it moves the isotherm as well (Clausius–Clapeyron) unless you " +
+      "unlink the two to test the energy sensitivity alone.";
+  }
+
+  /* ----------------------------- sweep -------------------------------- */
+  var SWAXES = {
+    "Tdes": { label: "T_des [°C]", min: 70, max: 160, tr: function (v) { return v + 273.15; }, key: "Tdes" },
+    "Pregen": { label: "P_regen [bar]", min: 0.05, max: 0.5, tr: function (v) { return v * 1e5; }, key: "Pregen" },
+    "RH": { label: "RH [%]", min: 5, max: 95, tr: function (v) { return v; }, key: "RH" },
+    "Tamb": { label: "T_amb [°C]", min: -10, max: 45, tr: function (v) { return v + 273.15; }, key: "Tamb" },
+    "t_ads": { label: "t_ads [h]", min: 0.5, max: 12, tr: function (v) { return v * 3600; }, key: "t_ads" },
+    "Vfan": { label: "fan flow [m³/h]", min: 1e3, max: 1e5, log: true, tr: function (v) { return v; }, key: "Vfan" },
+    "Spump": { label: "pump speed [m³/h]", min: 10, max: 1000, log: true, tr: function (v) { return v; }, key: "Spump" },
+    "kC": { label: "k_CO2 [1/s]", min: 1e-5, max: 1e-1, log: true, tr: function (v) { return v; }, key: "kC" },
+    "EaC": { label: "E_a(CO₂) [kJ/mol]", min: 0, max: 80, tr: function (v) { return v * 1e3; }, key: "EaC" },
+    "t_heat": { label: "t_heat [h]", min: 0.5, max: 8, tr: function (v) { return v * 3600; }, key: "t_heat" },
+    "eb": { label: "ε_b [-]", min: 0.05, max: 0.8, tr: function (v) { return v; }, key: "eb" },
+    "rhop": { label: "ρ_p [kg/m³]", min: 50, max: 1500, tr: function (v) { return v; }, key: "rhop" },
+    "dHc": { label: "−ΔH(CO₂) [kJ/mol]", min: 30, max: 120, tr: function (v) { return v * 1e3; }, key: "dHc" }
+  };
+  var SWKPI = {
+    Etot: { label: "E total [MJ/kg]", get: function (g) { return g.Etot; } },
+    Eth: { label: "E thermal [MJ/kg]", get: function (g) { return g.Eth; } },
+    Eel: { label: "E electrical [MJ/kg]", get: function (g) { return g.Eel; } },
+    Pu: { label: "Purity, dry [%]", get: function (g) { return g.Pu; } },
+    Re: { label: "Recovery [%]", get: function (g) { return g.Re; } },
+    PrC: { label: "Productivity, contactor [TPD/m³]", get: function (g) { return g.PrC; } },
+    PrS: { label: "Productivity, sorbent [TPD/m³]", get: function (g) { return g.PrS; } },
+    wc: { label: "H₂O/CO₂ in product [mol/mol]", get: function (g) { return g.wc; } }
+  };
+  var sweepState = null;
+
+  function initSweepUI() {
+    var xs = $("dac-swx"), ys = $("dac-swy"), ks = $("dac-swk");
+    for (var k in SWAXES) {
+      xs.add(new Option(SWAXES[k].label, k));
+      ys.add(new Option(SWAXES[k].label, k));
+    }
+    ys.add(new Option("— none (1-D curve) —", "none"), 0);
+    xs.value = "Tdes"; ys.value = "Pregen";
+    for (var k2 in SWKPI) ks.add(new Option(SWKPI[k2].label, k2));
+    ks.value = "Etot";
+    $("dac-swrun").addEventListener("click", runSweep);
+    $("dac-swstop").addEventListener("click", stopSweep);
+    ks.addEventListener("change", function () { if (sweepState) drawSweep(); });
+    var mapCv = $("dac-swmap");
+    mapCv.addEventListener("mousemove", sweepHover);
+    mapCv.addEventListener("mouseleave", sweepLeave);
+  }
+  function axisVals(ax, n) {
+    var v = [];
+    for (var i = 0; i < n; i++) {
+      var f2 = i / (n - 1);
+      v.push(ax.log
+        ? Math.pow(10, Math.log10(ax.min) + f2 * (Math.log10(ax.max) - Math.log10(ax.min)))
+        : ax.min + f2 * (ax.max - ax.min));
+    }
+    return v;
+  }
+  var sweepWorker = null;
+  function runSweep() {
+    var xk = $("dac-swx").value, yk = $("dac-swy").value, n = +$("dac-swn").value;
+    if (yk === xk) { $("dac-swread").textContent = "Pick two different axes."; return; }
+    var ax = SWAXES[xk], ay = yk === "none" ? null : SWAXES[yk];
+    var xvals = axisVals(ax, n), yvals = ay ? axisVals(ay, n) : [null];
+    var base = collectU();
+    sweepState = { xk: xk, yk: yk, ax: ax, ay: ay, xvals: xvals, yvals: yvals, grid: null };
+    $("dac-swwrap").style.display = "";   // reveal the plot card on first run
+    $("dac-swrun").disabled = true; $("dac-swstop").disabled = false;
+    $("dac-swprog").classList.add("show");
+    $("dac-swprog").firstElementChild.style.width = "0%";
+    if (sweepWorker) sweepWorker.terminate();
+    sweepWorker = makeWorker();
+    sweepWorker.onmessage = function (e) { handleMsg(e.data); };
+    sweepWorker.postMessage({
+      cmd: "sweep", base: base,
+      xkey: ax.key, xvals: xvals.map(ax.tr),
+      ykey: ay ? ay.key : null, yvals: ay ? yvals.map(ay.tr) : [null]
+    });
+  }
+  function stopSweep() {
+    if (sweepWorker) { sweepWorker.terminate(); sweepWorker = null; }
+    $("dac-swrun").disabled = false; $("dac-swstop").disabled = true;
+    $("dac-swprog").classList.remove("show");
+  }
+  function sweepDone(grid) {
+    sweepState.grid = grid;
+    $("dac-swrun").disabled = false; $("dac-swstop").disabled = true;
+    $("dac-swprog").classList.remove("show");
+    drawSweep();
+    Report.refresh();      // the sweep map now has data to export
+  }
+  // simple viridis-like ramp
+  function ramp(t) {
+    t = Math.min(Math.max(t, 0), 1);
+    var stops = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+    var x = t * (stops.length - 1), i = Math.min(Math.floor(x), stops.length - 2), fr = x - i;
+    var c = [0, 1, 2].map(function (j) {
+      return Math.round(stops[i][j] + fr * (stops[i + 1][j] - stops[i][j]));
+    });
+    return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")";
+  }
+  var sweepGeom = null, sweepSnap = null;
+  function fmtAx(v, ax) {
+    if (ax.log) return fmtSI(v);
+    return "" + +(+v).toPrecision(3);
+  }
+  // full render; caches a bitmap snapshot that sweepHover blits over —
+  // never re-render the whole map per mousemove (GPU-context killer)
+  function drawSweep() {
+    var st = sweepState;
+    if (!st || !st.grid) return;
+    var kk = $("dac-swk").value, K = SWKPI[kk];
+    var cv = $("dac-swmap"), p = prepCanvas(cv), ctx = p.ctx, W = p.w, H = p.h;
+    var mL = 64, mR = st.yk === "none" ? 20 : 86, mT = 14, mB = 42;
+    var txt = cssVar("--text"), mut = cssVar("--muted"), bor = cssVar("--border");
+    var nx = st.xvals.length, ny = st.yvals.length;
+    if (st.yk === "none") {
+      // 1-D curve
+      var pts = [], vmin = Infinity, vmax = -Infinity;
+      for (var i = 0; i < nx; i++) {
+        var g = st.grid[0][i];
+        var v = g ? K.get(g) : NaN;
+        pts.push([st.xvals[i], v]);
+        if (isFinite(v)) { vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); }
+      }
+      if (!isFinite(vmin)) return;
+      var pad = (vmax - vmin) * 0.08 + 1e-9;
+      plot(cv, {
+        x: { min: st.ax.min, max: st.ax.max, log: st.ax.log, label: st.ax.label,
+             sym: st.ax.label.split(" [")[0], unit: (st.ax.label.match(/\[(.*)\]/) || [, ""])[1] },
+        y: { min: vmin - pad, max: vmax + pad, label: K.label },
+        series: [{ pts: pts, color: cssVar("--accent"), width: 2.2,
+                   label: K.label.split(" [")[0],
+                   unit: (K.label.match(/\[(.*)\]/) || [, ""])[1] }]
+      });
+      sweepGeom = null; sweepSnap = null;
+      $("dac-swread").innerHTML = "1-D sweep of <b>" + K.label + "</b> vs " + st.ax.label + ".";
+      return;
+    }
+    // 2-D heatmap: its own cell-snapping hover, so disable the generic
+    // series crosshair that a previous 1-D render may have wired up
+    cv._geo = null;
+    // robust (95th-percentile) colour clipping so a few failed or
+    // zero-capacity corners don't flatten the scale
+    var vals = [];
+    for (var j = 0; j < ny; j++) for (var i2 = 0; i2 < nx; i2++) {
+      var g2 = st.grid[j][i2];
+      if (!g2) continue;
+      var v2 = K.get(g2);
+      if (isFinite(v2)) vals.push(v2);
+    }
+    if (!vals.length) return;
+    vals.sort(function (a, b) { return a - b; });
+    var vmin2 = vals[0], vtrue = vals[vals.length - 1];
+    var vmax2 = vals[Math.min(vals.length - 1, Math.ceil(0.95 * (vals.length - 1)))];
+    var clipped = vtrue > vmax2 * 1.001 + 1e-12;
+    if (!clipped) vmax2 = vtrue;
+    if (vmax2 - vmin2 < 1e-12) vmax2 = vmin2 + 1e-12;
+    // log colour mapping when the (clipped) range spans > 30x
+    var logCol = vmin2 > 0 && vmax2 / vmin2 > 30;
+    function cnorm(v) {
+      if (logCol) return (Math.log10(v) - Math.log10(vmin2)) /
+        (Math.log10(vmax2) - Math.log10(vmin2));
+      return (v - vmin2) / (vmax2 - vmin2);
+    }
+    var cw = (W - mL - mR) / nx, chh = (H - mT - mB) / ny;
+    for (var j2 = 0; j2 < ny; j2++) {
+      for (var i3 = 0; i3 < nx; i3++) {
+        var g3 = st.grid[j2][i3];
+        ctx.fillStyle = g3
+          ? ramp(Math.min(Math.max(cnorm(K.get(g3)), 0), 1))
+          : cssVar("--border");
+        ctx.fillRect(mL + i3 * cw, H - mB - (j2 + 1) * chh, cw + 0.6, chh + 0.6);
+      }
+    }
+    ctx.strokeStyle = bor;
+    ctx.strokeRect(mL, mT, W - mL - mR, H - mT - mB);
+    // axis labels (grid centers -> tick under each 2nd/3rd cell)
+    ctx.fillStyle = mut; ctx.font = "10.5px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    var step = Math.ceil(nx / 7);
+    for (var i4 = 0; i4 < nx; i4 += step)
+      ctx.fillText(fmtAx(st.xvals[i4], st.ax), mL + (i4 + 0.5) * cw, H - mB + 15);
+    ctx.textAlign = "right";
+    var stepy = Math.ceil(ny / 7);
+    for (var j3 = 0; j3 < ny; j3 += stepy)
+      ctx.fillText(fmtAx(st.yvals[j3], st.ay), mL - 7, H - mB - (j3 + 0.5) * chh + 3.5);
+    ctx.fillStyle = txt; ctx.font = "11px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(st.ax.label, mL + (W - mL - mR) / 2, H - 6);
+    ctx.save();
+    ctx.translate(14, (mT + H - mB) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText(st.ay.label, 0, 0);
+    ctx.restore();
+    // colorbar
+    var cbx = W - mR + 18, cbw = 14;
+    for (var yy = 0; yy < H - mT - mB; yy++) {
+      ctx.fillStyle = ramp(1 - yy / (H - mT - mB));
+      ctx.fillRect(cbx, mT + yy, cbw, 1.5);
+    }
+    ctx.strokeStyle = bor; ctx.strokeRect(cbx, mT, cbw, H - mT - mB);
+    ctx.fillStyle = mut; ctx.font = "10px -apple-system, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(fmtTick(vmax2) + (clipped ? "+" : ""), cbx + cbw + 4, mT + 9);
+    ctx.fillText(fmtTick(vmin2), cbx + cbw + 4, H - mB);
+    sweepGeom = { mL: mL, mB: mB, mT: mT, mR: mR, cw: cw, chh: chh,
+                  nx: nx, ny: ny, W: W, H: H, dpr: p.dpr };
+    sweepState.baseRead = "Heatmap of <b>" + K.label + "</b>. Hover for values." +
+      (logCol ? " Logarithmic colour scale." : "") +
+      (clipped ? " Colour clipped at the 95th percentile (" + fmtTick(vmax2) +
+        "); the true maximum is " + fmtTick(vtrue) + "." : "");
+    $("dac-swread").innerHTML = sweepState.baseRead;
+    // snapshot for hover blitting (raw device pixels, transform-independent)
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    sweepSnap = ctx.getImageData(0, 0, cv.width, cv.height);
+    ctx.restore();
+  }
+  function blitSweep() {
+    if (!sweepSnap) return null;
+    var cv = $("dac-swmap"), ctx = cv.getContext("2d");
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.putImageData(sweepSnap, 0, 0);
+    ctx.restore();
+    return ctx;
+  }
+  function sweepLeave() {
+    if (!sweepState || !sweepState.grid) return;
+    blitSweep();
+    if (sweepState.baseRead) $("dac-swread").innerHTML = sweepState.baseRead;
+  }
+  function sweepHover(ev) {
+    if (!sweepState || !sweepState.grid || !sweepGeom || !sweepSnap) return;
+    var r = $("dac-swmap").getBoundingClientRect();
+    var x = ev.clientX - r.left, y = ev.clientY - r.top;
+    var g = sweepGeom, st = sweepState;
+    var i = Math.floor((x - g.mL) / g.cw), j = Math.floor((g.H - g.mB - y) / g.chh);
+    if (i < 0 || i >= g.nx || j < 0 || j >= g.ny) { sweepLeave(); return; }
+    var ctx = blitSweep();
+    if (!ctx) return;
+    ctx.save();
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.strokeStyle = cssVar("--text"); ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(g.mL + (i + 0.5) * g.cw, g.mT);
+    ctx.lineTo(g.mL + (i + 0.5) * g.cw, g.H - g.mB); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(g.mL, g.H - g.mB - (j + 0.5) * g.chh);
+    ctx.lineTo(g.W - g.mR, g.H - g.mB - (j + 0.5) * g.chh); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    var gh = st.grid[j][i];
+    var read = st.ax.label + " = <b>" + fmtAx(st.xvals[i], st.ax) + "</b> · " +
+      st.ay.label + " = <b>" + fmtAx(st.yvals[j], st.ay) + "</b> → ";
+    read += gh
+      ? Object.keys(SWKPI).map(function (kx) {
+          return SWKPI[kx].label.split(" [")[0] + " <b>" +
+            (+(+SWKPI[kx].get(gh)).toPrecision(4)) + "</b>";
+        }).join(" · ")
+      : "simulation failed at this point";
+    $("dac-swread").innerHTML = read;
+  }
+
+  /* =================== figure exports & report ======================= *
+   * Figures register themselves with the shared report core; the CSV of
+   * every declaratively plotted figure is derived from the same spec that
+   * was drawn (see plot()), so an export can never disagree with the
+   * picture.  The sweep map supplies its own long-format table.
+   * ------------------------------------------------------------------- */
+  var APP_VERSION = "v1.8";
+
+  /* --- tiny MathML builders: the report typesets natively, no library -- */
+  var E = {
+    i: function (s) { return "<mi>" + s + "</mi>"; },
+    n: function (s) { return "<mn>" + s + "</mn>"; },
+    o: function (s) { return "<mo>" + s + "</mo>"; },
+    t: function (s) { return '<mtext>' + s + "</mtext>"; },
+    sub: function (a, b) { return "<msub>" + a + b + "</msub>"; },
+    sup: function (a, b) { return "<msup>" + a + b + "</msup>"; },
+    ss: function (a, b, c) { return "<msubsup>" + a + b + c + "</msubsup>"; },
+    frac: function (a, b) { return "<mfrac>" + a + b + "</mfrac>"; },
+    row: function () { return "<mrow>" + [].slice.call(arguments).join("") + "</mrow>"; },
+    dot: function (a) { return '<mover accent="true">' + a + "<mo>&#x02D9;</mo></mover>"; },
+    // bracketed groups MUST be a single <mrow>: msup/mfrac/msub take an
+    // exact number of children, and an unwrapped run of <mo>/<mi> silently
+    // shifts what the browser treats as base and script
+    par: function () {
+      return "<mrow><mo>(</mo>" + [].slice.call(arguments).join("") + "<mo>)</mo></mrow>";
+    },
+    brk: function () {
+      return "<mrow><mo>[</mo>" + [].slice.call(arguments).join("") + "<mo>]</mo></mrow>";
+    },
+    sum: function (idx) { return '<munder><mo>&#8721;</mo>' + E.i(idx) + "</munder>"; },
+    int: function (a, b) { return "<msubsup><mo>&#8747;</mo>" + a + b + "</msubsup>"; },
+    eq: function () {
+      return '<math display="block"><mrow>' + [].slice.call(arguments).join("") + "</mrow></math>";
+    }
+  };
+  var MINUS = "<mo>&#8722;</mo>", EQ = "<mo>=</mo>", PLUS = "<mo>+</mo>",
+      CDOT = "<mo>&#8290;</mo>", COMMA = "<mo>,</mo>";
+  var dt = E.row(E.i("d"), E.i("t")), nI = E.sub(E.dot(E.i("n")), E.i("I")),
+      nO = E.sub(E.dot(E.i("n")), E.i("O"));
+
+  /* ------------------------- helper readouts -------------------------- */
+  function isoEff() {                       // the isotherm the engine will use
+    return isCustom() ? readIso() : DacEngine.PRESETS[$("dac-sorb").value];
+  }
+  function r3(v, d) { return v == null || !isFinite(v) ? "—" : (+v).toFixed(d == null ? 3 : d); }
+  function yFeed() {                        // feed mole fractions at the sliders
+    var u = collectU();
+    var pw = (u.RH / 100) * DacEngine.psat(u.Tamb);
+    return { c: 400e-6, w: pw / u.Pamb };
+  }
+  function stepRows(k) {
+    return [["Adsorption", r3(k.times.ads / 3600, 2), "h"],
+            ["Evacuation (outcome)", r3(k.times.evac / 3600, 3), "h"],
+            ["Heating + vacuum", r3(k.times.heat / 3600, 2), "h"],
+            ["Cooling / repressurisation", r3(k.times.cool / 3600, 2), "h"],
+            ["Total cycle", r3(k.t_cycle / 3600, 2), "h"]];
+  }
+
+  Report.init({
+    app: "DAC — 0-D Cycle Simulator",
+    version: APP_VERSION,
+    filePrefix: "dac",
+    // re-render every canvas; the core calls this with the light palette
+    // forced so exported figures are publication-ready in either theme
+    redraw: function () {
+      if (lastRes) renderAll(lastRes);
+      if (sweepState && sweepState.grid) drawSweep();
+    },
+    meta: function () {
+      var u = collectU(), S = preset();
+      return ["sorbent: " + (isCustom() ? "Custom (seeded from " + (cusSrc || lastPreset) + ")"
+                                        : S.label),
+              "T_amb = " + r3(u.Tamb - 273.15, 1) + " C, RH = " + r3(u.RH, 1) +
+              " %, T_des = " + r3(u.Tdes - 273.15, 1) + " C, P_regen = " +
+              r3(u.Pregen / 1e5, 3) + " bar",
+              "t_ads = " + r3(u.t_ads / 3600, 2) + " h, t_heat = " + r3(u.t_heat / 3600, 2) +
+              " h, t_cool = " + r3(u.t_cool / 3600, 2) + " h"];
+    }
+  });
+
+  Report.figure({
+    id: "dac-isoC", file: "isotherm_co2", title: "CO₂ isotherms and cycle end states",
+    ready: function () { return !!lastRes; },
+    caption: "Equilibrium CO₂ isotherms of the selected sorbent: at ambient temperature " +
+      "for dry conditions (dashed) and at the water loading reached at the end of " +
+      "adsorption (solid), and at the desorption temperature at the water loading " +
+      "reached at the end of heating. Markers A and B are the cycle end states at " +
+      "cyclic steady state; the arrow between them is the working swing Δq(CO₂)."
+  });
+  Report.figure({
+    id: "dac-isoW", file: "isotherm_h2o", title: "H₂O isotherm",
+    ready: function () { return !!lastRes; },
+    caption: "Water isotherm (GAB form) as a function of relative humidity, with the " +
+      "feed state and the state at the end of the heating step marked. Sorbents for " +
+      "which no pure-water data are available are run with water treated as inert, in " +
+      "which case no curve is shown."
+  });
+  Report.figure({
+    id: "dac-pTP", file: "profile_T_P", title: "Temperature and pressure over the cycle",
+    ready: function () { return !!lastRes; },
+    caption: "Bed and wall temperature (left axis) and total pressure (right axis) over " +
+      "one cycle at cyclic steady state. Shaded bands mark the four steps in sequence: " +
+      "adsorption, evacuation, heating with vacuum, and cooling with repressurisation."
+  });
+  Report.figure({
+    id: "dac-pQ", file: "profile_loadings", title: "Adsorbed-phase loadings over the cycle",
+    ready: function () { return !!lastRes; },
+    caption: "CO₂ (left axis) and H₂O (right axis) loadings over one cycle at cyclic " +
+      "steady state. The difference between the end of adsorption and the end of heating " +
+      "is the working capacity reported in the results tables."
+  });
+  Report.figure({
+    id: "dac-pY", file: "profile_composition", title: "Gas-phase composition over the cycle",
+    ready: function () { return !!lastRes; },
+    caption: "Gas-phase mole fractions of CO₂ and H₂O in the well-mixed void over one " +
+      "cycle at cyclic steady state, on a logarithmic scale. The enrichment during the " +
+      "heating step sets the product purity."
+  });
+  Report.figure({
+    id: "dac-swmap", file: "sweep", title: "Parametric sweep",
+    ready: function () { return !!(sweepState && sweepState.grid); },
+    caption: "Key performance indicator over the swept parameter range. Every grid " +
+      "point is an independent simulation carried to cyclic steady state.",
+    csv: function () {
+      var st = sweepState;
+      if (!st || !st.grid) return null;
+      var keys = Object.keys(SWKPI);
+      var head = [st.ax.label].concat(st.ay ? [st.ay.label] : [])
+        .concat(keys.map(function (k) { return SWKPI[k].label; }));
+      var rows = [];
+      for (var j = 0; j < st.yvals.length; j++) {
+        for (var i = 0; i < st.xvals.length; i++) {
+          var g = st.grid[j][i];
+          var row = [st.xvals[i]].concat(st.ay ? [st.yvals[j]] : []);
+          keys.forEach(function (k) { row.push(g ? SWKPI[k].get(g) : ""); });
+          rows.push(row);
+        }
+      }
+      return { head: head, rows: rows,
+               notes: ["sweep grid " + st.xvals.length +
+                       (st.ay ? " × " + st.yvals.length : "") +
+                       "; an empty row of KPIs means the simulation failed at that point"] };
+    }
+  });
+
+  Report.content({
+    title: "Direct air capture by a temperature–vacuum swing cycle: 0-D simulation report",
+    author: "Research Apps suite · University of Alberta",
+
+    intro:
+      "<p>Direct air capture (DAC) removes CO<sub>2</sub> from ambient air, in which it is " +
+      "present at approximately 400 ppm. At such dilution the separation is governed less by " +
+      "the equilibrium capacity of the sorbent than by the energy required to move large " +
+      "volumes of air and to regenerate the sorbent, and by the co-adsorption of water, which " +
+      "is present at concentrations two orders of magnitude higher than CO<sub>2</sub> and " +
+      "which must be desorbed along with it.</p>" +
+      "<p>This report documents a simulation of a four-step temperature–vacuum swing cycle " +
+      "operating on a fixed quantity of sorbent. The contactor is treated as a zero-dimensional, " +
+      "well-mixed control volume (a continuous stirred-tank reactor), so that spatial gradients " +
+      "are neglected and the cycle is described by ordinary differential equations in time " +
+      "alone. The four steps are executed in sequence: adsorption of CO<sub>2</sub> and water " +
+      "from fan-driven ambient air; evacuation of the closed contactor to the regeneration " +
+      "pressure; desorption by heating at that pressure, during which the outflow constitutes " +
+      "the product; and cooling with repressurisation to ambient conditions. The cycle is " +
+      "repeated until it reaches a cyclic steady state, at which the state at the start of a " +
+      "cycle repeats that of the preceding cycle to within a prescribed tolerance. All " +
+      "performance indicators reported here are evaluated on that converged cycle.</p>" +
+      "<p>The model structure follows Glaser <i>et al.</i> [1]; the equilibrium descriptions " +
+      "and sorbent parameters are those of Balasubramaniam <i>et al.</i> [2,3]; the energy " +
+      "expressions reproduce the forms used in the simplified DAC energy model of the same " +
+      "group, against which the dynamic results are compared throughout.</p>",
+
+    objectives:
+      "<p>The simulation reported here was configured to determine, for the sorbent and " +
+      "operating conditions tabulated in the Conditions section:</p><ol>" +
+      "<li>the cyclic steady state of the cycle, and the number of cycles required to reach it;</li>" +
+      "<li>the purity and recovery of the captured CO<sub>2</sub>, and the quantity of water " +
+      "co-desorbed with it;</li>" +
+      "<li>the specific thermal and electrical energy demands, resolved into the jacket duty, " +
+      "the fan work and the vacuum-pump work;</li>" +
+      "<li>the productivity per unit volume of contactor and of sorbent;</li>" +
+      "<li>the working capacity of the sorbent and the temperature swing that produces it; and</li>" +
+      "<li>the discrepancy between these dynamic results and the corresponding simplified " +
+      "energy model evaluated with the same working capacity, temperature swing and capture " +
+      "fraction, which isolates the effect of the model form alone.</li></ol>",
+
+    model: [
+      { heading: "Governing balances",
+        html: "<p>The state of the contactor is the vector <i>x</i> = [<i>N</i>, " +
+          "<i>y</i><sub>CO2</sub>, <i>y</i><sub>H2O</sub>, <i>q</i><sub>CO2</sub>, " +
+          "<i>q</i><sub>H2O</sub>, <i>T</i>, <i>T</i><sub>W</sub>], comprising the total " +
+          "number of moles of gas in the void, the gas-phase mole fractions, the adsorbed-phase " +
+          "loadings, and the bed and wall temperatures. The basis throughout is one cubic metre " +
+          "of packed contactor. A species molar balance over the well-mixed void gives " +
+          "{{eq:mol}}, in which the last term is the rate of transfer to the adsorbed phase.</p>",
+        eqs: [
+          { id: "mol",
+            ml: E.eq(
+              E.frac(E.row(E.i("d"), E.par(E.i("N"), CDOT, E.sub(E.i("y"), E.i("i")))), dt), EQ,
+              nI, CDOT, E.sub(E.i("y"), E.row(E.i("I"), COMMA, E.i("i"))), MINUS,
+              nO, CDOT, E.sub(E.i("y"), E.i("i")), MINUS,
+              E.sub(E.i("k"), E.i("i")), CDOT,
+              E.par(E.ss(E.i("q"), E.i("i"), E.o("&#8727;")), MINUS, E.sub(E.i("q"), E.i("i"))),
+              CDOT, E.sub(E.i("m"), E.i("s"))),
+            where: "with <i>i</i> = CO<sub>2</sub>, H<sub>2</sub>O and <i>m</i><sub>s</sub> " +
+              "the sorbent mass per unit contactor volume" }
+        ],
+        after: "<p>The energy balance treats the sorbent, any contactor structure, the " +
+          "adsorbed phase and the void gas as a single lumped thermal mass, {{eq:en}}, with " +
+          "the total heat capacity given by {{eq:ctot}}. The four contributions on the " +
+          "right-hand side of {{eq:en}} are, in order, the sensible enthalpy carried in by the " +
+          "feed, the work of expansion during evacuation, the heat released or consumed by " +
+          "adsorption and desorption, and the heat exchanged with the wall.</p>" },
+
+      { eqs: [
+          { id: "en",
+            ml: E.eq(
+              E.sub(E.i("C"), E.t("tot")), CDOT, E.frac(E.i("d") + E.i("T"), dt), EQ,
+              nI, CDOT, E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.i("g"))), CDOT,
+              E.par(E.sub(E.i("T"), E.t("amb")), MINUS, E.i("T")), PLUS,
+              E.sub(E.i("V"), E.i("C")), CDOT, E.frac(E.i("d") + E.i("P"), dt), PLUS,
+              E.sum("i"), E.sub("<mi mathvariant='normal'>&#916;</mi><mi>H</mi>", E.i("i")),
+              CDOT, E.sub(E.i("k"), E.i("i")), CDOT,
+              E.par(E.ss(E.i("q"), E.i("i"), E.o("&#8727;")), MINUS, E.sub(E.i("q"), E.i("i"))),
+              CDOT, E.sub(E.i("m"), E.i("s")), PLUS,
+              E.sub(E.i("U"), E.i("a")), CDOT,
+              E.par(E.sub(E.i("T"), E.i("W")), MINUS, E.i("T"))) },
+          { id: "ctot",
+            ml: E.eq(
+              E.sub(E.i("C"), E.t("tot")), EQ,
+              E.sub(E.i("m"), E.i("s")), CDOT,
+              E.par(E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.i("s"))), PLUS,
+                    E.sub(E.i("m"), E.t("str")), CDOT,
+                    E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.t("str")))), PLUS,
+              E.sum("i"), E.sub(E.i("n"), E.i("i")), CDOT,
+              E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.i("g"), COMMA, E.i("i"))), PLUS,
+              E.sub(E.i("m"), E.i("s")), CDOT, E.sum("i"), E.sub(E.i("q"), E.i("i")), CDOT,
+              E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.i("a"), COMMA, E.i("i")))),
+            where: "<i>m</i><sub>str</sub> is the mass of contactor structure per unit mass " +
+              "of sorbent, carrying its own heat capacity" }
+        ] },
+
+      { heading: "Mass transfer and wall dynamics",
+        html: "<p>Transfer between the gas and adsorbed phases is represented by a linear " +
+          "driving force, {{eq:ldf}}. The wall temperature is prescribed as a first-order " +
+          "approach to a set point, {{eq:wall}}, the set point being the desorption temperature " +
+          "with time constant τ<sub>heat</sub> during the heating step and the ambient " +
+          "temperature with τ<sub>cool</sub> otherwise. The wall carries no thermal resistance " +
+          "of its own; it is coupled to the bed through the volumetric heat-transfer " +
+          "coefficient <i>U</i><sub>a</sub>.</p>",
+        eqs: [
+          { id: "ldf",
+            ml: E.eq(E.frac(E.row(E.i("d"), E.sub(E.i("q"), E.i("i"))), dt), EQ,
+              E.sub(E.i("k"), E.i("i")), E.par(E.ss(E.i("q"), E.i("i"), E.o("&#8727;")),
+                MINUS, E.sub(E.i("q"), E.i("i")))) },
+          { id: "wall",
+            ml: E.eq(E.frac(E.row(E.i("d"), E.sub(E.i("T"), E.i("W"))), dt), EQ,
+              E.frac(E.row(E.sub(E.i("T"), E.t("set")), MINUS, E.sub(E.i("T"), E.i("W"))),
+                "<mi>&#964;</mi>")) }
+        ],
+        after: "<p>The linear-driving-force coefficients may optionally carry an Arrhenius " +
+          "temperature dependence, {{eq:arr}}, referred to a fixed reference temperature of " +
+          "293.15 K at which the coefficients are specified. An activation energy of zero " +
+          "recovers the constant-coefficient model of the published sorbent parameter sets. " +
+          "A positive activation energy makes desorption at the regeneration temperature " +
+          "faster than capture at ambient conditions.</p>" },
+
+      { eqs: [
+          { id: "arr",
+            ml: E.eq(E.sub(E.i("k"), E.i("i")), E.par(E.i("T")), EQ,
+              E.sub(E.i("k"), E.row(E.i("i"), COMMA, E.t("ref"))), CDOT,
+              E.i("exp"), E.brk(MINUS,
+                E.frac(E.sub("<mi>E</mi>", E.row(E.i("a"), COMMA, E.i("i"))), E.i("R")), CDOT,
+                E.par(E.frac(E.n("1"), E.i("T")), MINUS,
+                      E.frac(E.n("1"), E.sub(E.i("T"), E.t("ref")))))),
+            where: "<i>T</i><sub>ref</sub> = 293.15 K" }
+        ] },
+
+      { heading: "Adsorption equilibria",
+        html: "<p>Carbon dioxide equilibrium is described by a Toth isotherm with " +
+          "temperature-dependent affinity and heterogeneity, modified for the presence of " +
+          "water following the protocol of Stampi-Bombelli and co-workers, {{eq:toth}}. " +
+          "Water equilibrium follows a Guggenheim–Anderson–de Boer (GAB) isotherm written on " +
+          "the relative-humidity fraction <i>x</i>, {{eq:gab}}, the saturation pressure being " +
+          "evaluated from the Antoine equation. Two of the six sorbents have no pure-water " +
+          "isotherm available and are run with water treated as inert.</p>",
+        eqs: [
+          { id: "toth",
+            ml: E.eq(E.ss(E.i("q"), E.t("CO2"), E.o("&#8727;")), EQ,
+              E.frac(
+                E.row(E.sub(E.i("q"), E.i("s")), CDOT, E.i("b"), CDOT,
+                      E.sub(E.i("p"), E.t("CO2"))),
+                E.sup(E.brk(E.n("1"), PLUS,
+                  E.sup(E.par(E.i("b"), CDOT, E.sub(E.i("p"), E.t("CO2"))), "<mi>&#969;</mi>")),
+                  E.frac(E.n("1"), "<mi>&#969;</mi>")))) },
+          { id: "qs",
+            ml: E.eq(
+              E.sub(E.i("q"), E.i("s")), EQ,
+              E.frac(E.row(E.sub(E.i("q"), E.row(E.i("s"), COMMA, E.n("0"))), CDOT,
+                E.i("exp"), E.brk("<mi>&#967;</mi>", CDOT,
+                  E.par(E.n("1"), MINUS, E.frac(E.i("T"), E.sub(E.i("T"), E.n("0")))))),
+                E.row(E.n("1"), MINUS, "<mi>&#968;</mi>", CDOT,
+                      E.sub(E.i("q"), E.t("H2O")))),
+              "<mo>,</mo><mspace width='1em'/>",
+              E.i("b"), EQ, E.sub(E.i("b"), E.n("0")), CDOT,
+              E.i("exp"), E.brk(
+                E.frac(E.sub("<mi mathvariant='normal'>&#916;</mi><mi>H</mi>", E.n("0")),
+                       E.row(E.i("R"), E.sub(E.i("T"), E.n("0")))),
+                E.par(E.frac(E.sub(E.i("T"), E.n("0")), E.i("T")), MINUS, E.n("1"))), CDOT,
+              E.par(E.n("1"), PLUS, "<mi>&#946;</mi>", CDOT, E.sub(E.i("q"), E.t("H2O")))),
+            where: "ψ and β describe the modulation of capacity and affinity by the " +
+              "co-adsorbed water loading; ω = ω<sub>0</sub> + α(1 − T<sub>0</sub>/T)" },
+          { id: "gab",
+            ml: E.eq(E.ss(E.i("q"), E.t("H2O"), E.o("&#8727;")), EQ,
+              E.frac(
+                E.row(E.sub(E.i("C"), E.i("m")), CDOT, E.sub(E.i("C"), E.i("G")), CDOT,
+                      E.i("K"), CDOT, E.i("x")),
+                E.row(E.par(E.n("1"), MINUS, E.i("K"), CDOT, E.i("x")), CDOT,
+                      E.par(E.n("1"), PLUS,
+                        E.par(E.sub(E.i("C"), E.i("G")), MINUS, E.n("1")), CDOT,
+                        E.i("K"), CDOT, E.i("x"))))),
+            where: "<i>x</i> = <i>p</i><sub>H2O</sub>/<i>p</i><sub>sat</sub>(<i>T</i>), the " +
+              "relative-humidity fraction" }
+        ],
+        after: "<p>A user-defined sorbent may instead be specified, in which case every " +
+          "parameter of {{eq:toth}} to {{eq:gab}} is set directly. For such a sorbent the " +
+          "CO<sub>2</sub>–H<sub>2</sub>O coupling may alternatively be represented as " +
+          "competition for a shared set of sites, in which the water partial pressure enters " +
+          "the Toth denominator, {{eq:cmp}}. Because the competing quantity is a gas-phase " +
+          "partial pressure, this form remains available when water is otherwise treated as " +
+          "inert. Whether a user-defined parameter set is thermodynamically admissible is not " +
+          "checked by the program beyond a small number of warnings; such a set is not a " +
+          "published fit and should be verified against measured data.</p>" },
+
+      { eqs: [
+          { id: "cmp",
+            ml: E.eq(E.ss(E.i("q"), E.t("CO2"), E.o("&#8727;")), EQ,
+              E.frac(
+                E.row(E.sub(E.i("q"), E.i("s")), CDOT, E.i("b"), CDOT,
+                      E.sub(E.i("p"), E.t("CO2"))),
+                E.sup(E.brk(E.n("1"), PLUS,
+                  E.sup(E.par(E.i("b"), CDOT, E.sub(E.i("p"), E.t("CO2")), PLUS,
+                              E.sub(E.i("b"), E.i("w")), CDOT, E.sub(E.i("p"), E.t("H2O"))),
+                        "<mi>&#969;</mi>")),
+                  E.frac(E.n("1"), "<mi>&#969;</mi>"))),
+              "<mo>,</mo><mspace width='1em'/>",
+              E.sub(E.i("b"), E.i("w")), EQ,
+              E.sub(E.i("b"), E.row(E.i("w"), E.n("0"))), CDOT,
+              E.i("exp"), E.brk(
+                E.frac(E.sub("<mi mathvariant='normal'>&#916;</mi><mi>H</mi>", E.t("H2O")),
+                       E.row(E.i("R"), E.sub(E.i("T"), E.n("0")))),
+                E.par(E.frac(E.sub(E.i("T"), E.n("0")), E.i("T")), MINUS, E.n("1")))) }
+        ] },
+
+      { heading: "Energy",
+        html: "<p>The thermal demand is the jacket duty integrated over the heating step, " +
+          "{{eq:eth}}, to which the sensible heat of an optional wall thermal mass is added. " +
+          "The electrical demand comprises the fan work, evaluated as isentropic compression " +
+          "over the pressure drop of the contactor, {{eq:fan}}, and the vacuum-pump work. The " +
+          "latter is evaluated either isothermally, {{eq:vaci}}, which is the convention of " +
+          "the simplified energy model, or adiabatically, {{eq:vaca}}; in both cases it is " +
+          "applied to the instantaneous outflow at the instantaneous contactor pressure. " +
+          "Specific energies are reported per unit mass of CO<sub>2</sub> in the product " +
+          "stream.</p>",
+        eqs: [
+          { id: "eth",
+            ml: E.eq(E.sub(E.i("Q"), E.t("th")), EQ,
+              E.int(E.t("heat"), "") , E.sub(E.i("U"), E.i("a")), CDOT,
+              E.sup(E.par(E.sub(E.i("T"), E.i("W")), MINUS, E.i("T")), E.o("+")),
+              CDOT, E.i("d"), E.i("t"), PLUS,
+              E.sub(E.i("m"), E.i("W")), E.sub(E.i("c"), E.i("W")),
+              "<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("T"), E.i("W"))) },
+          { id: "fan",
+            ml: E.eq(E.sub(E.dot(E.i("W")), E.t("fan")), EQ,
+              E.frac("<mi>&#947;</mi>", E.row("<mi>&#947;</mi>", MINUS, E.n("1"))), CDOT,
+              E.frac(E.sub(E.i("P"), E.t("amb")), E.sub("<mi>&#951;</mi>", E.t("fan"))), CDOT,
+              E.brk(E.sup(E.par(E.frac(
+                    E.row(E.sub(E.i("P"), E.t("amb")), PLUS,
+                          "<mi mathvariant='normal'>&#916;</mi>", E.i("P")),
+                    E.sub(E.i("P"), E.t("amb")))),
+                  E.frac(E.row("<mi>&#947;</mi>", MINUS, E.n("1")), "<mi>&#947;</mi>")),
+                MINUS, E.n("1")), CDOT, E.sub(E.dot(E.i("V")), E.i("I"))) },
+          { id: "vaci",
+            ml: E.eq(E.ss(E.dot(E.i("W")), E.t("vac"), E.t("iso")), EQ,
+              E.frac(E.row(nO, E.i("R"), E.sub(E.i("T"), E.t("amb"))),
+                     E.sub("<mi>&#951;</mi>", E.t("vac"))), CDOT,
+              E.i("ln"), E.frac(E.sub(E.i("P"), E.t("amb")), E.i("P"))) },
+          { id: "vaca",
+            ml: E.eq(E.ss(E.dot(E.i("W")), E.t("vac"), E.t("adia")), EQ,
+              E.frac(E.row(nO, E.i("R"), E.i("T")),
+                     E.sub("<mi>&#951;</mi>", E.t("vac"))), CDOT,
+              E.frac("<mi>&#947;</mi>", E.row("<mi>&#947;</mi>", MINUS, E.n("1"))), CDOT,
+              E.brk(E.sup(E.par(E.frac(E.sub(E.i("P"), E.t("amb")), E.i("P"))),
+                  E.frac(E.row("<mi>&#947;</mi>", MINUS, E.n("1")), "<mi>&#947;</mi>")),
+                MINUS, E.n("1"))) }
+        ] },
+
+      { heading: "Performance indicators",
+        html: "<p>All indicators are evaluated on the converged cycle. The product is the " +
+          "outflow of the heating step alone; the evacuation stream is vented. Purity is " +
+          "reported on a dry basis, {{eq:pur}}, with the co-desorbed water reported " +
+          "separately as a molar ratio. Recovery is the captured quantity as a fraction of " +
+          "the CO<sub>2</sub> fed over the whole cycle, {{eq:rec}}. Productivity is referred " +
+          "both to the contactor volume and, by division by (1 − ε<sub>b</sub>), to the " +
+          "sorbent volume, {{eq:prod}}.</p>",
+        eqs: [
+          { id: "pur",
+            ml: E.eq(E.i("Purity"), EQ,
+              E.frac(E.sub(E.i("n"), E.t("CO2,prod")),
+                     E.row(E.sub(E.i("n"), E.t("CO2,prod")), PLUS,
+                           E.sub(E.i("n"), E.t("N2,prod"))))) },
+          { id: "rec",
+            ml: E.eq(E.i("Recovery"), EQ,
+              E.frac(E.sub(E.i("n"), E.t("CO2,prod")), E.sub(E.i("n"), E.t("CO2,fed")))) },
+          { id: "prod",
+            ml: E.eq(E.sub(E.i("Pr"), E.t("contactor")), EQ,
+              E.frac(E.row(E.sub(E.i("m"), E.t("CO2,prod"))),
+                     E.row(E.sub(E.i("V"), E.i("C")), CDOT, E.sub(E.i("t"), E.t("cycle")))),
+              "<mo>,</mo><mspace width='1em'/>",
+              E.sub(E.i("Pr"), E.t("sorbent")), EQ,
+              E.frac(E.sub(E.i("Pr"), E.t("contactor")),
+                     E.row(E.n("1"), MINUS, "<mi>&#949;</mi>", E.sub("", E.i("b"))))) }
+        ],
+        after: "<p>For comparison, each energy term is also evaluated from the simplified " +
+          "DAC energy model of the same group, {{eq:simpth}} and {{eq:simpel}}, supplied with " +
+          "<i>this</i> cycle's working capacity, temperature swing and capture fraction. " +
+          "Because the two calculations then share their inputs, any difference between them " +
+          "is attributable to the model form alone: the simplified model neglects the void-gas " +
+          "inventory, the sensible heat swept out with the desorbing gas, and the CO<sub>2</sub> " +
+          "released during evacuation rather than in the product step.</p>" },
+
+      { eqs: [
+          { id: "simpth",
+            ml: E.eq(E.ss(E.i("E"), E.t("th"), E.t("simp")), EQ,
+              E.frac(
+                E.row(E.par(E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.i("s"))), PLUS,
+                        E.sub(E.i("m"), E.t("str")), E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.t("str"))),
+                        PLUS, E.sum("i"),
+                        "<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("q"), E.i("i")),
+                        E.sub(E.i("c"), E.row(E.i("p"), COMMA, E.i("a"), COMMA, E.i("i")))),
+                      "<mi mathvariant='normal'>&#916;</mi>", E.i("T"), PLUS,
+                      E.sum("i"), "<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("q"), E.i("i")),
+                      "<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("H"), E.i("i"))),
+                E.row("<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("q"), E.t("CO2")), CDOT,
+                      E.sub(E.i("M"), E.t("CO2"))))) },
+          { id: "simpel",
+            ml: E.eq(E.ss(E.i("E"), E.t("vac"), E.t("simp")), EQ,
+              E.frac(E.row(E.i("R"), E.sub(E.i("T"), E.t("amb"))),
+                     E.row(E.sub("<mi>&#951;</mi>", E.t("vac")), E.sub(E.i("M"), E.t("CO2")))),
+              CDOT, E.i("ln"),
+              E.frac(E.sub(E.i("P"), E.t("amb")), E.sub(E.i("P"), E.t("regen"))), CDOT,
+              E.par(E.n("1"), PLUS,
+                E.frac(E.row("<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("q"), E.t("H2O"))),
+                       E.row("<mi mathvariant='normal'>&#916;</mi>", E.sub(E.i("q"), E.t("CO2")))))) }
+        ] }
+    ],
+
+    nomenclature: [
+      ["<i>b</i>", "Toth affinity coefficient", "Pa⁻¹"],
+      ["<i>b</i><sub>w0</sub>", "water affinity in the site-competition form", "Pa⁻¹"],
+      ["<i>C</i><sub>m</sub>, <i>C</i><sub>G</sub>, <i>K</i>", "GAB parameters", "mol/kg, –, –"],
+      ["<i>C</i><sub>tot</sub>", "lumped heat capacity of the contactor", "J K⁻¹"],
+      ["<i>c</i><sub>p,s</sub>", "sorbent heat capacity", "J kg⁻¹ K⁻¹"],
+      ["<i>E</i><sub>a</sub>", "activation energy of the LDF coefficient", "J mol⁻¹"],
+      ["<i>k</i><sub>i</sub>", "linear-driving-force coefficient", "s⁻¹"],
+      ["<i>m</i><sub>s</sub>", "sorbent mass per unit contactor volume", "kg m⁻³"],
+      ["<i>m</i><sub>str</sub>", "structure mass per unit sorbent mass", "kg kg⁻¹"],
+      ["<i>N</i>", "moles of gas in the contactor void", "mol"],
+      ["<i>ṅ</i><sub>I</sub>, <i>ṅ</i><sub>O</sub>", "inlet and outlet molar flow rates", "mol s⁻¹"],
+      ["<i>P</i>", "total pressure in the contactor", "Pa"],
+      ["<i>p</i><sub>i</sub>", "partial pressure of species <i>i</i>", "Pa"],
+      ["<i>q</i><sub>i</sub>, <i>q</i><sub>i</sub><sup>∗</sup>", "loading and equilibrium loading", "mol kg⁻¹"],
+      ["<i>q</i><sub>s</sub>", "Toth saturation capacity", "mol kg⁻¹"],
+      ["<i>T</i>, <i>T</i><sub>W</sub>", "bed and wall temperature", "K"],
+      ["<i>U</i><sub>a</sub>", "volumetric bed–wall heat-transfer coefficient", "W m⁻³ K⁻¹"],
+      ["<i>V</i><sub>C</sub>", "void volume of the contactor", "m³"],
+      ["<i>y</i><sub>i</sub>", "gas-phase mole fraction", "–"],
+      ["α, χ, ω", "Toth temperature coefficients and heterogeneity", "–"],
+      ["β, ψ", "water modulation of affinity and capacity", "kg mol⁻¹"],
+      ["γ", "heat-capacity ratio of the gas", "–"],
+      ["ΔH<sub>i</sub>", "heat of adsorption", "J mol⁻¹"],
+      ["ε<sub>b</sub>, ε<sub>p</sub>", "bed and particle voidage", "–"],
+      ["η<sub>fan</sub>, η<sub>vac</sub>", "fan and vacuum-pump efficiencies", "–"],
+      ["ρ<sub>p</sub>", "particle density", "kg m⁻³"],
+      ["τ<sub>heat</sub>, τ<sub>cool</sub>", "wall time constants", "s"]
+    ],
+
+    method:
+      "<p>The system of ordinary differential equations is integrated with a fully implicit " +
+      "TR-BDF2 scheme: each step combines a trapezoidal stage with a second-order backward " +
+      "differentiation stage, the two providing an embedded error estimate that drives " +
+      "adaptive step-size control. The nonlinear system of each stage is solved by Newton " +
+      "iteration with a finite-difference Jacobian.</p>" +
+      "<p>The steps at constant pressure do not integrate the total mole count " +
+      "independently: <i>N</i> is slaved through d<i>N</i>/d<i>t</i> = " +
+      "−(<i>N</i>/<i>T</i>)&nbsp;d<i>T</i>/d<i>t</i>, and the resulting linear equation is " +
+      "solved for d<i>T</i>/d<i>t</i>. The evacuation step instead advances <i>N</i> directly " +
+      "from the volumetric pump speed and retains the expansion term of {{eq:en}}. The end of " +
+      "the evacuation step is a state event — the instant at which the pressure reaches the " +
+      "regeneration pressure — and is located by bisection rather than by stepping to a " +
+      "prescribed time; the duration of that step is therefore an outcome of the simulation " +
+      "and not an input.</p>" +
+      "<p>Flows and powers are accumulated by trapezoidal quadrature over the accepted steps. " +
+      "The cycle is repeated until every component of the state at the start of a cycle " +
+      "repeats that of the preceding cycle to a relative tolerance of 10<sup>−5</sup>, which " +
+      "defines the cyclic steady state. The simulation is executed in a Web Worker so that " +
+      "the interface remains responsive; each grid point of a parametric sweep is an " +
+      "independent simulation carried to the same converged condition.</p>" +
+      "<p>The implementation has been verified against an independent reference implementation " +
+      "in Python and SciPy, integrated by a BDF method at a relative tolerance of " +
+      "10<sup>−10</sup> and with the flow and power integrals carried as additional " +
+      "differential states so that the quadratures are exact. Agreement across 14 anchor " +
+      "cases spanning all six sorbents, both vacuum-pump models, edited sorbent properties, " +
+      "the Arrhenius kinetics and the user-defined isotherm is within 6.4·10<sup>−6</sup> " +
+      "in the worst component. Mole balances close to better than 2·10<sup>−5</sup>. In the " +
+      "limit of instantaneous kinetics the energy terms collapse onto the simplified model " +
+      "term by term, the residual difference being wholly attributable to the void-gas " +
+      "inventory that the simplified model neglects by construction.</p>",
+
+    condIntro:
+      "<p>The following tables record every input of the simulation. Sorbent properties " +
+      "that have been edited away from their published values are marked; the isotherm " +
+      "parameters are those actually used by the solver.</p>",
+
+    conditions: function () {
+      var u = collectU(), S = preset(), iso = isoEff(), yf = yFeed();
+      var G = [];
+      var sorbRows = [
+        ["Sorbent", isCustom() ? "Custom (seeded from " + (cusSrc || lastPreset) + ")" : S.label, ""],
+        ["Classification", S.cls || "—", ""],
+        ["Bed voidage ε_b", r3(u.eb), "–"],
+        ["Particle voidage ε_p", r3(u.ep), "–"],
+        ["Particle density ρ_p", r3(u.rhop, 1), "kg m⁻³"],
+        ["Sorbent heat capacity c_p,s", r3(u.cps, 1), "J kg⁻¹ K⁻¹"],
+        ["Sorbent mass (per m³ contactor)", r3(u.rhop * (1 - u.eb), 1), "kg m⁻³"],
+        ["−ΔH(CO₂)", r3(u.dHc / 1e3, 2), "kJ mol⁻¹"],
+        ["−ΔH(H₂O)", u.dHw ? r3(u.dHw / 1e3, 2) : "—", "kJ mol⁻¹"],
+        ["ΔH(CO₂) linked to the isotherm", u.unlinkDH ? "no (unlinked — thermodynamically inconsistent)" : "yes", ""]
+      ];
+      if (anyPropModified())
+        sorbRows.push(["Edited properties", "yes — one or more values differ from the published set", ""]);
+      G.push({ title: "Sorbent", head: ["Property", "Value", "Unit"], rows: sorbRows });
+
+      var t = iso.toth;
+      var isoRows = [
+        ["Toth q_s,0", r3(t.qs0, 4), "mol kg⁻¹"],
+        ["Toth χ", r3(t.chi, 4), "–"],
+        ["Toth T₀", r3(t.T0, 2), "K"],
+        ["Toth b₀", (+t.b0).toPrecision(6), "Pa⁻¹"],
+        ["Toth ΔH₀", r3((u.unlinkDH ? t.dH0 : u.dHc) / 1e3, 3), "kJ mol⁻¹"],
+        ["Toth ω₀", r3(t.w0, 5), "–"],
+        ["Toth α", r3(t.alpha, 5), "–"]
+      ];
+      if (iso.gab) {
+        isoRows.push(["GAB C_m", r3(iso.gab.Cm, 4), "mol kg⁻¹"]);
+        isoRows.push(["GAB C_G", r3(iso.gab.CG, 4), "–"]);
+        isoRows.push(["GAB K", r3(iso.gab.K, 4), "–"]);
+      } else {
+        isoRows.push(["Water", "treated as inert (no pure-H₂O isotherm)", ""]);
+      }
+      if (iso.wet) {
+        isoRows.push(["Coupling", "modulated (Stampi-Bombelli form)", ""]);
+        isoRows.push(["ψ", r3(iso.wet.psi, 5), "kg mol⁻¹"]);
+        isoRows.push(["β", r3(iso.wet.beta, 5), "kg mol⁻¹"]);
+        isoRows.push(["RH clamp x_max", r3(iso.wet.xmax, 3), "–"]);
+      } else if (iso.cmp) {
+        isoRows.push(["Coupling", "site competition (shared Toth denominator)", ""]);
+        isoRows.push(["b_w0", (+iso.cmp.bw0).toPrecision(6), "Pa⁻¹"]);
+      } else {
+        isoRows.push(["Coupling", "none", ""]);
+      }
+      G.push({ title: "Isotherm parameters", head: ["Parameter", "Value", "Unit"], rows: isoRows,
+               note: isCustom() ? "These are user-supplied values, not a published fit." : "" });
+
+      G.push({ title: "Feed and ambient conditions", head: ["Quantity", "Value", "Unit"], rows: [
+        ["Ambient temperature T_amb", r3(u.Tamb - 273.15, 1), "°C"],
+        ["Relative humidity", r3(u.RH, 1), "%"],
+        ["Ambient pressure P_amb", r3(u.Pamb / 1e5, 4), "bar"],
+        ["Feed CO₂ mole fraction", "400", "ppm"],
+        ["Feed H₂O mole fraction", (yf.w * 100).toFixed(3), "%"]
+      ] });
+
+      G.push({ title: "Cycle", head: ["Quantity", "Value", "Unit"], rows: [
+        ["Desorption temperature T_des", r3(u.Tdes - 273.15, 1), "°C"],
+        ["Regeneration pressure P_regen", r3(u.Pregen / 1e5, 4), "bar"],
+        ["Adsorption time", r3(u.t_ads / 3600, 2), "h"],
+        ["Heating time", r3(u.t_heat / 3600, 2), "h"],
+        ["Cooling time", r3(u.t_cool / 3600, 2), "h"]
+      ] });
+
+      G.push({ title: "Equipment and heat transfer", head: ["Quantity", "Value", "Unit"], rows: [
+        ["Fan volumetric flow", r3(u.Vfan, 1), "m³ h⁻¹"],
+        ["Contactor pressure drop ΔP", r3(u.dPfan, 1), "Pa"],
+        ["Fan efficiency η_fan", r3(u.etaFan, 3), "–"],
+        ["Pump volumetric speed", r3(u.Spump, 2), "m³ h⁻¹"],
+        ["Vacuum-pump efficiency η_vac", r3(u.etaVac, 3), "–"],
+        ["Vacuum-pump model", u.pumpModel === "iso" ? "isothermal" : "adiabatic", ""],
+        ["Heating time constant τ_heat", r3(u.tauHeat, 1), "s"],
+        ["Cooling time constant τ_cool", r3(u.tauCool, 1), "s"],
+        ["Bed–wall coefficient U_a", (+u.Ua).toPrecision(4), "W m⁻³ K⁻¹"],
+        ["Wall thermal mass m_W c_W", u.wallCp ? (u.wallCp / 1e3).toFixed(1) : "0", "kJ K⁻¹"],
+        ["Structure mass m_str", r3(u.mstr, 2), "kg kg⁻¹"],
+        ["Structure heat capacity c_p,str", r3(u.cpstr, 1), "J kg⁻¹ K⁻¹"]
+      ] });
+
+      G.push({ title: "Mass-transfer kinetics", head: ["Quantity", "Value", "Unit"], rows: [
+        ["k(CO₂) at 20 °C", (+u.kC).toExponential(3), "s⁻¹"],
+        ["E_a(CO₂)", r3(u.EaC / 1e3, 1), "kJ mol⁻¹"],
+        ["k(H₂O) at 20 °C", (+u.kW).toExponential(3), "s⁻¹"],
+        ["E_a(H₂O)", r3(u.EaW / 1e3, 1), "kJ mol⁻¹"]
+      ], note: "Activation energies of zero correspond to temperature-independent " +
+               "coefficients, which is the published form of the preset parameter sets." });
+      return G;
+    },
+
+    results: function () {
+      if (!lastRes) return null;
+      var k = lastRes.kpi, s = k.simp;
+      var G = [];
+      G.push({ title: "Convergence", head: ["Quantity", "Value", "Unit"], rows: [
+        ["Cycles to cyclic steady state", String(lastRes.cycles), ""],
+        ["Regeneration pressure reached", k.evacReached ? "yes" : "no — the pump could not draw the contactor down to P_regen", ""]
+      ] });
+      G.push({ title: "Step durations at cyclic steady state",
+               head: ["Step", "Duration", "Unit"], rows: stepRows(k) });
+      G.push({ title: "Separation performance", head: ["Indicator", "Value", "Unit"], rows: [
+        ["Purity of the product, dry basis", r3(k.purityDry, 2), "%"],
+        ["Recovery", r3(k.recovery, 2), "%"],
+        ["Water co-desorbed", r3(k.waterPerCO2, 3), "mol per mol CO₂"],
+        ["CO₂ in the product per cycle", (+k.prodC).toPrecision(5), "mol per m³ contactor"],
+        ["CO₂ vented during evacuation", (+k.ventC).toPrecision(5), "mol per m³ contactor"],
+        ["CO₂ fed over the cycle", (+k.feedC).toPrecision(5), "mol per m³ contactor"]
+      ] });
+      G.push({ title: "Specific energy", head: ["Term", "Value [MJ kg⁻¹]", "Value [kWh t⁻¹]"], rows: [
+        ["Thermal", r3(k.Eth, 3), r3(k.Eth * KWH_PER_MJKG, 1)],
+        ["Fan (electrical)", r3(k.Efan, 3), r3(k.Efan * KWH_PER_MJKG, 1)],
+        ["Vacuum pump (electrical)", r3(k.Evac, 3), r3(k.Evac * KWH_PER_MJKG, 1)],
+        ["Electrical, total", r3(k.Eel, 3), r3(k.Eel * KWH_PER_MJKG, 1)],
+        ["Total", r3(k.Etot, 3), r3(k.Etot * KWH_PER_MJKG, 1)]
+      ], note: "Thermal and electrical energies are summed without weighting by a " +
+               "coefficient of performance or a conversion efficiency." });
+      G.push({ title: "Productivity", head: ["Basis", "Value", "Unit"], rows: [
+        ["Per m³ of contactor", r3(k.prContactTPD, 5), "t d⁻¹ m⁻³"],
+        ["Per m³ of sorbent", r3(k.prSorbTPD, 5), "t d⁻¹ m⁻³"],
+        ["Per m³ of contactor", r3(k.prContact, 4), "kg m⁻³ h⁻¹"]
+      ] });
+      if (s) {
+        G.push({ title: "Working capacity and swing", head: ["Quantity", "Value", "Unit"], rows: [
+          ["Δq(CO₂)", r3(s.dqC, 4), "mmol g⁻¹"],
+          ["Δq(H₂O)", r3(s.dqW, 4), "mmol g⁻¹"],
+          ["Temperature swing ΔT", r3(s.dT, 2), "K"],
+          ["Capture fraction η_cap", r3(s.etaCap, 2), "%"]
+        ] });
+        G.push({ title: "Comparison with the simplified energy model",
+                 head: ["Term", "Simplified [MJ kg⁻¹]", "Dynamic [MJ kg⁻¹]"], rows: [
+          ["Thermal", r3(s.Eth, 3), r3(k.Eth, 3)],
+          ["Electrical", r3(s.Eel, 3), r3(k.Eel, 3)],
+          ["Total", r3(s.Etot, 3), r3(k.Etot, 3)]
+        ], note: "The simplified model is evaluated with this cycle's own working " +
+                 "capacity, temperature swing and capture fraction, so the difference " +
+                 "reflects the model form alone." });
+      }
+      return { html: "<p>The results below were obtained on the converged cycle. The " +
+        "product is the outflow of the heating step alone; the evacuation stream is " +
+        "vented and does not contribute to purity, recovery or productivity.</p>",
+        groups: G };
+    },
+
+    references: [
+      "Glaser, R., <i>et al.</i> Modelling of temperature–vacuum swing direct air capture " +
+      "cycles. <i>Sustainable Energy &amp; Fuels</i>, 2025.",
+      "Balasubramaniam, B. M., Forbes, T., Picard, C., Sawada, J. A., Rajendran, A. " +
+      "Direct air capture: a five-sorbent screening study. Supporting Information, Tables " +
+      "S1–S5.",
+      "Balasubramaniam, B. M., Forbes, T., Picard, C., Sawada, J. A., Rajendran, A. " +
+      "Water and CO<sub>2</sub> equilibria on Lewatit VP OC 1065. <i>Adsorption</i> " +
+      "<b>32</b>(5):23, 2026.",
+      "Stampi-Bombelli, V., van der Spek, M., Mazzotti, M. Analysis of direct capture of " +
+      "CO<sub>2</sub> from ambient air via steam-assisted temperature–vacuum swing " +
+      "adsorption. <i>Adsorption</i> <b>26</b>:1183–1197, 2020.",
+      "Myers, A. L., Prausnitz, J. M. Thermodynamics of mixed-gas adsorption. " +
+      "<i>AIChE Journal</i> <b>11</b>(1):121–127, 1965."
+    ],
+
+    footer: "<p>Model structure after Glaser <i>et al.</i>; equilibria and sorbent " +
+      "parameters after Balasubramaniam <i>et al.</i>; energy expressions as in the group's " +
+      "simplified DAC energy model. The solver has been verified against an independent " +
+      "Python/SciPy implementation and, in the instantaneous-kinetics limit, against the " +
+      "MATLAB simplified model.</p>"
+  });
+
+  /* ------------------------------ init -------------------------------- */
+  Object.keys(SLIDERS).forEach(function (k) {
+    var el = $(SLIDERS[k].el);
+    el.addEventListener("input", function () { sLabel(k); scheduleRun(); });
+  });
+  Object.keys(DEFAULTS).forEach(function (k) { sSet(k, DEFAULTS[k]); });
+  $("dac-sorb").addEventListener("change", function () {
+    if (isCustom()) {
+      if (!CUSBASE) seedCustom(lastPreset);   // first activation only
+      $("dac-cusgrp").style.display = "";
+    } else {
+      lastPreset = $("dac-sorb").value;
+      $("dac-cusgrp").style.display = "none";
+    }
+    var S = preset();
+    sSet("kC", S.kC); sSet("kW", S.kW);
+    sSet("EaC", 0); sSet("EaW", 0);   // presets are published constant-k models
+    loadProps();                      // preset properties always win on switch
+    renderSorbInfo(); scheduleRun();
+  });
+  Array.prototype.forEach.call($("dac-cuscoup").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      cusCoup = b.dataset.v;
+      cusSeg("dac-cuscoup", cusCoup); cusPanels();
+      $("dac-dHw").disabled = !dHwActive();
+      renderSorbInfo(); scheduleRun();
+    });
+  });
+  Array.prototype.forEach.call($("dac-cuswat").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      cusWat = b.dataset.v;
+      cusSeg("dac-cuswat", cusWat); cusPanels();
+      $("dac-dHw").disabled = !dHwActive();
+      renderSorbInfo(); scheduleRun();
+    });
+  });
+  $("dac-cusseed").addEventListener("click", function () {
+    seedCustom(lastPreset);
+    loadProps(); renderSorbInfo(); scheduleRun();
+  });
+  ["qs0", "chi", "T0", "b0", "w0", "alpha"].forEach(function (k) {
+    $(CUSFLD[k]).addEventListener("input", function () { renderSorbInfo(); scheduleRun(); });
+  });
+  ["dac-c-psi", "dac-c-beta", "dac-c-xmax", "dac-c-bw0",
+   "dac-c-Cm", "dac-c-CG", "dac-c-K"].forEach(function (id) {
+    $(id).addEventListener("input", function () { renderSorbInfo(); scheduleRun(); });
+  });
+  Object.keys(PROPS).forEach(function (k) {
+    $(PROPS[k].el).addEventListener("input", function () {
+      markProps(); renderSorbInfo(); scheduleRun();
+    });
+  });
+  $("dac-unlink").addEventListener("change", function () {
+    renderSorbInfo(); scheduleRun();
+  });
+  $("dac-reset").addEventListener("click", function () {
+    if (isCustom()) seedCustom(cusSrc || lastPreset);  // restore seed values too
+    loadProps(); renderSorbInfo(); scheduleRun();
+  });
+  Array.prototype.forEach.call($("dac-pumpseg").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      pumpModel = b.dataset.v;
+      Array.prototype.forEach.call($("dac-pumpseg").querySelectorAll("button"), function (b2) {
+        b2.classList.toggle("on", b2 === b);
+      });
+      scheduleRun();
+    });
+  });
+  window.addEventListener("resize", function () {
+    if (lastRes) renderAll(lastRes);
+    if (sweepState && sweepState.grid) drawSweep();
+  });
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+      if (lastRes) renderAll(lastRes);
+      if (sweepState && sweepState.grid) drawSweep();
+    });
+  }
+  loadProps();
+  renderSorbInfo();
+  renderScheme(null);
+  initSweepUI();
+  Report.mount();          // insert the PNG/CSV buttons into the figure cards
+  doRun();
+})();
+</script>
+</body>
+</html>

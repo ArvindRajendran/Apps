@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vapour Pressure Plotter</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --text:#1b1f24; --muted:#6b7480;
+  --accent:#0b6bcb; --border:#dfe3e8; --ok:#1a7f45; --danger:#b3261e;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --grid:#e7eaee; --grid2:#f1f3f6;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14171a; --card:#1c2024; --text:#e8eaed; --muted:#98a1ac;
+    --accent:#4da3ff; --border:#2d333a; --ok:#4ade80; --danger:#ff6b6b;
+    --shadow:0 1px 3px rgba(0,0,0,.4);
+    --grid:#2a3037; --grid2:#22272c;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+header{padding:18px 22px 12px;border-bottom:1px solid var(--border);background:var(--card)}
+header h1{margin:0;font-size:1.25rem;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted);font-size:.87rem}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start;max-width:1580px;margin:0 auto}
+.panel{width:340px;flex:0 0 340px;display:flex;flex-direction:column;gap:12px}
+.main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:.72rem;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted)}
+label{display:block;font-size:.8rem;color:var(--muted);margin:8px 0 3px}
+input[type=text],input[type=number],select{width:100%;padding:7px 9px;font-size:.9rem;
+  border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text)}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button{font:inherit;font-size:.85rem;padding:7px 12px;border-radius:7px;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg);color:var(--text)}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.primary:hover{filter:brightness(1.08)}
+.row{display:flex;gap:8px}
+.row>*{flex:1;min-width:0}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:5px;box-shadow:var(--shadow)}
+.tabs button{flex:1;border:none;background:transparent;padding:8px 10px;border-radius:6px;
+  color:var(--muted);font-weight:600;white-space:nowrap}
+.tabs button.on{background:var(--accent);color:#fff}
+/* component search */
+.searchbox{position:relative}
+#results{position:absolute;z-index:40;left:0;right:0;top:100%;margin-top:3px;max-height:320px;
+  overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.16);display:none}
+#results.on{display:block}
+#results div{padding:7px 10px;cursor:pointer;font-size:.86rem;display:flex;
+  justify-content:space-between;gap:10px;border-bottom:1px solid var(--grid2)}
+#results div:last-child{border-bottom:none}
+#results div:hover,#results div.sel{background:var(--bg)}
+#results .f{color:var(--muted);font-size:.78rem;white-space:nowrap}
+.chips{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.chip{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);
+  border-radius:8px;background:var(--bg);font-size:.85rem}
+.sw{width:12px;height:12px;border-radius:3px;flex:0 0 12px}
+.chip .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip select{width:auto;flex:0 0 122px;font-size:.76rem;padding:3px 5px}
+.chip .x{cursor:pointer;color:var(--muted);font-size:1.05rem;line-height:1;padding:0 2px}
+.chip .x:hover{color:var(--danger)}
+.chip.ref{outline:2px solid var(--accent);outline-offset:1px}
+/* chart */
+#chartwrap{position:relative;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;box-shadow:var(--shadow);padding:10px}
+canvas{display:block;width:100%;height:auto;touch-action:none}
+#tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--border);
+  border-radius:8px;padding:8px 10px;font-size:.8rem;box-shadow:0 6px 18px rgba(0,0,0,.18);
+  display:none;min-width:150px;z-index:20}
+#tip b{font-weight:600}
+#tip table{border-collapse:collapse;margin-top:4px}
+#tip td{padding:1px 0}
+#tip td.v{text-align:right;padding-left:12px;font-variant-numeric:tabular-nums}
+.hint{font-size:.78rem;color:var(--muted);margin:8px 0 0}
+.badge{display:inline-block;min-width:15px;padding:0 4px;border-radius:4px;
+  color:#fff;font-size:.7rem;font-weight:700;text-align:center;line-height:15px}
+.bA{background:#ef4444}
+.bB{background:#6366f1}
+/* wide tables scroll inside their own card rather than the whole page */
+#marks{overflow-x:auto}
+#info{overflow-x:auto}
+table.data{width:100%;border-collapse:collapse;font-size:.83rem;
+  font-variant-numeric:tabular-nums}
+table.data th,table.data td{white-space:nowrap}
+table.data th,table.data td{padding:5px 8px;border-bottom:1px solid var(--grid2);text-align:right}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.data th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;
+  letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.warn{color:var(--danger);font-size:.8rem;margin-top:8px}
+.note{font-size:.78rem;color:var(--muted);line-height:1.45}
+.check{display:flex;align-items:center;gap:7px;font-size:.83rem;color:var(--text);margin:5px 0}
+.check input{width:auto;margin:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:.83rem;padding:3px 0;
+  border-bottom:1px solid var(--grid2)}
+.kv:last-child{border-bottom:none}
+.kv span:last-child{font-variant-numeric:tabular-nums;font-weight:600}
+footer{max-width:1580px;margin:0 auto;padding:6px 22px 26px;color:var(--muted);font-size:.78rem}
+footer a{color:var(--accent)}
+@media (max-width:1000px){
+  .wrap{flex-direction:column}
+  .panel{width:100%;flex:1 1 auto}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Vapour Pressure Plotter</h1>
+  <p>Saturation curves for 653 components from published Antoine, Wagner, DIPPR and PPDS
+     correlations &mdash; plus corresponding-states estimates. Everything runs in your browser.</p>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="card">
+      <h2>Components</h2>
+      <div class="searchbox">
+        <input type="text" id="q" placeholder="Search name, formula or CAS&hellip;" autocomplete="off">
+        <div id="results"></div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <p class="hint" id="pickhint">Pick up to 10. Click a chip's name to make it the reference.</p>
+    </div>
+
+    <div class="card">
+      <h2>Axes &amp; units</h2>
+      <label for="axmode">Coordinates</label>
+      <select id="axmode">
+        <option value="PT">P vs T</option>
+        <option value="cox">Cox chart &mdash; ln P vs 1/T</option>
+        <option value="red">Reduced &mdash; P/P<sub>c</sub> vs T/T<sub>c</sub></option>
+      </select>
+      <div class="row">
+        <div><label for="tunit">Temperature</label>
+          <select id="tunit"><option value="K">K</option><option value="C">&deg;C</option>
+            <option value="F">&deg;F</option></select></div>
+        <div><label for="punit">Pressure</label>
+          <select id="punit"><option value="kPa">kPa</option><option value="Pa">Pa</option>
+            <option value="bar">bar</option><option value="atm">atm</option>
+            <option value="MPa">MPa</option><option value="mmHg">mmHg</option>
+            <option value="psia">psia</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="ylog" checked> Logarithmic pressure axis</label>
+      <div class="row">
+        <div><label for="tmin">T min</label><input type="number" id="tmin" step="any"></div>
+        <div><label for="tmax">T max</label><input type="number" id="tmax" step="any"></div>
+      </div>
+      <button id="autorange" style="width:100%;margin-top:8px">Auto range from selection</button>
+    </div>
+
+    <div class="card">
+      <h2>Display</h2>
+      <label class="check"><input type="checkbox" id="extrap" checked>
+        Show extrapolation beyond validity range (dashed)</label>
+      <label class="check"><input type="checkbox" id="shownbp" checked>
+        Mark normal boiling points</label>
+      <label class="check"><input type="checkbox" id="showcrit" checked>
+        Mark critical points</label>
+      <label class="check"><input type="checkbox" id="showsub">
+        Show sublimation curve where available</label>
+      <label for="pline">Horizontal pressure line (blank = off)</label>
+      <input type="number" id="pline" step="any" placeholder="e.g. 101.325">
+      <p class="hint">Draws an isobar and reports each component's boiling
+         temperature at that pressure.</p>
+    </div>
+
+    <div class="card">
+      <h2>Comparison points</h2>
+      <p class="hint" style="margin:0 0 8px">Click the chart to place <b>A</b> then
+        <b>B</b>; drag a marker to move it, or type exact temperatures here. Every
+        plotted curve is read at both.</p>
+      <div class="row">
+        <div><label for="mA"><span class="badge bA">A</span> T</label>
+          <input type="number" id="mA" step="any"></div>
+        <div><label for="mB"><span class="badge bB">B</span> T</label>
+          <input type="number" id="mB" step="any"></div>
+      </div>
+      <button id="clearmarks" style="width:100%;margin-top:8px">Clear points</button>
+    </div>
+
+    <div class="card">
+      <h2>Export</h2>
+      <div class="row">
+        <button id="png">Chart as PNG</button>
+        <button id="csv">Data as CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="tabs">
+      <button data-tab="curves" class="on">Curves</button>
+      <button data-tab="compare">Compare methods</button>
+      <button data-tab="alpha">Relative volatility &alpha;</button>
+      <button data-tab="hvap">&Delta;H<sub>vap</sub></button>
+    </div>
+
+    <div id="chartwrap">
+      <canvas id="cv"></canvas>
+      <div id="tip"></div>
+    </div>
+
+    <div class="card" id="markcard" hidden>
+      <h2>Values at the comparison points</h2>
+      <div id="marks"></div>
+    </div>
+
+    <div class="card" id="infocard">
+      <h2 id="infotitle">Selection</h2>
+      <div id="info"></div>
+    </div>
+
+    <div class="card">
+      <h2>Correlations in use</h2>
+      <div id="methods"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p><strong>Data sources.</strong> Coefficients are redistributed from the
+  <a href="https://github.com/CalebBell/chemicals" target="_blank" rel="noopener">chemicals</a>
+  package (MIT licence), which compiles them from: Poling, Prausnitz &amp; O'Connell,
+  <em>The Properties of Gases and Liquids</em>, 5th ed. (Antoine, extended Antoine, Wagner);
+  McGarry, <em>Ind. Eng. Chem. Process Des. Dev.</em> <strong>22</strong> (1983) 313 (Wagner 3,6);
+  Perry's <em>Chemical Engineers' Handbook</em>, 8th ed., Table 2-8 (DIPPR-101);
+  VDI <em>Heat Atlas</em>, 2nd ed. (2010) (PPDS); and Landolt&ndash;B&ouml;rnstein, New Series IV/20
+  (Antoine, and the sublimation curves). Critical constants and acentric factors are from the
+  same package.</p>
+  <p>&copy; 2026 Arvind Rajendran &mdash;
+  <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+  Part of the <a href="../index.html">Research Apps</a> suite. Provided as is, for education and
+  research; verify before relying on a number.</p>
+</footer>
+
+<script>
+"use strict";
+const DATA = /*__VP_DATA__*/null/*__END__*/;
+const COMPS = DATA.components;
+const R = 8.31446261815324;
+
+/* ------------------------------------------------------------------ *
+ *  Correlations.  Each is a direct transcription of the corresponding
+ *  function in the `chemicals` package, so the JS and Python engines
+ *  agree to machine precision (see README for the validation run).
+ *  Every one returns pressure in Pa.
+ * ------------------------------------------------------------------ */
+
+// Antoine, log10(P/Pa) = A - B/(T+C)
+function antoine(T, A, B, C){
+  const d = T + C;
+  if (d <= 0) return NaN;
+  return Math.pow(10, A - B/d);
+}
+// Landolt-Boernstein Antoine, ln(P/Pa) = A - B/(T+C).  Natural log, NOT log10 --
+// running these coefficients through the log10 form is wrong by ~7 decades.
+function antoineLn(T, A, B, C){
+  const d = T + C;
+  if (d <= 0) return NaN;
+  return Math.exp(A - B/d);
+}
+// TRC extended Antoine
+function antoineExt(T, A, B, C, Tc, to, n, E, F){
+  let x = (T - to - 273.15)/Tc;
+  if (x < 0) x = 0;
+  const x4 = x*x*x*x;
+  const d = T + C;
+  if (d <= 0) return NaN;
+  return Math.pow(10, A - B/d + 0.43429*Math.pow(x, n) + x4*x4*(E + F*x4));
+}
+// Wagner 3,6 form:  ln(P/Pc) = (a*tau + b*tau^1.5 + c*tau^3 + d*tau^6)/Tr
+function wagner36(T, Tc, Pc, a, b, c, d){
+  let Tr = T/Tc;
+  if (Tr > 1) Tr = 1;
+  const tau = 1 - Tr, tau2 = tau*tau;
+  return Pc*Math.exp(((d*tau2*tau + c)*tau2 + a + b*Math.sqrt(tau))*(tau/Tr));
+}
+// Wagner 2.5,5 form:  ln(P/Pc) = (a*tau + b*tau^1.5 + c*tau^2.5 + d*tau^5)/Tr
+function wagner25(T, Tc, Pc, a, b, c, d){
+  let Tr = T/Tc;
+  if (Tr > 1) Tr = 1;
+  const tau = 1 - Tr, rt = Math.sqrt(tau), t15 = tau*rt, t25 = tau*t15;
+  return Pc*Math.exp((a + b*rt + t15*(c + d*t25))*tau/Tr);
+}
+// DIPPR equation 101
+function dippr101(T, C1, C2, C3, C4, C5){
+  return Math.exp(C1 + C2/T + C3*Math.log(T) + C4*Math.pow(T, C5));
+}
+// Lee-Kesler corresponding states
+function leeKesler(T, Tc, Pc, w){
+  const Tr = T/Tc, lg = Math.log(Tr);
+  let Tr6 = Tr*Tr; Tr6 *= Tr6*Tr6;
+  const f0 = 5.92714 - 6.09648/Tr - 1.28862*lg + 0.169347*Tr6;
+  const f1 = 15.2518 - 15.6875/Tr - 13.4721*lg + 0.43577*Tr6;
+  return Math.exp(f0 + w*f1)*Pc;
+}
+// Ambrose-Walton corresponding states
+function ambroseWalton(T, Tc, Pc, w){
+  if (T > Tc) T = Tc;
+  const Tr = T/Tc, tau = 1 - Tr;
+  const t15 = tau*Math.sqrt(tau), t25 = tau*t15, t5 = t25*t25;
+  const om = w < 0 ? 0 : w;
+  const f0 = -5.97616*tau + 1.29874*t15 - 0.60394*t25 - 1.06841*t5;
+  const f1 = -5.03365*tau + 1.11505*t15 - 5.41217*t25 - 7.46628*t5;
+  const f2 = -0.64771*tau + 2.41539*t15 - 4.26979*t25 + 3.25259*t5;
+  return Pc*Math.exp((f0 + om*(f1 + f2*om))/Tr);
+}
+
+/* Method registry.  `pri` orders the automatic choice: fitted multi-parameter
+   forms first, wide-range forms next, narrow Antoine fits last, and the
+   predictive corresponding-states methods only when nothing was fitted.     */
+const METHODS = {
+  wagner25:      {label:"Wagner (2.5,5)",   pri:1, kind:"fit",
+                  src:"Poling et al., 5th ed., App. A"},
+  wagner36:      {label:"Wagner (3,6)",     pri:2, kind:"fit",
+                  src:"McGarry (1983)"},
+  ppds:          {label:"VDI PPDS",         pri:3, kind:"fit",
+                  src:"VDI Heat Atlas, 2nd ed."},
+  dippr:         {label:"DIPPR-101",        pri:4, kind:"fit",
+                  src:"Perry's 8th ed., Table 2-8"},
+  antoineext:    {label:"Antoine extended", pri:5, kind:"fit",
+                  src:"TRC, via Poling et al."},
+  antoine:       {label:"Antoine",          pri:6, kind:"fit",
+                  src:"Poling et al., 5th ed., App. A"},
+  landolt:       {label:"Antoine (Landolt)",pri:7, kind:"fit",
+                  src:"Landolt-Börnstein IV/20"},
+  ambrosewalton: {label:"Ambrose–Walton", pri:8, kind:"pred",
+                  src:"corresponding states, needs Tc, Pc, ω"},
+  leekesler:     {label:"Lee–Kesler",  pri:9, kind:"pred",
+                  src:"corresponding states, needs Tc, Pc, ω"},
+  sub:           {label:"Sublimation",      pri:99, kind:"fit",
+                  src:"Landolt-Börnstein IV/20"}
+};
+
+// Which methods can this component use?
+function methodsFor(c){
+  const out = Object.keys(c.m).filter(k => k !== "sub");
+  if (c.Tc && c.Pc && c.w !== null && c.w !== undefined){
+    out.push("ambrosewalton", "leekesler");
+  }
+  out.sort((a, b) => METHODS[a].pri - METHODS[b].pri);
+  return out;
+}
+function bestMethod(c){ return methodsFor(c)[0]; }
+
+// Coefficient array for a component/method pair.  The sublimation curve is
+// stored alongside the saturation methods rather than inside c.m, because it
+// describes the solid-vapour line and must never be picked automatically.
+function coeffs(c, meth){ return meth === "sub" ? c.sub : c.m[meth]; }
+
+// Validity range [Tmin, Tmax] for a component/method pair.
+function methodRange(c, meth){
+  const p = coeffs(c, meth);
+  if (!p && meth !== "ambrosewalton" && meth !== "leekesler") return [NaN, NaN];
+  if (meth === "wagner36" || meth === "wagner25" || meth === "ppds") return [p[6], p[7]];
+  if (meth === "dippr")      return [p[5], p[6]];
+  if (meth === "antoineext") return [p[8], p[9]];
+  if (meth === "antoine" || meth === "landolt") return [p[3], p[4]];
+  if (meth === "sub")        return [p[3], p[4]];
+  // corresponding states: usable over the whole liquid range
+  return [Math.max(c.Tm || 0.3*c.Tc, 0.3*c.Tc), c.Tc];
+}
+
+// Saturation pressure in Pa; NaN where the correlation cannot be evaluated.
+// Above the critical point there is no saturation state at all.  Several of
+// the correlations silently clamp Tr to 1 and return Pc instead of failing,
+// which would otherwise show up downstream as a flat curve or a ΔHvap of zero.
+function psat(c, meth, T){
+  if (meth !== "sub" && c.Tc && T > c.Tc) return NaN;
+  let v;
+  if (meth === "ambrosewalton") v = ambroseWalton(T, c.Tc, c.Pc, c.w);
+  else if (meth === "leekesler") v = leeKesler(T, c.Tc, c.Pc, c.w);
+  else {
+    const p = coeffs(c, meth);
+    if (!p) return NaN;
+    switch (meth){
+      case "wagner36": v = wagner36(T, p[4], p[5], p[0], p[1], p[2], p[3]); break;
+      case "wagner25":
+      case "ppds":     v = wagner25(T, p[4], p[5], p[0], p[1], p[2], p[3]); break;
+      case "dippr":    v = dippr101(T, p[0], p[1], p[2], p[3], p[4]); break;
+      case "antoine":  v = antoine(T, p[0], p[1], p[2]); break;
+      case "landolt":
+      case "sub":      v = antoineLn(T, p[0], p[1], p[2]); break;
+      case "antoineext": v = antoineExt(T, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]); break;
+      default: return NaN;
+    }
+  }
+  return Number.isFinite(v) && v > 0 ? v : NaN;
+}
+
+// dln(P)/dT by central difference -> enthalpy of vaporisation via
+// Clausius-Clapeyron (ideal vapour, liquid volume neglected).
+function dHvap(c, meth, T){
+  const h = Math.max(T*1e-5, 1e-4);
+  const p1 = psat(c, meth, T - h), p2 = psat(c, meth, T + h);
+  if (!Number.isFinite(p1) || !Number.isFinite(p2)) return NaN;
+  return R*T*T*(Math.log(p2) - Math.log(p1))/(2*h);
+}
+
+/* Consistency check: does this correlation reproduce 1 atm at the tabulated
+   normal boiling point?  Tb and the vapour-pressure coefficients often come
+   from different laboratories, so a large miss means the two disagree -- which
+   is worth knowing before quoting a number.  Across the 613 components whose
+   Tb falls inside their auto-chosen correlation the median miss is 0.4%, but
+   the tail reaches 100%+ (see README).                                        */
+function nbpCheck(c, meth){
+  if (!c.Tb) return null;
+  const [lo, hi] = methodRange(c, meth);
+  const P = psat(c, meth, c.Tb);
+  if (!Number.isFinite(P)) return null;
+  return {P, dev: (P/101325 - 1)*100, inRange: c.Tb >= lo && c.Tb <= hi};
+}
+
+// Boiling temperature at pressure P: bisection on the monotone Psat(T).
+function tsat(c, meth, P){
+  let [lo, hi] = methodRange(c, meth);
+  lo = Math.max(lo*0.6, 1); hi = c.Tc ? Math.min(hi*1.4, c.Tc) : hi*1.4;
+  let flo = psat(c, meth, lo) - P, fhi = psat(c, meth, hi) - P;
+  if (!Number.isFinite(flo) || !Number.isFinite(fhi) || flo*fhi > 0) return NaN;
+  for (let i = 0; i < 80; i++){
+    const mid = 0.5*(lo + hi), fm = psat(c, meth, mid) - P;
+    if (!Number.isFinite(fm)) return NaN;
+    if (flo*fm <= 0){ hi = mid; fhi = fm; } else { lo = mid; flo = fm; }
+  }
+  return 0.5*(lo + hi);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Units
+ * ------------------------------------------------------------------ */
+const PU = {Pa:1, kPa:1e3, MPa:1e6, bar:1e5, atm:101325,
+            mmHg:101325/760, psia:6894.757293168361};
+function toP(pa, u){ return pa/PU[u]; }
+function fromP(v, u){ return v*PU[u]; }
+function toT(K, u){ return u === "K" ? K : u === "C" ? K - 273.15 : (K - 273.15)*9/5 + 32; }
+function fromT(v, u){ return u === "K" ? v : u === "C" ? v + 273.15 : (v - 32)*5/9 + 273.15; }
+const TSYM = {K:"K", C:"°C", F:"°F"};
+
+function fmt(x, sig){
+  if (!Number.isFinite(x)) return "—";
+  sig = sig || 5;
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e6)) return x.toExponential(Math.max(0, sig - 1));
+  return x.toPrecision(sig).replace(/\.?0+$/, m => m.includes(".") ? "" : m);
+}
+
+/* ------------------------------------------------------------------ *
+ *  State
+ * ------------------------------------------------------------------ */
+const PALETTE = ["#0b6bcb","#d1495b","#1a7f45","#b8860b","#7b4fa8","#0f8b8d",
+                 "#e07a1f","#c2185b","#3d5a80","#5a7d1f"];
+const MAXSEL = 10;
+
+const S = {
+  tab: "curves",
+  sel: [],            // [{cas, meth}]
+  ref: 0,             // index into sel: reference component (heavy key for alpha)
+  axmode: "PT",
+  tunit: "K", punit: "kPa",
+  ylog: true,
+  tmin: null, tmax: null,
+  extrap: true, shownbp: true, showcrit: true, showsub: false,
+  pline: null,
+  marks: [null, null],   // comparison temperatures A, B — always stored in K
+  drag: null
+};
+const MARKC = ["#ef4444", "#6366f1"], MARKL = ["A", "B"];
+
+const byCas = {};
+COMPS.forEach(c => byCas[c.cas] = c);
+function selComps(){ return S.sel.map(s => byCas[s.cas]); }
+
+function save(){
+  if (S.drag !== null) return;   // not on every frame of a drag; pointerup saves
+  try{
+    localStorage.setItem("vp.state", JSON.stringify({
+      sel:S.sel, ref:S.ref, tab:S.tab, axmode:S.axmode, tunit:S.tunit,
+      punit:S.punit, ylog:S.ylog, extrap:S.extrap, shownbp:S.shownbp,
+      showcrit:S.showcrit, showsub:S.showsub, marks:S.marks
+    }));
+  }catch(e){}
+}
+function load(){
+  try{
+    const o = JSON.parse(localStorage.getItem("vp.state") || "null");
+    if (!o) return false;
+    if (Array.isArray(o.sel)) S.sel = o.sel.filter(s => byCas[s.cas]).slice(0, MAXSEL);
+    ["tab","axmode","tunit","punit"].forEach(k => { if (o[k]) S[k] = o[k]; });
+    ["ylog","extrap","shownbp","showcrit","showsub"].forEach(k => {
+      if (typeof o[k] === "boolean") S[k] = o[k];
+    });
+    S.ref = Math.min(o.ref || 0, Math.max(0, S.sel.length - 1));
+    if (Array.isArray(o.marks) && o.marks.length === 2){
+      S.marks = o.marks.map(v => (typeof v === "number" && Number.isFinite(v)) ? v : null);
+    }
+    return S.sel.length > 0;
+  }catch(e){ return false; }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Component search
+ * ------------------------------------------------------------------ */
+const searchIdx = COMPS.map(c => ({
+  c,
+  hay: (c.n + " " + c.f + " " + c.cas + " " + (c.a || []).join(" ")).toLowerCase()
+}));
+
+function search(q){
+  q = q.trim().toLowerCase();
+  if (!q) return [];
+  const terms = q.split(/\s+/);
+  const hits = [];
+  for (const e of searchIdx){
+    if (!terms.every(t => e.hay.includes(t))) continue;
+    const n = e.c.n.toLowerCase();
+    // exact name, then prefix, then formula match, then anything
+    const score = n === q ? 0 : n.startsWith(q) ? 1 :
+                  e.c.f.toLowerCase() === q ? 2 : e.c.cas === q ? 2 : 3;
+    hits.push([score, e.c.n.length, e.c]);
+  }
+  hits.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return hits.slice(0, 50).map(h => h[2]);
+}
+
+const $ = id => document.getElementById(id);
+const qEl = $("q"), resEl = $("results");
+let hilite = -1, curHits = [];
+
+function showResults(){
+  curHits = search(qEl.value);
+  if (!curHits.length){ resEl.classList.remove("on"); resEl.innerHTML = ""; return; }
+  hilite = 0;
+  resEl.innerHTML = curHits.map((c, i) =>
+    `<div data-cas="${c.cas}" class="${i === 0 ? "sel" : ""}"><span>${esc(c.n)}</span>` +
+    `<span class="f">${esc(c.f)} &middot; ${c.cas}</span></div>`).join("");
+  resEl.classList.add("on");
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, m =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+
+qEl.addEventListener("input", showResults);
+qEl.addEventListener("focus", () => { if (qEl.value) showResults(); });
+qEl.addEventListener("keydown", e => {
+  if (!resEl.classList.contains("on")) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp"){
+    e.preventDefault();
+    hilite = Math.max(0, Math.min(curHits.length - 1, hilite + (e.key === "ArrowDown" ? 1 : -1)));
+    [...resEl.children].forEach((d, i) => d.classList.toggle("sel", i === hilite));
+    resEl.children[hilite].scrollIntoView({block:"nearest"});
+  } else if (e.key === "Enter"){
+    e.preventDefault();
+    if (curHits[hilite]) addComp(curHits[hilite].cas);
+  } else if (e.key === "Escape"){
+    resEl.classList.remove("on");
+  }
+});
+resEl.addEventListener("mousedown", e => {
+  const d = e.target.closest("div[data-cas]");
+  if (d){ e.preventDefault(); addComp(d.dataset.cas); }
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".searchbox")) resEl.classList.remove("on");
+});
+
+function addComp(cas){
+  if (S.sel.some(s => s.cas === cas)){ qEl.value = ""; resEl.classList.remove("on"); return; }
+  if (S.sel.length >= MAXSEL){ flash("Maximum of " + MAXSEL + " components."); return; }
+  S.sel.push({cas, meth: bestMethod(byCas[cas])});
+  qEl.value = ""; resEl.classList.remove("on");
+  autoRange();
+  renderAll();
+}
+function removeComp(i){
+  S.sel.splice(i, 1);
+  if (S.ref >= S.sel.length) S.ref = Math.max(0, S.sel.length - 1);
+  renderAll();
+}
+function flash(msg){
+  const h = $("pickhint");
+  const old = h.textContent;
+  h.textContent = msg; h.style.color = "var(--danger)";
+  setTimeout(() => { h.textContent = old; h.style.color = ""; }, 2200);
+}
+
+function renderChips(){
+  const box = $("chips");
+  box.innerHTML = "";
+  S.sel.forEach((s, i) => {
+    const c = byCas[s.cas];
+    const div = document.createElement("div");
+    div.className = "chip" +
+      ((S.tab === "alpha" || S.tab === "compare") && i === S.ref ? " ref" : "");
+    const sw = document.createElement("span");
+    sw.className = "sw"; sw.style.background = PALETTE[i % PALETTE.length];
+    const nm = document.createElement("span");
+    nm.className = "nm"; nm.textContent = c.n; nm.title = c.n + "  —  " + c.f + "  —  CAS " + c.cas;
+    nm.style.cursor = "pointer";
+    nm.onclick = () => { S.ref = i; renderAll(); };
+    const sel = document.createElement("select");
+    methodsFor(c).forEach(m => {
+      const o = document.createElement("option");
+      o.value = m; o.textContent = METHODS[m].label;
+      if (m === s.meth) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = () => { s.meth = sel.value; renderAll(); };
+    const x = document.createElement("span");
+    x.className = "x"; x.textContent = "×"; x.title = "Remove";
+    x.onclick = () => removeComp(i);
+    div.append(sw, nm, sel, x);
+    box.appendChild(div);
+  });
+  if (!S.sel.length){
+    box.innerHTML = '<p class="note">No components selected. Try &ldquo;water&rdquo;, ' +
+      '&ldquo;n-hexane&rdquo;, &ldquo;r-134a&rdquo; or a CAS number.</p>';
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Temperature range
+ * ------------------------------------------------------------------ */
+/* Auto range.  Using the raw validity range is technically correct but makes a
+   useless picture: Antoine and Wagner fits often extend down to where Psat is
+   1e-5 kPa, so a log axis ends up spanning nine decades with every curve
+   crushed against the top. Start instead at the temperature where the vapour
+   pressure reaches 1 kPa -- low enough to be interesting, high enough to keep
+   the axis readable -- and stop at the critical point.                        */
+function autoRange(){
+  if (!S.sel.length) return;
+  const PLO = 1000;   // Pa
+  let lo = Infinity, hi = -Infinity;
+  S.sel.forEach(s => {
+    const c = byCas[s.cas];
+    let [a, b] = methodRange(c, s.meth);
+    if (c.Tc) b = Math.min(b, c.Tc);
+    let t = tsat(c, s.meth, PLO);
+    if (!Number.isFinite(t) || t < a || t >= b) t = a;
+    if (Number.isFinite(t)) lo = Math.min(lo, t);
+    if (Number.isFinite(b)) hi = Math.max(hi, b);
+  });
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return;
+  S.tmin = lo; S.tmax = hi;
+  syncRangeInputs();
+}
+function syncRangeInputs(){
+  $("tmin").value = S.tmin === null ? "" : +toT(S.tmin, S.tunit).toFixed(2);
+  $("tmax").value = S.tmax === null ? "" : +toT(S.tmax, S.tunit).toFixed(2);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Series construction
+ * ------------------------------------------------------------------ */
+const NPTS = 400;
+
+// One curve: sampled (T, P) with a flag for whether T is inside the
+// correlation's published validity range.
+function curve(c, meth, tmin, tmax){
+  const [vlo, vhi] = methodRange(c, meth);
+  const pts = [];
+  for (let i = 0; i <= NPTS; i++){
+    const T = tmin + (tmax - tmin)*i/NPTS;
+    if (c.Tc && T > c.Tc) continue;         // no saturation above the critical point
+    const P = psat(c, meth, T);
+    if (!Number.isFinite(P)) continue;
+    pts.push({T, P, ok: T >= vlo - 1e-9 && T <= vhi + 1e-9});
+  }
+  return pts;
+}
+
+function buildSeries(){
+  const out = [];
+  if (!S.sel.length) return out;
+  const tmin = S.tmin, tmax = S.tmax;
+
+  if (S.tab === "compare"){
+    // one component, every correlation it has
+    const s = S.sel[S.ref] || S.sel[0];
+    const c = byCas[s.cas];
+    methodsFor(c).forEach((m, i) => {
+      out.push({label: METHODS[m].label, colour: PALETTE[i % PALETTE.length],
+                comp: c, meth: m, pts: curve(c, m, tmin, tmax)});
+    });
+    return out;
+  }
+
+  S.sel.forEach((s, i) => {
+    const c = byCas[s.cas];
+    out.push({label: c.n, colour: PALETTE[i % PALETTE.length],
+              comp: c, meth: s.meth, pts: curve(c, s.meth, tmin, tmax)});
+    if (S.showsub && c.sub && S.tab === "curves"){
+      const [a, b] = methodRange(c, "sub");
+      out.push({label: c.n + " (solid)", colour: PALETTE[i % PALETTE.length],
+                comp: c, meth: "sub", sub: true,
+                pts: curve(c, "sub", Math.max(tmin, a*0.8), Math.min(tmax, b*1.05))});
+    }
+  });
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Comparison points
+ *
+ *  On this chart a "point" is a temperature: the x-axis is temperature in
+ *  every mode, so one marker reads a value off every plotted curve at once.
+ *  Marks are stored in kelvin so they survive a change of unit or axis.
+ * ------------------------------------------------------------------ */
+
+// Where a temperature sits on the current x-axis.  Returns NaN in reduced
+// coordinates, where each component has its own Tr and no single vertical
+// line can represent one temperature.
+function tempToX(T){
+  if (S.tab === "alpha" || S.tab === "hvap" || S.axmode === "PT") return toT(T, S.tunit);
+  if (S.axmode === "cox") return 1000/T;
+  return NaN;
+}
+function xToTemp(xv){
+  if (S.tab === "alpha" || S.tab === "hvap" || S.axmode === "PT") return fromT(xv, S.tunit);
+  if (S.axmode === "cox") return 1000/xv;
+  // reduced: read the axis against the reference component
+  const s = S.sel[S.ref] || S.sel[0];
+  const c = s && byCas[s.cas];
+  return c && c.Tc ? xv*c.Tc : NaN;
+}
+
+// The quantity a given series shows, evaluated at temperature T, in the
+// units currently on the y-axis.
+function seriesValueAt(s, T){
+  if (S.tab === "alpha"){
+    const p1 = psat(s.comp, s.meth, T), p2 = psat(s.ref.comp, s.ref.meth, T);
+    return Number.isFinite(p1) && Number.isFinite(p2) && p2 > 0 ? p1/p2 : NaN;
+  }
+  if (S.tab === "hvap"){
+    const h = dHvap(s.comp, s.meth, T);
+    return Number.isFinite(h) ? h/1000 : NaN;
+  }
+  const p = psat(s.comp, s.meth, T);
+  if (!Number.isFinite(p)) return NaN;
+  return S.axmode === "red" ? (s.comp.Pc ? p/s.comp.Pc : NaN) : toP(p, S.punit);
+}
+function valueUnit(){
+  return S.tab === "alpha" ? "" : S.tab === "hvap" ? "kJ/mol"
+       : S.axmode === "red" ? "" : S.punit;
+}
+function markInRange(s, T){
+  const [a, b] = methodRange(s.comp, s.meth);
+  if (!(T >= a && T <= b)) return false;
+  if (S.tab === "alpha"){
+    const [c, d] = methodRange(s.ref.comp, s.ref.meth);
+    if (!(T >= c && T <= d)) return false;
+  }
+  return true;
+}
+function setMark(i, T){
+  S.marks[i] = Number.isFinite(T) ? T : null;
+  syncMarkInputs();
+  renderAll();
+}
+function syncMarkInputs(){
+  ["mA", "mB"].forEach((id, i) => {
+    $(id).value = S.marks[i] === null ? "" : +toT(S.marks[i], S.tunit).toFixed(2);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ *  Plot
+ * ------------------------------------------------------------------ */
+const cv = $("cv"), ctx = cv.getContext("2d");
+let PLOT = null;    // geometry + mapping of the last render, for the crosshair
+
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function niceTicks(lo, hi, target){
+  const span = hi - lo;
+  if (!(span > 0)) return [lo];
+  const raw = span/(target || 8);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw/mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10)*mag;
+  const out = [];
+  for (let v = Math.ceil(lo/step)*step; v <= hi + step*1e-9; v += step) out.push(+v.toFixed(12));
+  return out;
+}
+function logTicks(lo, hi){
+  const out = [], minor = [];
+  const a = Math.floor(Math.log10(lo)), b = Math.ceil(Math.log10(hi));
+  for (let e = a; e <= b; e++){
+    const base = Math.pow(10, e);
+    if (base >= lo*0.999 && base <= hi*1.001) out.push(base);
+    for (let k = 2; k <= 9; k++){
+      const v = k*base;
+      if (v >= lo && v <= hi) minor.push(v);
+    }
+  }
+  return {major: out, minor};
+}
+
+function draw(){
+  const wrap = $("chartwrap");
+  // never wider than the card, or a phone gets a horizontally scrolling page
+  const W = Math.max(260, wrap.clientWidth - 20);
+  const H = Math.max(300, Math.min(620, Math.round(W*0.62)));
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const series = buildSeries();
+  const text = cssVar("--text"), muted = cssVar("--muted"),
+        grid = cssVar("--grid"), grid2 = cssVar("--grid2"), border = cssVar("--border");
+
+  const M = {l: 74, r: 18, t: 16, b: 52};
+  const pw = W - M.l - M.r, ph = H - M.t - M.b;
+
+  if (!S.sel.length || !series.length){
+    ctx.fillStyle = muted; ctx.font = "14px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Select one or more components to plot.", W/2, H/2);
+    PLOT = null;
+    return;
+  }
+
+  // ---- decide what x and y actually are for this tab/coordinate mode ----
+  const tab = S.tab;
+  let xlabel, ylabel, xOf, yOf, xlog = false, ylog = S.ylog, xInv = false;
+
+  // gather (x, y) data per series
+  const plotSeries = series.map(s => {
+    const d = [];
+    for (const p of s.pts){
+      let x, y;
+      if (tab === "alpha") continue;                       // handled below
+      if (tab === "hvap"){
+        // ΔHvap is always plotted against temperature, whatever the
+        // coordinate mode is set to for the pressure curves.
+        x = toT(p.T, S.tunit);
+      } else if (S.axmode === "red"){
+        if (!s.comp.Tc || !s.comp.Pc) continue;
+        x = p.T/s.comp.Tc; y = p.P/s.comp.Pc;
+      } else if (S.axmode === "cox"){
+        x = 1000/p.T; y = p.P;
+      } else {
+        x = toT(p.T, S.tunit); y = p.P;
+      }
+      let ok = p.ok;
+      if (tab === "hvap"){
+        const h = dHvap(s.comp, s.meth, p.T);
+        if (!Number.isFinite(h)) continue;
+        y = h/1000;                                        // kJ/mol
+        // Clausius-Clapeyron assumes an ideal vapour and a negligible liquid
+        // volume; both collapse near the critical point, where the estimate
+        // turns upward while the true dHvap must fall to zero.  Dash it there.
+        if (s.comp.Tc && p.T > 0.85*s.comp.Tc) ok = false;
+      } else if (tab !== "alpha" && S.axmode !== "red"){
+        y = toP(p.P, S.punit);
+      }
+      d.push({x, y, ok, T: p.T, P: p.P});
+    }
+    return Object.assign({}, s, {d});
+  });
+
+  // relative volatility: one curve per component against the reference
+  let alphaSeries = [];
+  if (tab === "alpha"){
+    const ref = S.sel[S.ref];
+    if (ref){
+      const rc = byCas[ref.cas];
+      S.sel.forEach((s, i) => {
+        if (i === S.ref) return;
+        const c = byCas[s.cas];
+        const d = [];
+        for (let k = 0; k <= NPTS; k++){
+          const T = S.tmin + (S.tmax - S.tmin)*k/NPTS;
+          const p1 = psat(c, s.meth, T), p2 = psat(rc, ref.meth, T);
+          if (!Number.isFinite(p1) || !Number.isFinite(p2) || p2 <= 0) continue;
+          const [a1, b1] = methodRange(c, s.meth), [a2, b2] = methodRange(rc, ref.meth);
+          d.push({x: toT(T, S.tunit), y: p1/p2, T, P: p1/p2,
+                  ok: T >= Math.max(a1, a2) && T <= Math.min(b1, b2)});
+        }
+        alphaSeries.push({label: c.n + " / " + rc.n, colour: PALETTE[i % PALETTE.length],
+                          comp: c, meth: s.meth, ref: {comp: rc, meth: ref.meth}, d});
+      });
+    }
+  }
+
+  const useSeries = tab === "alpha" ? alphaSeries : plotSeries;
+
+  if (tab === "alpha"){
+    xlabel = "Temperature (" + TSYM[S.tunit] + ")";
+    ylabel = "Relative volatility α";
+    ylog = false;
+  } else if (tab === "hvap"){
+    xlabel = "Temperature (" + TSYM[S.tunit] + ")";
+    ylabel = "ΔHᵥₐₚ (kJ/mol)";
+    ylog = false;
+  } else if (S.axmode === "red"){
+    xlabel = "Reduced temperature T/Tᴄ";
+    ylabel = "Reduced pressure P/Pᴄ";
+  } else if (S.axmode === "cox"){
+    xlabel = "1000/T (K⁻¹)";
+    ylabel = "Vapour pressure (" + S.punit + ")";
+    xInv = true;
+  } else {
+    xlabel = "Temperature (" + TSYM[S.tunit] + ")";
+    ylabel = "Vapour pressure (" + S.punit + ")";
+  }
+
+  // ---- data limits ----
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  useSeries.forEach(s => s.d.forEach(p => {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
+    if (ylog && p.y <= 0) return;
+    if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+    if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+  }));
+  if (!Number.isFinite(x0) || !Number.isFinite(y0) || x1 <= x0){
+    ctx.fillStyle = muted; ctx.font = "14px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Nothing to plot in this temperature range.", W/2, H/2);
+    PLOT = null;
+    return;
+  }
+  // keep the isobar inside the view (it is already in display units)
+  if (S.pline !== null && tab !== "alpha" && tab !== "hvap" && S.axmode !== "red"
+      && S.pline > 0){
+    y0 = Math.min(y0, S.pline); y1 = Math.max(y1, S.pline);
+  }
+  if (y1 <= y0) y1 = y0*1.1 + 1;
+  // pad
+  if (ylog){
+    y0 = Math.pow(10, Math.log10(y0) - 0.06);
+    y1 = Math.pow(10, Math.log10(y1) + 0.06);
+  } else {
+    const pad = (y1 - y0)*0.07; y0 -= pad; y1 += pad;
+    if (tab === "alpha" && y0 < 0) y0 = 0;
+  }
+
+  const X = v => M.l + (v - x0)/(x1 - x0)*pw;
+  const Y = v => ylog
+    ? M.t + ph - (Math.log10(v) - Math.log10(y0))/(Math.log10(y1) - Math.log10(y0))*ph
+    : M.t + ph - (v - y0)/(y1 - y0)*ph;
+  const Xinv = px => x0 + (px - M.l)/pw*(x1 - x0);
+
+  // ---- grid ----
+  ctx.save();
+  ctx.strokeStyle = grid; ctx.lineWidth = 1;
+  ctx.fillStyle = muted; ctx.font = "11px sans-serif";
+
+  const xt = niceTicks(x0, x1, 9);
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  xt.forEach(v => {
+    const px = Math.round(X(v)) + 0.5;
+    ctx.strokeStyle = grid;
+    ctx.beginPath(); ctx.moveTo(px, M.t); ctx.lineTo(px, M.t + ph); ctx.stroke();
+    let lab = fmt(v, 4);
+    if (xInv) lab = fmt(v, 4);
+    ctx.fillText(lab, px, M.t + ph + 6);
+  });
+  // second row of labels on the Cox chart: the actual temperature
+  if (xInv){
+    ctx.fillStyle = muted;
+    xt.forEach(v => {
+      const px = Math.round(X(v)) + 0.5;
+      const T = 1000/v;
+      ctx.fillText(fmt(toT(T, S.tunit), 4) + " " + TSYM[S.tunit], px, M.t + ph + 20);
+    });
+  }
+
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  if (ylog){
+    const {major, minor} = logTicks(y0, y1);
+    ctx.strokeStyle = grid2;
+    minor.forEach(v => {
+      const py = Math.round(Y(v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(M.l, py); ctx.lineTo(M.l + pw, py); ctx.stroke();
+    });
+    ctx.strokeStyle = grid;
+    major.forEach(v => {
+      const py = Math.round(Y(v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(M.l, py); ctx.lineTo(M.l + pw, py); ctx.stroke();
+      ctx.fillText(fmt(v, 3), M.l - 8, py);
+    });
+  } else {
+    const yt = niceTicks(y0, y1, 7);
+    // one consistent decimal count for the whole axis, from the tick step
+    const step = yt.length > 1 ? Math.abs(yt[1] - yt[0]) : Math.abs(y1 - y0);
+    const dp = Math.max(0, Math.min(6, -Math.floor(Math.log10(step))));
+    yt.forEach(v => {
+      const py = Math.round(Y(v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(M.l, py); ctx.lineTo(M.l + pw, py); ctx.stroke();
+      ctx.fillText(Math.abs(v) >= 1e6 ? fmt(v, 4) : v.toFixed(dp), M.l - 8, py);
+    });
+  }
+  ctx.restore();
+
+  // ---- axis labels ----
+  ctx.fillStyle = text; ctx.font = "12px sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText(xlabel, M.l + pw/2, H - (xInv ? 2 : 8));
+  ctx.save();
+  ctx.translate(14, M.t + ph/2); ctx.rotate(-Math.PI/2);
+  ctx.textBaseline = "top";
+  ctx.fillText(ylabel, 0, 0);
+  ctx.restore();
+
+  // ---- isobar ----
+  if (S.pline !== null && tab !== "alpha" && tab !== "hvap" && S.axmode !== "red"){
+    const py = Y(S.pline);
+    if (py > M.t && py < M.t + ph){
+      ctx.save();
+      ctx.strokeStyle = muted; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(M.l, py); ctx.lineTo(M.l + pw, py); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = muted; ctx.font = "11px sans-serif";
+      ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText("P = " + fmt(S.pline, 5) + " " + S.punit, M.l + 6, py - 3);
+      ctx.restore();
+    }
+  }
+
+  // ---- curves ----
+  ctx.save();
+  ctx.beginPath(); ctx.rect(M.l, M.t, pw, ph); ctx.clip();
+  ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  useSeries.forEach(s => {
+    // in-range solid, out-of-range dashed (drawn only if enabled)
+    for (const wantOk of [false, true]){
+      if (!wantOk && !S.extrap) continue;
+      ctx.strokeStyle = s.colour;
+      ctx.globalAlpha = wantOk ? 1 : 0.75;
+      ctx.setLineDash(wantOk ? [] : (s.sub ? [2, 3] : [5, 4]));
+      ctx.lineWidth = s.sub ? 1.5 : 2;
+      let pen = false;
+      ctx.beginPath();
+      for (let i = 0; i < s.d.length; i++){
+        const p = s.d[i];
+        const on = p.ok === wantOk;
+        if (!on || !Number.isFinite(p.y) || (ylog && p.y <= 0)){ pen = false; continue; }
+        const px = X(p.x), py = Y(p.y);
+        // bridge the seam so solid and dashed pieces meet
+        if (!pen){
+          const q = s.d[i - 1];
+          if (q && Number.isFinite(q.y)) ctx.moveTo(X(q.x), Y(q.y));
+          else ctx.moveTo(px, py);
+          pen = true;
+        }
+        ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  // ---- markers ----
+  if (tab === "curves" || tab === "compare"){
+    useSeries.forEach(s => {
+      const c = s.comp;
+      if (S.showcrit && c.Tc && c.Pc){
+        let x, y;
+        if (S.axmode === "red"){ x = 1; y = 1; }
+        else if (S.axmode === "cox"){ x = 1000/c.Tc; y = toP(c.Pc, S.punit); }
+        else { x = toT(c.Tc, S.tunit); y = toP(c.Pc, S.punit); }
+        marker(X(x), Y(y), s.colour, "circle");
+      }
+      if (S.shownbp && c.Tb && S.axmode !== "red"){
+        const P = psat(c, s.meth, c.Tb);
+        if (Number.isFinite(P)){
+          const x = S.axmode === "cox" ? 1000/c.Tb : toT(c.Tb, S.tunit);
+          marker(X(x), Y(toP(P, S.punit)), s.colour, "square");
+        }
+      }
+    });
+  }
+  ctx.restore();
+
+  // ---- comparison points ----
+  ctx.save();
+  ctx.beginPath(); ctx.rect(M.l, M.t, pw, ph); ctx.clip();
+  S.marks.forEach((T, i) => {
+    if (T === null) return;
+    const xv = tempToX(T);
+    if (Number.isFinite(xv)){
+      const px = Math.round(X(xv)) + 0.5;
+      if (px >= M.l && px <= M.l + pw){
+        ctx.strokeStyle = MARKC[i]; ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath(); ctx.moveTo(px, M.t); ctx.lineTo(px, M.t + ph); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    // a dot on each curve, which also covers reduced coordinates where the
+    // marker cannot be a single vertical line
+    useSeries.forEach(s => {
+      if (s.sub) return;
+      const v = seriesValueAt(s, T);
+      if (!Number.isFinite(v) || (ylog && v <= 0)) return;
+      let sx = xv;
+      if (!Number.isFinite(sx)) sx = s.comp.Tc ? T/s.comp.Tc : NaN;   // reduced
+      if (!Number.isFinite(sx)) return;
+      ctx.fillStyle = s.colour;
+      ctx.strokeStyle = MARKC[i]; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(X(sx), Y(v), 4.5, 0, 2*Math.PI);
+      ctx.fill(); ctx.stroke();
+    });
+  });
+  ctx.restore();
+  // badges sit above the plot frame so they are never hidden by a curve
+  S.marks.forEach((T, i) => {
+    if (T === null) return;
+    const xv = tempToX(T);
+    if (!Number.isFinite(xv)) return;
+    const px = X(xv);
+    if (px < M.l - 1 || px > M.l + pw + 1) return;
+    ctx.fillStyle = MARKC[i];
+    roundRect(px - 8, M.t - 13, 16, 14, 3); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(MARKL[i], px, M.t - 6);
+  });
+
+  // ---- legend ----
+  const items = useSeries.filter(s => !s.sub);
+  ctx.font = "12px sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  let lw = 0;
+  items.forEach(s => lw = Math.max(lw, ctx.measureText(s.label).width));
+  const lx = M.l + pw - lw - 30, ly = M.t + 8;
+  ctx.save();
+  ctx.fillStyle = cssVar("--card"); ctx.globalAlpha = 0.86;
+  ctx.strokeStyle = border;
+  roundRect(lx - 10, ly - 6, lw + 34, items.length*18 + 10, 7);
+  ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+  items.forEach((s, i) => {
+    const y = ly + 9 + i*18;
+    ctx.strokeStyle = s.colour; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(lx - 2, y); ctx.lineTo(lx + 14, y); ctx.stroke();
+    ctx.fillStyle = text;
+    ctx.fillText(s.label, lx + 20, y);
+  });
+  ctx.restore();
+
+  // frame
+  ctx.strokeStyle = border; ctx.lineWidth = 1;
+  ctx.strokeRect(M.l + 0.5, M.t + 0.5, pw, ph);
+
+  PLOT = {M, pw, ph, X, Y, Xinv, x0, x1, y0, y1, ylog, series: useSeries, tab,
+          xlabel, ylabel, W, H};
+}
+
+function marker(px, py, colour, shape){
+  ctx.save();
+  ctx.fillStyle = colour; ctx.strokeStyle = cssVar("--card"); ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (shape === "circle") ctx.arc(px, py, 4, 0, 2*Math.PI);
+  else ctx.rect(px - 3.4, py - 3.4, 6.8, 6.8);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* ------------------------------------------------------------------ *
+ *  Crosshair
+ * ------------------------------------------------------------------ */
+const tip = $("tip");
+
+// Which comparison marker, if any, is under the cursor?
+function markAt(px){
+  if (!PLOT) return null;
+  for (let i = 0; i < 2; i++){
+    if (S.marks[i] === null) continue;
+    const xv = tempToX(S.marks[i]);
+    if (!Number.isFinite(xv)) continue;
+    if (Math.abs(PLOT.X(xv) - px) <= 6) return i;
+  }
+  return null;
+}
+cv.addEventListener("pointerdown", e => {
+  if (!PLOT) return;
+  const r = cv.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (px < PLOT.M.l || px > PLOT.M.l + PLOT.pw || py < PLOT.M.t || py > PLOT.M.t + PLOT.ph) return;
+  e.preventDefault();
+  const hit = markAt(px);
+  if (hit !== null){
+    S.drag = hit;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+    return;
+  }
+  const T = xToTemp(PLOT.Xinv(px));
+  if (!Number.isFinite(T)) return;
+  // fill A, then B; once both are placed a click moves the nearer one
+  let slot = S.marks.indexOf(null);
+  if (slot < 0){
+    slot = Math.abs(S.marks[0] - T) <= Math.abs(S.marks[1] - T) ? 0 : 1;
+  }
+  setMark(slot, T);
+});
+cv.addEventListener("pointerup", e => {
+  if (S.drag !== null){ S.drag = null; save(); }
+});
+cv.addEventListener("pointercancel", () => { S.drag = null; });
+
+cv.addEventListener("pointermove", e => {
+  if (!PLOT) return;
+  const r = cv.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (S.drag !== null){
+    const T = xToTemp(PLOT.Xinv(Math.max(PLOT.M.l, Math.min(PLOT.M.l + PLOT.pw, px))));
+    if (Number.isFinite(T)) setMark(S.drag, T);
+    return;
+  }
+  cv.style.cursor = markAt(px) !== null ? "ew-resize" : "crosshair";
+  if (px < PLOT.M.l || px > PLOT.M.l + PLOT.pw || py < PLOT.M.t || py > PLOT.M.t + PLOT.ph){
+    tip.style.display = "none"; draw(); return;
+  }
+  const xv = PLOT.Xinv(px);
+  draw();
+  // crosshair line
+  ctx.save();
+  ctx.strokeStyle = cssVar("--muted"); ctx.globalAlpha = 0.6; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(Math.round(px) + 0.5, PLOT.M.t);
+  ctx.lineTo(Math.round(px) + 0.5, PLOT.M.t + PLOT.ph);
+  ctx.stroke();
+  ctx.restore();
+
+  // value at this x for every series (nearest sample)
+  const rows = [];
+  PLOT.series.forEach(s => {
+    if (s.sub) return;
+    let best = null, bd = Infinity;
+    for (const p of s.d){
+      const d = Math.abs(p.x - xv);
+      if (d < bd){ bd = d; best = p; }
+    }
+    if (!best) return;
+    ctx.save();
+    ctx.fillStyle = s.colour;
+    ctx.beginPath(); ctx.arc(PLOT.X(best.x), PLOT.Y(best.y), 3.2, 0, 2*Math.PI); ctx.fill();
+    ctx.restore();
+    rows.push({label: s.label, colour: s.colour, val: best.y, ok: best.ok});
+  });
+
+  let head;
+  if (PLOT.tab === "alpha" || PLOT.tab === "hvap" || S.axmode === "PT"){
+    head = fmt(xv, 5) + " " + TSYM[S.tunit];
+  } else if (S.axmode === "cox"){
+    head = fmt(toT(1000/xv, S.tunit), 5) + " " + TSYM[S.tunit];
+  } else {
+    head = "T/Tᴄ = " + fmt(xv, 4);
+  }
+  const unit = PLOT.tab === "alpha" ? "" : PLOT.tab === "hvap" ? " kJ/mol"
+             : S.axmode === "red" ? "" : " " + S.punit;
+  tip.innerHTML = "<b>" + esc(head) + "</b><table>" + rows.map(r =>
+    '<tr><td><span class="sw" style="display:inline-block;background:' + r.colour +
+    '"></span> ' + esc(r.label) + '</td><td class="v">' + fmt(r.val, 5) + unit +
+    (r.ok ? "" : " *") + "</td></tr>").join("") + "</table>" +
+    (rows.some(r => !r.ok) ? '<div style="color:var(--muted);margin-top:3px">* extrapolated</div>' : "");
+  tip.style.display = "block";
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let tx = px + 16, ty = py - th/2;
+  if (tx + tw > PLOT.W - 4) tx = px - tw - 16;
+  ty = Math.max(4, Math.min(PLOT.H - th - 4, ty));
+  tip.style.left = tx + "px"; tip.style.top = ty + "px";
+});
+cv.addEventListener("pointerleave", () => { tip.style.display = "none"; draw(); });
+
+/* ------------------------------------------------------------------ *
+ *  Info panels
+ * ------------------------------------------------------------------ */
+function renderInfo(){
+  const el = $("info"), title = $("infotitle");
+  if (!S.sel.length){ title.textContent = "Selection"; el.innerHTML =
+    '<p class="note">Search for a component to begin.</p>'; return; }
+
+  if (S.tab === "compare"){
+    title.textContent = "Correlation comparison";
+    el.innerHTML = compareTable();
+  } else if (S.tab === "alpha"){
+    title.textContent = "Relative volatility";
+    el.innerHTML = alphaTable();
+  } else if (S.tab === "hvap"){
+    title.textContent = "Enthalpy of vaporisation";
+    el.innerHTML = hvapTable();
+  } else {
+    title.textContent = "Component properties";
+    el.innerHTML = propsTable();
+  }
+}
+
+function propsTable(){
+  let h = '<table class="data"><tr><th>Component</th><th>Formula</th><th>M</th>' +
+          '<th>T<sub>b</sub></th><th>T<sub>c</sub></th><th>P<sub>c</sub></th>' +
+          '<th>&omega;</th><th>Valid range</th><th>1 atm check</th></tr>';
+  let anyBad = false;
+  S.sel.forEach(s => {
+    const c = byCas[s.cas];
+    const [a, b] = methodRange(c, s.meth);
+    const chk = nbpCheck(c, s.meth);
+    let chkCell = "—";
+    if (chk){
+      const bad = Math.abs(chk.dev) > 5;
+      if (bad) anyBad = true;
+      chkCell = (chk.dev >= 0 ? "+" : "") + chk.dev.toFixed(Math.abs(chk.dev) < 10 ? 1 : 0) + "%";
+      if (!chk.inRange) chkCell += "*";
+      if (bad) chkCell = '<span style="color:var(--danger)">' + chkCell + "</span>";
+    }
+    h += "<tr><td>" + esc(c.n) + "</td><td>" + esc(c.f) + "</td><td>" + fmt(c.mw, 5) +
+      "</td><td>" + (c.Tb ? fmt(toT(c.Tb, S.tunit), 5) : "—") +
+      "</td><td>" + (c.Tc ? fmt(toT(c.Tc, S.tunit), 5) : "—") +
+      "</td><td>" + (c.Pc ? fmt(toP(c.Pc, S.punit), 5) : "—") +
+      "</td><td>" + (c.w === null || c.w === undefined ? "—" : fmt(c.w, 3)) +
+      "</td><td>" + fmt(toT(a, S.tunit), 4) + " – " + fmt(toT(b, S.tunit), 4) +
+      " " + TSYM[S.tunit] + "</td><td>" + chkCell + "</td></tr>";
+  });
+  h += "</table>";
+  h += '<p class="note" style="margin-top:8px">M in g/mol; T in ' + TSYM[S.tunit] +
+       '; P<sub>c</sub> in ' + S.punit + '. Validity range is that of the selected correlation. ' +
+       'The last column is a consistency check: the deviation of the correlation from 1 atm at ' +
+       'the tabulated normal boiling point (an asterisk means T<sub>b</sub> lies outside the ' +
+       'correlation’s range, so the check is itself an extrapolation).</p>';
+  if (anyBad){
+    h += '<p class="warn">A deviation above 5% means the correlation and the tabulated boiling ' +
+      'point disagree — they generally come from different laboratories. Check the ' +
+      '<b>Compare methods</b> tab: if the other correlations for this component agree with each ' +
+      'other, trust them over the outlier.</p>';
+  }
+
+  if (S.pline !== null){
+    h += '<h2 style="margin-top:16px">Boiling temperature at ' + fmt(S.pline, 5) + " " +
+         S.punit + '</h2><table class="data"><tr><th>Component</th><th>T</th>' +
+         '<th>Within range?</th></tr>';
+    const Ppa = fromP(S.pline, S.punit);
+    S.sel.forEach(s => {
+      const c = byCas[s.cas];
+      const T = tsat(c, s.meth, Ppa);
+      const [a, b] = methodRange(c, s.meth);
+      h += "<tr><td>" + esc(c.n) + "</td><td>" +
+        (Number.isFinite(T) ? fmt(toT(T, S.tunit), 5) + " " + TSYM[S.tunit] : "out of reach") +
+        "</td><td>" + (Number.isFinite(T) ? (T >= a && T <= b ? "yes" :
+        '<span style="color:var(--danger)">extrapolated</span>') : "—") + "</td></tr>";
+    });
+    h += "</table>";
+  }
+  return h;
+}
+
+function compareTable(){
+  const s = S.sel[S.ref] || S.sel[0];
+  const c = byCas[s.cas];
+  const ms = methodsFor(c);
+  if (ms.length < 2){
+    return '<p class="note">' + esc(c.n) + " has only one correlation (" +
+      METHODS[ms[0]].label + "), so there is nothing to compare. " +
+      "Pick a different component &mdash; 610 of the 653 carry two or more.</p>";
+  }
+  const refm = ms[0];
+  const Ts = [];
+  for (let i = 0; i <= 6; i++) Ts.push(S.tmin + (S.tmax - S.tmin)*i/6);
+  let h = '<p class="note">Comparing every correlation available for <b>' + esc(c.n) +
+    "</b>. Deviations are relative to <b>" + METHODS[refm].label +
+    "</b>, the highest-ranked fit for this component. Click another chip to switch component.</p>";
+  h += '<table class="data"><tr><th>T (' + TSYM[S.tunit] + ")</th>" +
+    ms.map(m => "<th>" + METHODS[m].label + "</th>").join("") + "</tr>";
+  Ts.forEach(T => {
+    h += "<tr><td>" + fmt(toT(T, S.tunit), 5) + "</td>";
+    const pref = psat(c, refm, T);
+    ms.forEach(m => {
+      const p = psat(c, m, T);
+      const [a, b] = methodRange(c, m);
+      const out = !(T >= a && T <= b);
+      if (!Number.isFinite(p)){ h += "<td>—</td>"; return; }
+      const dev = Number.isFinite(pref) && pref > 0 ? (p/pref - 1)*100 : NaN;
+      const txt = fmt(toP(p, S.punit), 5) +
+        (m === refm ? "" : Number.isFinite(dev) ?
+          ' <span style="color:var(--muted)">(' + (dev >= 0 ? "+" : "") +
+          dev.toFixed(dev >= 10 || dev <= -10 ? 0 : 1) + "%)</span>" : "");
+      h += "<td" + (out ? ' style="opacity:.55"' : "") + ">" + txt + "</td>";
+    });
+    h += "</tr>";
+  });
+  h += "</table>";
+  h += '<p class="note" style="margin-top:8px">Pressures in ' + S.punit +
+    '. Faded cells are outside that correlation’s published validity range. ' +
+    'Spread between correlations is a fair estimate of how well the vapour pressure ' +
+    'of this compound is actually known.</p>';
+  return h;
+}
+
+function alphaTable(){
+  if (S.sel.length < 2)
+    return '<p class="note">Select at least two components. The one you click in the ' +
+      'chip list becomes the reference (the denominator, i.e. the heavy key).</p>';
+  const ref = S.sel[S.ref], rc = byCas[ref.cas];
+  let h = '<p class="note">&alpha; = P<sup>sat</sup> / P<sup>sat</sup><sub>' + esc(rc.n) +
+    '</sub>. Reference component: <b>' + esc(rc.n) + "</b> — click a chip to change it.</p>";
+  const Ts = [];
+  for (let i = 0; i <= 6; i++) Ts.push(S.tmin + (S.tmax - S.tmin)*i/6);
+  h += '<table class="data"><tr><th>Pair</th>' +
+    Ts.map(T => "<th>" + fmt(toT(T, S.tunit), 4) + "</th>").join("") +
+    "<th>geometric mean</th></tr>";
+  S.sel.forEach((s, i) => {
+    if (i === S.ref) return;
+    const c = byCas[s.cas];
+    h += "<tr><td>" + esc(c.n) + " / " + esc(rc.n) + "</td>";
+    let logsum = 0, n = 0;
+    Ts.forEach(T => {
+      const p1 = psat(c, s.meth, T), p2 = psat(rc, ref.meth, T);
+      const a = Number.isFinite(p1) && Number.isFinite(p2) && p2 > 0 ? p1/p2 : NaN;
+      if (Number.isFinite(a) && a > 0){ logsum += Math.log(a); n++; }
+      h += "<td>" + (Number.isFinite(a) ? fmt(a, 4) : "—") + "</td>";
+    });
+    h += "<td>" + (n ? fmt(Math.exp(logsum/n), 4) : "—") + "</td></tr>";
+  });
+  h += "</table>";
+  h += '<p class="note" style="margin-top:8px">Temperatures in ' + TSYM[S.tunit] +
+    '. This is the ideal-solution relative volatility, &alpha; = P₁<sup>sat</sup>/' +
+    'P₂<sup>sat</sup> &mdash; it assumes Raoult’s law and an ideal vapour, so it is ' +
+    'only a starting point for a non-ideal mixture. The geometric mean over the range is the ' +
+    'usual value to carry into a constant-&alpha; short-cut design such as the ' +
+    '<a href="../McCabeThiele/McCabeThiele.html">McCabe–Thiele designer</a> or the ' +
+    'Fenske equation.</p>';
+  return h;
+}
+
+function hvapTable(){
+  const Ts = [];
+  for (let i = 0; i <= 6; i++) Ts.push(S.tmin + (S.tmax - S.tmin)*i/6);
+  let h = '<table class="data"><tr><th>Component</th>' +
+    Ts.map(T => "<th>" + fmt(toT(T, S.tunit), 4) + "</th>").join("") +
+    "<th>at T<sub>b</sub></th></tr>";
+  S.sel.forEach(s => {
+    const c = byCas[s.cas];
+    h += "<tr><td>" + esc(c.n) + "</td>";
+    Ts.forEach(T => {
+      const v = dHvap(c, s.meth, T);
+      h += "<td>" + (Number.isFinite(v) ? fmt(v/1000, 4) : "—") + "</td>";
+    });
+    const vb = c.Tb ? dHvap(c, s.meth, c.Tb) : NaN;
+    h += "<td>" + (Number.isFinite(vb) ? fmt(vb/1000, 4) : "—") + "</td></tr>";
+  });
+  h += "</table>";
+  h += '<p class="note" style="margin-top:8px">All values in kJ/mol, temperatures in ' +
+    TSYM[S.tunit] + '. Obtained by differentiating the selected correlation and applying the ' +
+    '<b>Clausius&ndash;Clapeyron</b> form &Delta;H<sub>vap</sub> = R T² d(ln P)/dT, which ' +
+    'assumes an ideal vapour and neglects the liquid molar volume. Near the normal boiling ' +
+    'point that costs a few per cent — for water at 373 K it gives 41.3 kJ/mol against the ' +
+    'accepted 40.65, the difference being almost exactly the vapour’s non-ideality. Both ' +
+    'assumptions collapse as T → T<sub>c</sub>: the true &Delta;H<sub>vap</sub> must fall to ' +
+    'zero at the critical point, but this estimate turns <i>upward</i> instead. Curves are ' +
+    'therefore dashed above T<sub>r</sub> = 0.85, where the numbers should not be used.</p>';
+  return h;
+}
+
+/* Table of every plotted curve's value at the comparison temperatures.
+   In the Curves tab the rows are components; in Compare methods they are the
+   correlations for one component, which makes this a direct read-off of how
+   much the correlations disagree at a chosen temperature.                    */
+function renderMarks(){
+  const card = $("markcard"), el = $("marks");
+  const set = S.marks.map((T, i) => [T, i]).filter(m => m[0] !== null);
+  if (!set.length || !S.sel.length){ card.hidden = true; el.innerHTML = ""; return; }
+  card.hidden = false;
+
+  const series = (PLOT && PLOT.series ? PLOT.series : []).filter(s => !s.sub);
+  if (!series.length){ el.innerHTML = '<p class="note">Nothing plotted here.</p>'; return; }
+
+  const unit = valueUnit();
+  const what = S.tab === "alpha" ? "α" : S.tab === "hvap" ? "ΔHvap"
+             : S.axmode === "red" ? "P/Pc" : "Vapour pressure";
+  const both = set.length === 2;
+
+  let h = '<table class="data"><tr><th>' +
+    (S.tab === "compare" ? "Correlation" : "Curve") + "</th>" +
+    set.map(([T, i]) => '<th><span class="badge b' + MARKL[i] + '">' + MARKL[i] +
+      "</span> " + fmt(toT(T, S.tunit), 5) + " " + TSYM[S.tunit] + "</th>").join("") +
+    (both ? "<th>B / A</th>" : "") + "</tr>";
+
+  let anyOut = false;
+  series.forEach(s => {
+    h += '<tr><td><span class="sw" style="display:inline-block;background:' + s.colour +
+         '"></span> ' + esc(s.label) + "</td>";
+    const vals = [];
+    set.forEach(([T]) => {
+      const v = seriesValueAt(s, T);
+      vals.push(v);
+      const ok = Number.isFinite(v) && markInRange(s, T);
+      if (Number.isFinite(v) && !ok) anyOut = true;
+      h += "<td" + (ok ? "" : ' style="opacity:.6"') + ">" +
+        (Number.isFinite(v) ? fmt(v, 5) + (unit ? " " + unit : "") + (ok ? "" : " *") : "—") +
+        "</td>";
+    });
+    if (both){
+      const r = Number.isFinite(vals[0]) && Number.isFinite(vals[1]) && vals[0] !== 0
+              ? vals[1]/vals[0] : NaN;
+      h += "<td>" + (Number.isFinite(r) ? fmt(r, 4) : "—") + "</td>";
+    }
+    h += "</tr>";
+  });
+  h += "</table>";
+
+  h += '<p class="note" style="margin-top:8px">' + what +
+       (unit ? " in " + unit : "") + " at the marked temperatures" +
+       (both ? ", with the ratio between them" : "") + ". " +
+       (anyOut ? "Values marked * are outside the correlation’s validity range. " : "") +
+       "Drag a marker along the chart, or type an exact temperature in the panel.</p>";
+
+  // For two points on a pressure curve the slope of ln P vs 1/T gives a
+  // mean enthalpy of vaporisation -- the two-point Clausius-Clapeyron the
+  // markers are naturally set up for.
+  if (both && (S.tab === "curves" || S.tab === "compare") && S.axmode !== "red"){
+    const [TA, TB] = [S.marks[0], S.marks[1]];
+    if (Math.abs(TB - TA) > 1e-6){
+      let rows = "";
+      series.forEach(s => {
+        const pA = psat(s.comp, s.meth, TA), pB = psat(s.comp, s.meth, TB);
+        if (!Number.isFinite(pA) || !Number.isFinite(pB)) return;
+        const dH = R*Math.log(pB/pA)/(1/TA - 1/TB)/1000;
+        rows += '<div class="kv"><span>' + esc(s.label) + "</span><span>" +
+                fmt(dH, 4) + " kJ/mol</span></div>";
+      });
+      if (rows){
+        h += '<h2 style="margin-top:16px">Two-point Clausius&ndash;Clapeyron</h2>' + rows +
+          '<p class="note" style="margin-top:8px">Mean &Delta;H<sub>vap</sub> between A and B ' +
+          'from ln(P<sub>B</sub>/P<sub>A</sub>) = &minus;(&Delta;H/R)(1/T<sub>B</sub> &minus; ' +
+          '1/T<sub>A</sub>), assuming &Delta;H constant over the interval and an ideal ' +
+          'vapour. Compare with the local values in the &Delta;H<sub>vap</sub> tab: the ' +
+          'wider you place A and B, the more the constant-&Delta;H assumption costs you.</p>';
+      }
+    }
+  }
+  el.innerHTML = h;
+}
+
+function renderMethods(){
+  const el = $("methods");
+  if (!S.sel.length){ el.innerHTML = '<p class="note">—</p>'; return; }
+  const used = new Set();
+  if (S.tab === "compare"){
+    const s = S.sel[S.ref] || S.sel[0];
+    methodsFor(byCas[s.cas]).forEach(m => used.add(m));
+  } else {
+    S.sel.forEach(s => used.add(s.meth));
+    if (S.showsub && S.sel.some(s => byCas[s.cas].sub)) used.add("sub");
+  }
+  let h = "";
+  [...used].sort((a, b) => METHODS[a].pri - METHODS[b].pri).forEach(m => {
+    h += '<div class="kv"><span>' + METHODS[m].label +
+      (METHODS[m].kind === "pred" ? ' <span style="color:var(--muted)">(predictive)</span>' : "") +
+      "</span><span style='font-weight:400;color:var(--muted)'>" + esc(METHODS[m].src) +
+      "</span></div>";
+  });
+  h += '<p class="note" style="margin-top:10px">Curves are drawn solid inside the published ' +
+    'validity range and dashed outside it. Antoine fits in particular are narrow &mdash; ' +
+    'the Landolt fit for water spans only 323&ndash;393 K &mdash; and extrapolating them is ' +
+    'the classic way to get a badly wrong number.</p>';
+  el.innerHTML = h;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Wiring
+ * ------------------------------------------------------------------ */
+function renderAll(){
+  // draw() first: renderMarks reads PLOT.series to know what is on screen
+  renderChips(); draw(); renderMarks(); renderInfo(); renderMethods(); save();
+}
+
+document.querySelectorAll(".tabs button").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    S.tab = b.dataset.tab;
+    renderAll();
+  };
+});
+
+$("axmode").onchange = e => { S.axmode = e.target.value; renderAll(); };
+$("tunit").onchange = e => {
+  S.tunit = e.target.value; syncRangeInputs(); syncMarkInputs(); renderAll();
+};
+$("punit").onchange = e => { S.punit = e.target.value; renderAll(); };
+$("ylog").onchange = e => { S.ylog = e.target.checked; renderAll(); };
+$("extrap").onchange = e => { S.extrap = e.target.checked; renderAll(); };
+$("shownbp").onchange = e => { S.shownbp = e.target.checked; renderAll(); };
+$("showcrit").onchange = e => { S.showcrit = e.target.checked; renderAll(); };
+$("showsub").onchange = e => { S.showsub = e.target.checked; renderAll(); };
+$("tmin").oninput = e => {
+  const v = parseFloat(e.target.value);
+  if (Number.isFinite(v)) { S.tmin = fromT(v, S.tunit); renderAll(); }
+};
+$("tmax").oninput = e => {
+  const v = parseFloat(e.target.value);
+  if (Number.isFinite(v)) { S.tmax = fromT(v, S.tunit); renderAll(); }
+};
+$("pline").oninput = e => {
+  const v = parseFloat(e.target.value);
+  S.pline = Number.isFinite(v) ? v : null;
+  renderAll();
+};
+$("autorange").onclick = () => { autoRange(); renderAll(); };
+["mA", "mB"].forEach((id, i) => {
+  $(id).oninput = e => {
+    const v = parseFloat(e.target.value);
+    S.marks[i] = Number.isFinite(v) ? fromT(v, S.tunit) : null;
+    renderAll();
+  };
+});
+$("clearmarks").onclick = () => { S.marks = [null, null]; syncMarkInputs(); renderAll(); };
+
+$("png").onclick = () => {
+  tip.style.display = "none";
+  draw();
+  // opaque background so the PNG is usable outside a dark page
+  const out = document.createElement("canvas");
+  out.width = cv.width; out.height = cv.height;
+  const o = out.getContext("2d");
+  o.fillStyle = cssVar("--card");
+  o.fillRect(0, 0, out.width, out.height);
+  o.drawImage(cv, 0, 0);
+  out.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "vapour-pressure.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+};
+
+$("csv").onclick = () => {
+  if (!S.sel.length) return;
+  const series = S.tab === "alpha" ? null : buildSeries();
+  const rows = [];
+  if (S.tab === "alpha"){
+    const ref = S.sel[S.ref], rc = byCas[ref.cas];
+    const cols = S.sel.filter((s, i) => i !== S.ref);
+    rows.push(["T_" + S.tunit].concat(cols.map(s =>
+      "alpha_" + byCas[s.cas].n + "_over_" + rc.n)));
+    for (let i = 0; i <= 200; i++){
+      const T = S.tmin + (S.tmax - S.tmin)*i/200;
+      const p2 = psat(rc, ref.meth, T);
+      rows.push([toT(T, S.tunit)].concat(cols.map(s => {
+        const p1 = psat(byCas[s.cas], s.meth, T);
+        return Number.isFinite(p1) && Number.isFinite(p2) && p2 > 0 ? p1/p2 : "";
+      })));
+    }
+  } else {
+    // column names safe for a spreadsheet: keep digits and dots, everything
+    // else becomes a single underscore ("Wagner (2.5,5)" -> "Wagner_2.5_5")
+    const slug = t => t.replace(/[^A-Za-z0-9.]+/g, "_").replace(/^_|_$/g, "");
+    const hdr = ["T_" + S.tunit];
+    series.forEach(s => hdr.push(
+      (S.tab === "hvap" ? "dHvap_kJmol_" : "P_" + S.punit + "_") +
+      slug(s.comp.n) + "[" + slug(METHODS[s.meth].label) + "]"));
+    rows.push(hdr);
+    for (let i = 0; i <= 200; i++){
+      const T = S.tmin + (S.tmax - S.tmin)*i/200;
+      const r = [toT(T, S.tunit)];
+      series.forEach(s => {
+        if (S.tab === "hvap"){
+          const v = dHvap(s.comp, s.meth, T);
+          r.push(Number.isFinite(v) ? v/1000 : "");
+        } else {
+          const p = psat(s.comp, s.meth, T);
+          r.push(Number.isFinite(p) ? toP(p, S.punit) : "");
+        }
+      });
+      rows.push(r);
+    }
+  }
+  const csv = rows.map(r => r.map(v =>
+    typeof v === "number" ? v.toPrecision(8) : '"' + String(v).replace(/"/g, '""') + '"'
+  ).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"}));
+  a.download = "vapour-pressure.csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+let rt;
+window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(draw, 120); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => draw());
+
+/* ---- boot ---- */
+(function init(){
+  const had = load();
+  if (!had){
+    // a default that shows the point of the app straight away
+    ["71-43-2", "108-88-3", "7732-18-5"].forEach(cas => {
+      if (byCas[cas] && S.sel.length < MAXSEL)
+        S.sel.push({cas, meth: bestMethod(byCas[cas])});
+    });
+    S.tmin = 280; S.tmax = 420;
+  } else {
+    autoRange();
+  }
+  if (S.tmin === null) autoRange();
+  $("axmode").value = S.axmode;
+  $("tunit").value = S.tunit;
+  $("punit").value = S.punit;
+  $("ylog").checked = S.ylog;
+  $("extrap").checked = S.extrap;
+  $("shownbp").checked = S.shownbp;
+  $("showcrit").checked = S.showcrit;
+  $("showsub").checked = S.showsub;
+  document.querySelectorAll(".tabs button").forEach(b =>
+    b.classList.toggle("on", b.dataset.tab === S.tab));
+  syncRangeInputs();
+  syncMarkInputs();
+  renderAll();
+})();
+</script>
+</body>
+</html>

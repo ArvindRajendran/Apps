@@ -36,6 +36,13 @@
     text-transform: uppercase; color: var(--muted); white-space: nowrap;
   }
   .section::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  /* lighter heading for groups inside a section */
+  .subsec { margin: 14px 0 6px; display: flex; align-items: baseline; gap: 8px; }
+  .subsec h3 {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); opacity: .8; white-space: nowrap;
+  }
+  .subsec .hint { font-size: 0.68rem; color: var(--muted); opacity: .55; white-space: nowrap; }
   .grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
     gap: 8px;
@@ -111,9 +118,32 @@
        data-desc="Interactive binary distillation design at constant relative volatility: live sliders for α, compositions, feed quality q, and reflux (R or R/Rmin), stage-by-stage animation, Rmin &amp; Nmin limits, Murphree efficiency, stage table, PNG export.">
       <span class="emoji">&#9879;&#65039;</span><span class="name">McCabe&ndash;Thiele Designer</span>
     </a>
+    <a class="tile" href="VaporPressure/VaporPressure.html"
+       data-desc="Saturation curves for 653 components from published Antoine, Wagner, DIPPR-101 and PPDS coefficients, plus Lee–Kesler and Ambrose–Walton estimates: overlay any ten, click two temperatures to read and compare every curve at both, switch to Cox (ln P vs 1/T) or reduced coordinates, compare every correlation for one component, get relative volatility α(T) for a pair, and ΔHvap from the Clapeyron slope.">
+      <span class="emoji">&#128167;</span><span class="name">Vapour Pressure Plotter</span>
+    </a>
   </div>
 
   <div class="section"><h2>Adsorption &amp; Chromatography Apps</h2></div>
+  <div class="subsec"><h3>Equilibria</h3><span class="hint">fit and predict</span></div>
+  <div class="grid">
+    <a class="tile" href="IsothermFitter/IsothermFitter.html"
+       data-desc="Fit adsorption equilibrium data to 16 isotherm models + custom expressions: paste (T, p, q) with unit conversion, Levenberg–Marquardt with multi-start, AICc ranking (penalizes parameter count), confidence intervals and over-parametrization warnings, per-temperature or global van 't Hoff fits (ΔH + model-based isosteric heat), overlay/residual/parity plots, one-click parameter hand-off to the other apps. Validated against scipy.">
+      <span class="emoji">&#128208;</span><span class="name">Isotherm Fitter</span>
+    </a>
+    <a class="tile" href="IAST/IAST.html"
+       data-desc="Binary Ideal Adsorbed Solution Theory (Myers &amp; Prausnitz): mixture loadings from two pure isotherms — 11 models with analytic spreading pressures where they exist, guaranteed-unique monotone solver, thermodynamic-consistency badges, live extrapolation warnings for the hypothetical pressures, ψ-construction and x–y diagrams, selectivity heatmaps with linked slices, selectivity-reversal detection, extended-Langmuir comparison, rotatable 3D surface, CSV export. Cross-validated against pyIAST.">
+      <span class="emoji">&#129379;</span><span class="name">IAST &mdash; Binary Mixtures</span>
+    </a>
+  </div>
+  <div class="subsec"><h3>Kinetics</h3><span class="hint">uptake and transport</span></div>
+  <div class="grid">
+    <a class="tile" href="UptakeCurves/UptakeCurves.html"
+       data-desc="Gravimetric uptake predictor: step change at the surface of a bidisperse spherical adsorbent — micropore, macropore, macro+micro (Ruckenstein-type), or LDF transport, Darken correction Γ = dlnp/dlnq for any isotherm in the menu, Bosanquet Dm+DK+τp macropore assembly. Intracrystalline and intraparticle profiles, mt/m∞ with t ↔ √t axis toggle, validated against exact series solutions.">
+      <span class="emoji">&#9203;</span><span class="name">Uptake Curves</span>
+    </a>
+  </div>
+  <div class="subsec"><h3>Chromatography</h3><span class="hint">equilibrium theory and SMB</span></div>
   <div class="grid">
     <a class="tile" href="EquilibriumChromatography/EquilibriumChromatography.html"
        data-desc="Single-component equilibrium theory (Rhee–Aris–Amundson): envelope construction on any isotherm → waves and shocks, colour-mapped physical plane with pinnable crosshair, column profiles and breakthrough curves, standard + custom isotherms.">
@@ -127,13 +157,20 @@
        data-desc="Riemann problems for coupled conservation laws: isothermal binary chromatography with hodograph-plane analysis — exact straight-line construction for constant-selectivity Langmuir, numerical reference solution for arbitrary isotherms, roll-up and displacement effects.">
       <span class="emoji">&#9883;&#65039;</span><span class="name">Chromatography &mdash; 2&times;2 Systems</span>
     </a>
+    <a class="tile" href="EquilibriumChromatographySorption/EquilibriumChromatographySorption.html"
+       data-desc="Equilibrium theory with the sorption effect: single adsorbable component whose ad/de-sorption changes the fluid velocity (Ortner 2014 / Hefti 2015). Analytical Riemann solution via envelopes on νq vs y/(1−y); twin physical planes for composition and velocity v/vF with a linked crosshair.">
+      <span class="emoji">&#127788;&#65039;</span><span class="name">Chromatography &mdash; Sorption Effect</span>
+    </a>
     <a class="tile" href="SMBTriangle/SMBTriangle.html"
        data-desc="Simulated moving bed design by triangle theory: complete-separation regions for linear and generalized-Langmuir isotherms (L, anti-Langmuir, both mixed cases), reduced-purity pentagon (linear), clickable (m2,m3) and (m1,m4) planes with live feed-concentration morphing, and open-loop flow-rate design from a pressure-drop limit — every boundary algebraic.">
       <span class="emoji">&#129778;&#129777;</span><span class="name">SMB Triangle Designer</span>
     </a>
-    <a class="tile" href="EquilibriumChromatographySorption/EquilibriumChromatographySorption.html"
-       data-desc="Equilibrium theory with the sorption effect: single adsorbable component whose ad/de-sorption changes the fluid velocity (Ortner 2014 / Hefti 2015). Analytical Riemann solution via envelopes on νq vs y/(1−y); twin physical planes for composition and velocity v/vF with a linked crosshair.">
-      <span class="emoji">&#127788;&#65039;</span><span class="name">Chromatography &mdash; Sorption Effect</span>
+  </div>
+  <div class="subsec"><h3>Cycles</h3><span class="hint">screening to full simulation</span></div>
+  <div class="grid">
+    <a class="tile" href="BAAM/BAAM.html"
+       data-desc="Batch Adsorber Analogue Model (Balashankar 2019 + e-BAAM extensions): rapid screening of 4-step VSA/PVSA CO&#8322;/N&#8322; capture cycles with LPP or feed pressurization — cycle transitions drawn on the competitive isotherms, purity/recovery/energy/working-capacity maps over (P_LOW, P_INT), purity–recovery Paretos with the US-DOE classification (r_cut = 124.5) and full-model energy calibration, extended dual-site Langmuir or IAST mixture equilibria, adsorbent presets from both papers, hand-off from the Isotherm Fitter. Validated against the authors' original MATLAB (paper Table 2 reproduced exactly).">
+      <span class="emoji">&#127991;&#65039;</span><span class="name">BAAM &mdash; Cycle Screening</span>
     </a>
     <!-- PSA Simulator temporarily hidden (not yet complete) — restore by removing this comment wrapper.
     <a class="tile" href="PSASimulator/PSASimulator.html"
@@ -141,6 +178,14 @@
       <span class="emoji">&#127981;</span><span class="name">PSA Simulator</span>
     </a>
     -->
+    <a class="tile" href="DAC/DAC.html"
+       data-desc="Dynamic 0-D simulation of a 4-step temperature–vacuum swing direct-air-capture cycle (adsorption / evacuation / heat+vacuum desorption / cooling), run to cyclic steady state. Six sorbent presets (five from the group's DAC screening paper + Lewatit VP OC 1065) with Toth / GAB / modified-Toth binary CO₂–H₂O equilibria, LDF kinetics, wall heat transfer, purity/recovery/energy/productivity KPIs on both sorbent and contactor bases, live cycle profiles and a parametric sweep. Validated against an independent Python reference and the Simplified DAC energy model in MATLAB.">
+      <span class="emoji">&#127745;</span><span class="name">DAC &mdash; 0-D Cycle Simulator</span>
+    </a>
+    <a class="tile" href="MAPLE/MAPLE.html"
+       data-desc="The MAPLE neural-network surrogate (Pai, Prasad &amp; Rajendran) of a 4-step PVSA cycle for CO₂/N₂ capture, ported to JavaScript: cyclic-steady-state purity, recovery, energy and productivity in microseconds for any single-site-Langmuir adsorbent inside the trained range. LPP and FP cycles, editable sorbent properties with trained-range guards, isotherm comparison against known sorbents, instant 1-D/2-D parametric maps, and NSGA-II Pareto optimization with multi-sorbent comparison. Port validated to 10⁻¹² against the MATLAB networks and against the papers' published optimum points.">
+      <span class="emoji">&#127809;</span><span class="name">MAPLE &mdash; ANN PVSA Emulator</span>
+    </a>
   </div>
 
   <div class="footer">

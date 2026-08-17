@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isotherm Fitter</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626; --warn: #d97706; --ok: #16a34a;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171; --warn: #fbbf24; --ok: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1200px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative; margin-bottom: 14px;
+  }
+  .cols { display: flex; gap: 18px; flex-wrap: wrap; }
+  .cols > div { flex: 1; min-width: 320px; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld > span { white-space: nowrap; }
+  .fld input[type=number], .fld input[type=text] {
+    padding: 7px 9px; font-size: 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  .fld input[type=number] { width: 92px; }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  textarea {
+    width: 100%; min-height: 170px; padding: 10px 12px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); outline: none; resize: vertical;
+  }
+  textarea:focus { border-color: var(--accent); }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.78rem; font-weight: 600; padding: 6px 10px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .status { font-size: 0.8rem; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+  .status b { color: var(--text); }
+  .err { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  #if-exprfld input { width: 320px; max-width: 70vw; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+  table.res { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 10px; }
+  table.res th { text-align: left; color: var(--muted); font-weight: 600; padding: 5px 8px; border-bottom: 1.5px solid var(--border); white-space: nowrap; }
+  table.res td { padding: 5px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.res tr.sel td { background: var(--accent-soft); }
+  table.res tr { cursor: pointer; }
+  table.res .rankbest { color: var(--ok); font-weight: 700; }
+  table.res input[type=checkbox] { accent-color: var(--accent); }
+  .warnchip { color: var(--warn); font-size: 0.72rem; }
+  .plots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .plots .pcard { grid-column: span 3; }
+  .plots .pcard.main { grid-column: span 4; }
+  .plots .pcard.third { grid-column: span 2; }
+  .plots .pcard.full { grid-column: span 6; }
+  @media (max-width: 900px) { .plots .pcard, .plots .pcard.main, .plots .pcard.third, .plots .pcard.full { grid-column: span 6; } }
+  .pcard canvas { cursor: crosshair; touch-action: none; }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  .pcard .pfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .pcard .pfoot button { font-size: 0.75rem; padding: 4px 9px; }
+  .detail { margin-top: 12px; font-size: 0.82rem; line-height: 1.7; }
+  .detail table { border-collapse: collapse; font-size: 0.8rem; margin: 6px 0; }
+  .detail table td, .detail table th { padding: 3px 10px 3px 0; text-align: left; font-variant-numeric: tabular-nums; }
+  .detail table th { color: var(--muted); font-weight: 600; }
+  .formula {
+    font-size: 0.92rem; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    font-family: Georgia, "Times New Roman", serif; font-style: italic; margin: 8px 0; color: var(--text);
+  }
+  .formula .frac { display: inline-flex; flex-direction: column; text-align: center; line-height: 1.2; }
+  .formula .frac .fn { border-bottom: 1.2px solid currentColor; padding: 0 5px; }
+  .formula .frac .fd { padding: 0 5px; }
+  pre.handoff {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font-size: 0.75rem; overflow-x: auto; margin-top: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  details.dt { margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
+  details.dt summary { cursor: pointer; font-weight: 600; }
+  details.dt table { border-collapse: collapse; margin-top: 8px; font-size: 0.78rem; }
+  details.dt td, details.dt th { padding: 2px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  .footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Isotherm Fitter</h2>
+  <div class="sub">Paste pure-component adsorption equilibrium data, fit a library of isotherm models by
+    Levenberg&ndash;Marquardt with multi-start, and rank them by AICc (which penalizes parameter count &mdash;
+    lowest SSE alone would always pick the model with the most parameters). Multi-temperature data can be fitted
+    per temperature or globally with van &rsquo;t Hoff affinities b(T) = b&#x2080;e<sup>U/RT</sup>, giving &Delta;H
+    and the model-based isosteric heat. Fitted parameters export in the format used across this suite
+    (IAST, Uptake Curves, chromatography apps).</div>
+
+  <div class="panel">
+    <div class="cols">
+      <div>
+        <div class="ctrls" style="margin-bottom:8px">
+          <label class="fld"><span>Pressure / concentration unit</span>
+            <select id="if-pu">
+              <optgroup label="Pressure (converted to bar)">
+                <option value="bar">bar</option><option value="kPa">kPa</option>
+                <option value="Pa">Pa</option><option value="MPa">MPa</option>
+                <option value="atm">atm</option><option value="mmHg">mmHg / Torr</option>
+              </optgroup>
+              <optgroup label="Concentration (fitted as entered)">
+                <option value="molm3">mol/m&sup3; &equiv; mmol/L</option>
+                <option value="molL">mol/L</option>
+                <option value="gL">g/L</option>
+              </optgroup>
+            </select></label>
+          <label class="fld"><span>Loading unit</span>
+            <select id="if-qu">
+              <option value="molkg">mol/kg &equiv; mmol/g</option>
+              <option value="mmolkg">mmol/kg</option>
+              <option value="cm3g">cm&sup3;(STP)/g</option>
+              <option value="mgg">mg/g</option>
+              <option value="wt">wt%</option>
+            </select></label>
+          <label class="fld" id="if-Mfld" style="display:none"><span>Molar mass (g/mol)</span>
+            <input type="number" id="if-M" step="1" value="44.01"></label>
+          <label class="fld" id="if-Tfld"><span>T (K) for 2-column data</span>
+            <input type="number" id="if-T" step="1" value="298.15"></label>
+        </div>
+        <textarea id="if-data" spellcheck="false"
+          placeholder="Paste data: two columns (p, q) or three columns (T, p, q).&#10;Whitespace, comma or tab separated; header lines are skipped.&#10;&#10;0.01   0.30&#10;0.1    1.74&#10;1.0    3.37&#10;10     3.93"></textarea>
+        <div class="ctrls" style="margin-top:8px">
+          <button class="action" id="if-ex1">Example: single T</button>
+          <button class="action" id="if-ex2">Example: 3 temperatures</button>
+          <button class="action" id="if-clear">Clear</button>
+        </div>
+      </div>
+      <div>
+        <div class="ctrls">
+          <label class="fld"><span>Residual weighting</span>
+            <select id="if-wt">
+              <option value="rel">relative &mdash; &Sigma;(&Delta;q/q)&sup2;</option>
+              <option value="abs">absolute &mdash; &Sigma;&Delta;q&sup2;</option>
+              <option value="sqrt">&radic;q &mdash; &Sigma;&Delta;q&sup2;/q</option>
+            </select></label>
+          <label class="fld" id="if-mtfld" style="display:none"><span>Multi-T mode</span>
+            <select id="if-mt">
+              <option value="perT">fit each temperature separately</option>
+              <option value="global">global van &rsquo;t Hoff b(T) = b&#x2080;e<sup>U/RT</sup></option>
+            </select></label>
+        </div>
+        <div class="ctrls" id="if-exprfld">
+          <label class="fld"><span>Optional custom model q(p) &mdash; free names become fitted parameters, T available</span>
+            <input type="text" id="if-expr" value="" placeholder="e.g. qs*b*p/(1+b*p) + k*p" spellcheck="false"></label>
+        </div>
+        <div class="status" id="if-status">Paste data or load an example to begin.</div>
+        <div class="err" id="if-err"></div>
+        <details class="dt" id="if-dtwrap" style="display:none">
+          <summary>Parsed data table (untick to exclude points)</summary>
+          <div id="if-dtable" style="max-height:260px; overflow-y:auto"></div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="if-respanel" style="display:none">
+    <h3 style="font-size:0.9rem; margin-bottom:4px">Ranked fits &mdash; tick to overlay, click a row for details</h3>
+    <div style="overflow-x:auto"><table class="res" id="if-restable"></table></div>
+    <div class="detail" id="if-detail"></div>
+  </div>
+
+  <div class="plots" id="if-plots" style="display:none">
+    <div class="pcard main">
+      <div class="phead"><h3>Data &amp; fits</h3>
+        <span class="pinfo">drag to zoom &middot; wheel &middot; dbl-click reset &middot; click legend to toggle</span>
+        <div class="seg" id="if-xax"><button class="on" data-m="log">log p</button><button data-m="lin">lin</button></div>
+      </div>
+      <canvas id="if-main"></canvas>
+      <div class="pfoot"><button class="action" id="if-mainpng">&#11015; PNG</button><button class="action" id="if-fitcsv">&#11015; fit curves CSV</button></div>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Parity</h3><span class="pinfo" id="if-parinfo"></span></div>
+      <canvas id="if-parity"></canvas>
+      <div class="pfoot"><button class="action" id="if-parpng">&#11015; PNG</button><button class="action" id="if-parcsv">&#11015; CSV</button></div>
+    </div>
+    <div class="pcard" id="if-residcard">
+      <div class="phead"><h3>Residuals</h3><span class="pinfo" id="if-resinfo"></span></div>
+      <canvas id="if-resid"></canvas>
+      <div class="pfoot"><button class="action" id="if-respng">&#11015; PNG</button><button class="action" id="if-rescsv">&#11015; CSV</button></div>
+    </div>
+    <div class="pcard" id="if-qstcard" style="display:none">
+      <div class="phead"><h3>Isosteric heat</h3><span class="pinfo" id="if-qstinfo"></span></div>
+      <canvas id="if-qst"></canvas>
+      <div class="pfoot"><button class="action" id="if-qstpng">&#11015; PNG</button><button class="action" id="if-qstcsv">&#11015; CSV</button></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Objective: weighted least squares on q(p) (weighting selectable); Levenberg&ndash;Marquardt on
+    logit-bounded parameters with heuristic + randomized multi-start.
+    AICc = N&thinsp;ln(SSE<sub>w</sub>/N) + 2k + 2k(k+1)/(N&minus;k&minus;1) ranks models with a
+    parameter-count penalty; confidence intervals from the Jacobian at the optimum (&plusmn;1.96&sigma;),
+    with a warning when parameters are &gt;98% correlated (over-parametrized fit).
+    Global multi-T mode: q<sub>s</sub> temperature-independent, affinities b = b&#x2080;e<sup>U/RT</sup>
+    (&Delta;H<sub>ads</sub> = &minus;U); isosteric heat from the fitted model via Clausius&ndash;Clapeyron.
+    Validated against scipy.optimize.least_squares on seeded synthetic data (see README).<br>
+    Works offline &mdash; single file, share freely.
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; August 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> &middot; <a href="../index.html">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script id="if-engine">
+/* Isotherm Fitter engine — 16 models + custom, Levenberg-Marquardt with
+   logit-bounded parameters and multi-start, weighting choice, AICc ranking,
+   confidence intervals, per-T and global van 't Hoff multi-temperature modes,
+   model-based isosteric heat. DOM-free; p in bar, q in mol/kg, T in K. */
+"use strict";
+const R_GAS = 8.314462618;
+
+/* ---------- model library ----------
+   f(th, p, T): loading; init(stats): heuristic start; bounds(stats): [lo, hi]
+   arrays; vh: indices of affinity params that become b0*exp(U/RT) in global
+   mode ("intrinsic" = model already uses T explicitly). */
+const FIT_MODELS = {
+  linear: { label: "Linear (Henry)", pnames: ["H"],
+    f: (th, p) => th[0] * p,
+    init: s => [Math.max(s.henry, 1e-6)],
+    bounds: s => [[1e-9], [1e6]], vh: [0] },
+  langmuir: { label: "Langmuir", pnames: ["qs", "b"],
+    f: (th, p) => th[0] * th[1] * p / (1 + th[1] * p),
+    init: s => [1.05 * s.qmax, 1 / s.pmid],
+    bounds: s => [[1e-9, 1e-9], [1e6, 1e6]], vh: [1] },
+  dsl: { label: "Dual-site Langmuir", pnames: ["qs1", "b1", "qs2", "b2"],
+    f: (th, p) => th[0] * th[1] * p / (1 + th[1] * p) + th[2] * th[3] * p / (1 + th[3] * p),
+    init: s => [0.6 * s.qmax, 5 / s.pmid, 0.6 * s.qmax, 0.2 / s.pmid],
+    bounds: s => [[1e-9, 1e-9, 1e-9, 1e-9], [1e6, 1e6, 1e6, 1e6]], vh: [1, 3] },
+  tsl: { label: "Triple-site Langmuir", pnames: ["qs1", "b1", "qs2", "b2", "qs3", "b3"],
+    f: (th, p) => th[0] * th[1] * p / (1 + th[1] * p) + th[2] * th[3] * p / (1 + th[3] * p) +
+                  th[4] * th[5] * p / (1 + th[5] * p),
+    init: s => [0.4 * s.qmax, 25 / s.pmid, 0.4 * s.qmax, 1 / s.pmid, 0.4 * s.qmax, 0.04 / s.pmid],
+    bounds: s => [Array(6).fill(1e-9), Array(6).fill(1e6)], vh: [1, 3, 5] },
+  antilang: { label: "Anti-Langmuir", pnames: ["qs", "b"],
+    f: (th, p) => th[0] * th[1] * p / (1 - th[1] * p),
+    init: s => [0.5 * s.qmax, 0.5 / s.pmax],
+    bounds: s => [[1e-9, 1e-9], [1e6, 0.95 / s.pmax]], vh: [1] },
+  quad: { label: "Quadratic", pnames: ["qs", "b1", "b2"],
+    f: (th, p) => th[0] * p * (th[1] + 2 * th[2] * p) / (1 + th[1] * p + th[2] * p * p),
+    init: s => [0.55 * s.qmax, 1 / s.pmid, 0.1 / (s.pmid * s.pmid)],
+    bounds: s => [[1e-9, 1e-9, 1e-12], [1e6, 1e6, 1e6]], vh: [1, 2] },
+  sips: { label: "Sips / Langmuir-Freundlich", pnames: ["qs", "b", "n"],
+    f: (th, p) => { const t = Math.pow(Math.max(th[1] * p, 0), th[2]); return th[0] * t / (1 + t); },
+    init: s => [1.05 * s.qmax, 1 / s.pmid, 1],
+    bounds: s => [[1e-9, 1e-9, 0.1], [1e6, 1e6, 3]], vh: [1] },
+  dss: { label: "Dual-site Sips", pnames: ["qs1", "b1", "n1", "qs2", "b2", "n2"],
+    f: (th, p) => {
+      const t1 = Math.pow(Math.max(th[1] * p, 0), th[2]);
+      const t2 = Math.pow(Math.max(th[4] * p, 0), th[5]);
+      return th[0] * t1 / (1 + t1) + th[3] * t2 / (1 + t2);
+    },
+    init: s => [0.6 * s.qmax, 5 / s.pmid, 1, 0.6 * s.qmax, 0.2 / s.pmid, 1],
+    bounds: s => [[1e-9, 1e-9, 0.1, 1e-9, 1e-9, 0.1], [1e6, 1e6, 3, 1e6, 1e6, 3]], vh: [1, 4] },
+  toth: { label: "Toth", pnames: ["qs", "b", "t"],
+    f: (th, p) => th[0] * th[1] * p / Math.pow(1 + Math.pow(Math.max(th[1] * p, 0), th[2]), 1 / th[2]),
+    init: s => [1.1 * s.qmax, 1 / s.pmid, 0.7],
+    bounds: s => [[1e-9, 1e-9, 0.05], [1e6, 1e6, 5]], vh: [1] },
+  freundlich: { label: "Freundlich", pnames: ["k", "n"],
+    f: (th, p) => th[0] * Math.pow(Math.max(p, 0), 1 / th[1]),
+    init: s => { const n = Math.min(10, Math.max(0.2, s.fexp)); return [s.qmax / Math.pow(s.pmax, 1 / n), n]; },
+    bounds: s => [[1e-9, 0.2], [1e6, 10]], vh: [0] },
+  bet: { label: "BET / GAB (Type II/III)", pnames: ["qs", "bs", "bl"],
+    f: (th, p) => th[0] * th[1] * p / ((1 - th[2] * p) * (1 - th[2] * p + th[1] * p)),
+    init: s => [0.5 * s.qmax, 10 / s.pmid, 0.3 / s.pmax],
+    bounds: s => [[1e-9, 1e-9, 1e-9], [1e6, 1e6, 0.95 / s.pmax]], vh: [1, 2] },
+  typev: { label: "Type V (Langmuir + Hill step)", pnames: ["qs1", "b1", "qs2", "b2", "n"],
+    f: (th, p) => {
+      const t = Math.pow(Math.max(th[3] * p, 0), th[4]);
+      return th[0] * th[1] * p / (1 + th[1] * p) + th[2] * t / (1 + t);
+    },
+    init: s => [0.25 * s.qmax, 1 / s.pmid, s.qmax, 1 / s.pmid, 4],
+    bounds: s => [[1e-9, 1e-9, 1e-9, 1e-9, 1], [1e6, 1e6, 1e6, 1e6, 20]], vh: [1, 3] },
+  unilan: { label: "UNILAN", pnames: ["qs", "b", "s"],
+    f: (th, p) => th[0] / (2 * th[2]) *
+      Math.log((1 + th[1] * Math.exp(th[2]) * p) / (1 + th[1] * Math.exp(-th[2]) * p)),
+    init: s => [1.1 * s.qmax, 1 / s.pmid, 1],
+    bounds: s => [[1e-9, 1e-9, 0.01], [1e6, 1e6, 10]], vh: [1] },
+  temkin: { label: "Temkin-type (B ln(1+Ap))", pnames: ["B", "A"],
+    f: (th, p) => th[0] * Math.log(1 + th[1] * p),
+    init: s => [s.qmax / Math.log(1 + s.pmax / s.pmid), 1 / s.pmid],
+    bounds: s => [[1e-9, 1e-9], [1e6, 1e6]], vh: [1] },
+  da: { label: "Dubinin–Astakhov", pnames: ["qs", "E", "n", "p0"],
+    // E in kJ/mol; A = RT ln(p0/p); q = qs exp[-(A/1000E)^n]; T explicit
+    f: (th, p, T) => {
+      if (p <= 0) return 0;
+      const A = R_GAS * (T || 298.15) * Math.log(th[3] / p);
+      if (A <= 0) return th[0];
+      return th[0] * Math.exp(-Math.pow(A / (1000 * th[1]), th[2]));
+    },
+    init: s => [1.05 * s.qmax, 10, 2, 3 * s.pmax],
+    bounds: s => [[1e-9, 0.5, 0.5, s.pmax * 1.0001], [1e6, 200, 6, 1e7]], vh: "intrinsic" },
+  custom: { label: "Custom q(p) …", pnames: null }
+};
+
+/* ---------- custom expression: p + free parameters a,b,c,... ---------- */
+function compileCustom(src) {
+  const FUN = { exp: Math.exp, log: Math.log, ln: Math.log, sqrt: Math.sqrt,
+                abs: Math.abs, tanh: Math.tanh, pow: Math.pow, min: Math.min, max: Math.max };
+  const CONST = { pi: Math.PI, e: Math.E };
+  const ids = [];
+  const re = /\s*(\d+\.?\d*(?:[eE][+-]?\d+)?|[A-Za-z_][A-Za-z_0-9]*|\*\*|[-+*/^(),])/y;
+  const toks = [];
+  let i = 0;
+  while (i < src.length) {
+    re.lastIndex = i;
+    const m = re.exec(src);
+    if (!m) throw "Bad token near '" + src.slice(i, i + 8) + "'";
+    toks.push(m[1]); i = re.lastIndex;
+  }
+  for (const t of toks)
+    if (/^[A-Za-z_]/.test(t) && !FUN[t] && !(t in CONST) && t !== "p" && t !== "T" && !ids.includes(t))
+      ids.push(t);
+  if (ids.length === 0) throw "No free parameters found (use names like a, b, qs …)";
+  if (ids.length > 9) throw "Too many parameters (max 9)";
+  const out = [], ops = [];
+  const prec = { "+": 1, "-": 1, "*": 2, "/": 2, "u-": 3, "^": 4, "**": 4 };
+  const rightAssoc = { "^": 1, "**": 1, "u-": 1 };
+  let prev = null;
+  for (const t0 of toks) {
+    let t = t0;
+    if (t === "-" && (prev === null || (prec[prev] || prev === "(" || prev === ","))) t = "u-";
+    if (/^[\d.]/.test(t)) out.push(parseFloat(t));
+    else if (/^[A-Za-z_]/.test(t)) {
+      if (FUN[t]) ops.push(t);
+      else if (t in CONST) out.push(CONST[t]);
+      else if (t === "p") out.push("VP");
+      else if (t === "T") out.push("VT");
+      else out.push("A" + ids.indexOf(t));
+    }
+    else if (t === "(") ops.push(t);
+    else if (t === ",") { while (ops.length && ops[ops.length-1] !== "(") out.push(ops.pop()); }
+    else if (t === ")") {
+      while (ops.length && ops[ops.length-1] !== "(") out.push(ops.pop());
+      ops.pop();
+      if (ops.length && FUN[ops[ops.length-1]]) out.push(ops.pop());
+    } else {
+      while (ops.length) {
+        const o = ops[ops.length-1];
+        if (o === "(" || !(prec[o] >= (rightAssoc[t] ? prec[t] + 1 : prec[t]))) break;
+        out.push(ops.pop());
+      }
+      ops.push(t);
+    }
+    prev = t;
+  }
+  while (ops.length) out.push(ops.pop());
+  const f = (th, p, T) => {
+    const st = [];
+    for (const tk of out) {
+      if (typeof tk === "number") st.push(tk);
+      else if (tk === "VP") st.push(p);
+      else if (tk === "VT") st.push(T || 298.15);
+      else if (tk[0] === "A" && tk.length <= 2) st.push(th[+tk.slice(1)]);
+      else if (FUN[tk]) {
+        if (tk === "pow" || tk === "min" || tk === "max") { const b = st.pop(), a = st.pop(); st.push(FUN[tk](a, b)); }
+        else st.push(FUN[tk](st.pop()));
+      }
+      else if (tk === "u-") st.push(-st.pop());
+      else { const b = st.pop(), a = st.pop();
+        st.push(tk === "+" ? a + b : tk === "-" ? a - b : tk === "*" ? a * b :
+                tk === "/" ? a / b : Math.pow(a, b)); }
+    }
+    if (st.length !== 1) throw "Malformed expression";
+    return st[0];
+  };
+  f(ids.map(() => 1), 0.123, 298.15);
+  return { f, pnames: ids };
+}
+
+/* ---------- data statistics for heuristics ---------- */
+function dataStats(p, q) {
+  let qmax = 0, pmax = 0, pmin = Infinity;
+  for (let i = 0; i < p.length; i++) {
+    qmax = Math.max(qmax, q[i]); pmax = Math.max(pmax, p[i]);
+    if (p[i] > 0) pmin = Math.min(pmin, p[i]);
+  }
+  // p at half loading (first crossing, sorted by p)
+  const idx = Array.from(p.keys()).sort((a, b) => p[a] - p[b]);
+  let pmid = Math.sqrt(pmin * pmax);
+  for (let k = 1; k < idx.length; k++) {
+    const a = idx[k - 1], b = idx[k];
+    if (q[a] <= qmax / 2 && q[b] >= qmax / 2) {
+      const w = (qmax / 2 - q[a]) / (q[b] - q[a] || 1);
+      pmid = p[a] + w * (p[b] - p[a]);
+      break;
+    }
+  }
+  // Henry estimate: slope through lowest-p points
+  const lo = idx.slice(0, Math.max(2, Math.floor(idx.length / 4)));
+  let sxy = 0, sxx = 0;
+  lo.forEach(i => { sxy += p[i] * q[i]; sxx += p[i] * p[i]; });
+  const henry = sxx > 0 ? sxy / sxx : 1;
+  // Freundlich exponent estimate from end-to-end log slope
+  const a0 = idx[0], a1 = idx[idx.length - 1];
+  let fexp = 2;
+  if (q[a0] > 0 && q[a1] > 0 && p[a1] > p[a0])
+    fexp = Math.log(p[a1] / p[a0]) / Math.log(q[a1] / q[a0]);
+  return { qmax: qmax || 1, pmax: pmax || 1, pmin, pmid: Math.max(pmid, pmin), henry, fexp };
+}
+
+/* ---------- weighting ---------- */
+function makeWeights(q, mode) {
+  let qmax = 0;
+  for (const v of q) qmax = Math.max(qmax, v);
+  const qf = 1e-3 * (qmax || 1);
+  return q.map(v => mode === "abs" ? 1 :
+                    mode === "rel" ? 1 / Math.max(v, qf) :
+                    1 / Math.sqrt(Math.max(v, qf)));
+}
+
+/* ---------- Levenberg-Marquardt on logit-bounded parameters ---------- */
+function logit01(x) { return Math.log(x / (1 - x)); }
+function sig(u) { return 1 / (1 + Math.exp(-u)); }
+
+function lmFit(resFun, nRes, th0, lo, hi, opts) {
+  // resFun(theta, out[nRes]); bounds strict; returns {theta, ssew, iters, ok}
+  opts = opts || {};
+  const k = th0.length;
+  const u = new Float64Array(k);
+  for (let j = 0; j < k; j++) {
+    const x = Math.min(0.999999, Math.max(1e-6, (th0[j] - lo[j]) / (hi[j] - lo[j])));
+    u[j] = logit01(x);
+  }
+  const theta = uu => Array.from(uu, (v, j) => lo[j] + (hi[j] - lo[j]) * sig(v));
+  const r = new Float64Array(nRes), r2 = new Float64Array(nRes);
+  const J = new Float64Array(nRes * k);
+  const A = new Float64Array(k * k), g = new Float64Array(k), d = new Float64Array(k);
+  const sse = uu => { resFun(theta(uu), r); let s = 0; for (let i = 0; i < nRes; i++) s += r[i] * r[i]; return s; };
+  let S = sse(u);
+  if (!isFinite(S)) return { theta: theta(u), ssew: Infinity, iters: 0, ok: false };
+  let lam = 1e-3;
+  const uTry = new Float64Array(k);
+  let it = 0;
+  for (; it < (opts.maxIter || 120); it++) {
+    resFun(theta(u), r);
+    for (let j = 0; j < k; j++) {
+      const du = 1e-6 * Math.max(1, Math.abs(u[j]));
+      const us = u[j];
+      u[j] = us + du;
+      resFun(theta(u), r2);
+      u[j] = us;
+      for (let i = 0; i < nRes; i++) J[i * k + j] = (r2[i] - r[i]) / du;
+    }
+    A.fill(0); g.fill(0);
+    for (let i = 0; i < nRes; i++)
+      for (let a = 0; a < k; a++) {
+        g[a] += J[i * k + a] * r[i];
+        for (let b = a; b < k; b++) A[a * k + b] += J[i * k + a] * J[i * k + b];
+      }
+    for (let a = 0; a < k; a++) for (let b = 0; b < a; b++) A[a * k + b] = A[b * k + a];
+    let improved = false;
+    for (let tries = 0; tries < 12; tries++) {
+      // solve (A + lam*diag(A)) d = -g  (Cholesky-free: Gaussian elim, small k)
+      const M = Float64Array.from(A);
+      for (let a = 0; a < k; a++) M[a * k + a] += lam * Math.max(A[a * k + a], 1e-12);
+      for (let a = 0; a < k; a++) d[a] = -g[a];
+      let singular = false;
+      for (let c = 0; c < k; c++) {
+        let piv = c;
+        for (let rr = c + 1; rr < k; rr++) if (Math.abs(M[rr * k + c]) > Math.abs(M[piv * k + c])) piv = rr;
+        if (Math.abs(M[piv * k + c]) < 1e-300) { singular = true; break; }
+        if (piv !== c) {
+          for (let cc = 0; cc < k; cc++) { const t = M[c * k + cc]; M[c * k + cc] = M[piv * k + cc]; M[piv * k + cc] = t; }
+          const t = d[c]; d[c] = d[piv]; d[piv] = t;
+        }
+        for (let rr = c + 1; rr < k; rr++) {
+          const fmul = M[rr * k + c] / M[c * k + c];
+          if (fmul !== 0) {
+            for (let cc = c; cc < k; cc++) M[rr * k + cc] -= fmul * M[c * k + cc];
+            d[rr] -= fmul * d[c];
+          }
+        }
+      }
+      if (!singular) {
+        for (let c = k - 1; c >= 0; c--) {
+          let s2 = d[c];
+          for (let cc = c + 1; cc < k; cc++) s2 -= M[c * k + cc] * d[cc];
+          d[c] = s2 / M[c * k + c];
+        }
+        for (let j = 0; j < k; j++) uTry[j] = u[j] + Math.max(-20, Math.min(20, d[j]));
+        const Snew = sse(uTry);
+        if (isFinite(Snew) && Snew < S) {
+          u.set(uTry);
+          const rel = (S - Snew) / Math.max(S, 1e-300);
+          S = Snew;
+          lam = Math.max(lam * 0.3, 1e-12);
+          improved = true;
+          if (rel < 1e-12) it = 1e9;   // converged
+          break;
+        }
+      }
+      lam *= 2.5;
+      if (lam > 1e10) break;
+    }
+    if (!improved) break;
+  }
+  return { theta: theta(u), ssew: S, iters: Math.min(it, 120), ok: true };
+}
+
+/* ---------- assemble residual function for a dataset/mode ---------- */
+function buildProblem(modelId, model, data, mode, weighting) {
+  // data: {p:[], q:[], T:[]}; mode: "single" | "global"
+  const N = data.p.length;
+  const w = makeWeights(data.q, weighting);
+  const stats = dataStats(data.p, data.q);
+  let f = model.f, pn = model.pnames, init, lo, hi, vhInfo = null;
+  const [bLo, bHi] = model.bounds ? model.bounds(stats) : [null, null];
+  if (mode === "global" && model.vh !== "intrinsic" && model.vh) {
+    // replace each vh param b -> b0*exp(U/RT): vector = base params with each
+    // vh slot expanded to [b0, U]; map at eval time
+    const baseInit = model.init(stats);
+    const Tmid = data.T.reduce((a, b) => a + b, 0) / N;
+    pn = []; init = []; lo = []; hi = [];
+    const slots = [];   // for each base param: {idx in new vec, isVH}
+    model.pnames.forEach((nm, j) => {
+      if (model.vh.includes(j)) {
+        slots.push({ j0: init.length, vh: true });
+        pn.push(nm + "0", "U_" + nm + " (J/mol)");
+        const U0 = 25000;
+        init.push(baseInit[j] / Math.exp(U0 / (R_GAS * Tmid)), U0);
+        lo.push(1e-15, 1e3); hi.push(1e6, 1.5e5);
+      } else {
+        slots.push({ j0: init.length, vh: false });
+        pn.push(nm);
+        init.push(baseInit[j]); lo.push(bLo[j]); hi.push(bHi[j]);
+      }
+    });
+    vhInfo = { slots, base: model };
+    f = (th, p, T) => {
+      const bth = slots.map(sl => sl.vh ? th[sl.j0] * Math.exp(th[sl.j0 + 1] / (R_GAS * T)) : th[sl.j0]);
+      return model.f(bth, p, T);
+    };
+  } else {
+    init = model.init(stats); lo = bLo; hi = bHi;
+  }
+  const resFun = (th, out) => {
+    for (let i = 0; i < N; i++)
+      out[i] = w[i] * (f(th, data.p[i], data.T[i]) - data.q[i]);
+  };
+  return { f, pn, init, lo, hi, resFun, N, w, stats, vhInfo };
+}
+
+/* ---------- multi-start driver + statistics ---------- */
+function fitModel(modelId, data, opts) {
+  opts = opts || {};
+  const weighting = opts.weighting || "rel";
+  const mode = opts.mode || "single";
+  const model = modelId === "custom"
+    ? Object.assign({}, FIT_MODELS.custom, opts.custom)
+    : FIT_MODELS[modelId];
+  if (!model.f) return null;
+  let prob;
+  if (modelId === "custom") {
+    const k = model.pnames.length;
+    const w = makeWeights(data.q, weighting);
+    prob = {
+      f: model.f, pn: model.pnames,
+      init: model.pnames.map(() => 1),
+      lo: model.pnames.map(() => -1e6), hi: model.pnames.map(() => 1e6),
+      resFun: (th, out) => {
+        for (let i = 0; i < data.p.length; i++)
+          out[i] = w[i] * (model.f(th, data.p[i], data.T[i]) - data.q[i]);
+      },
+      N: data.p.length, w, stats: dataStats(data.p, data.q), vhInfo: null
+    };
+  } else prob = buildProblem(modelId, model, data, mode, weighting);
+  const k = prob.init.length;
+  if (prob.N < k + 2) return { modelId, error: "too few points (" + prob.N + ") for " + k + " parameters" };
+  // multi-start
+  const starts = [prob.init];
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let s = 0; s < (opts.nStarts || 7); s++)
+    starts.push(prob.init.map((v, j) => {
+      const span = prob.hi[j] - prob.lo[j];
+      if (prob.lo[j] > 0 || modelId !== "custom") {
+        const vv = v * Math.pow(10, 2 * rnd() - 1);
+        return Math.min(prob.hi[j] - 1e-12 * span, Math.max(prob.lo[j] + 1e-12 * span, vv));
+      }
+      return v + (2 * rnd() - 1) * Math.max(1, Math.abs(v));
+    }));
+  let best = null;
+  for (const th0 of starts) {
+    const r = lmFit(prob.resFun, prob.N, th0, prob.lo, prob.hi, opts);
+    if (r.ok && (!best || r.ssew < best.ssew)) best = r;
+  }
+  if (!best) return { modelId, error: "fit failed" };
+  // statistics
+  const th = best.theta;
+  const N = prob.N;
+  const rr = new Float64Array(N);
+  prob.resFun(th, rr);
+  let sseU = 0, sst = 0, qbar = 0;
+  data.q.forEach(v => qbar += v / N);
+  for (let i = 0; i < N; i++) {
+    const qm = prob.f(th, data.p[i], data.T[i]);
+    sseU += (qm - data.q[i]) ** 2;
+    sst += (data.q[i] - qbar) ** 2;
+  }
+  const rmse = Math.sqrt(sseU / N);
+  const r2 = 1 - sseU / Math.max(sst, 1e-300);
+  const aicc = (N - k - 1 > 0)
+    ? N * Math.log(best.ssew / N) + 2 * k + 2 * k * (k + 1) / (N - k - 1)
+    : Infinity;
+  // CI via weighted Jacobian in theta space
+  const Jt = new Float64Array(N * k), rB = new Float64Array(N);
+  for (let j = 0; j < k; j++) {
+    const dth = 1e-6 * Math.max(Math.abs(th[j]), 1e-12);
+    const ths = th.slice(); ths[j] += dth;
+    prob.resFun(ths, rB);
+    for (let i = 0; i < N; i++) Jt[i * k + j] = (rB[i] - rr[i]) / dth;
+  }
+  const AtA = [];
+  for (let a = 0; a < k; a++) {
+    AtA.push([]);
+    for (let b = 0; b < k; b++) {
+      let s = 0;
+      for (let i = 0; i < N; i++) s += Jt[i * k + a] * Jt[i * k + b];
+      AtA[a].push(s);
+    }
+  }
+  const cov = invSym(AtA);
+  let ci = null, corrWarn = [];
+  if (cov) {
+    const s2 = best.ssew / Math.max(N - k, 1);
+    ci = th.map((v, j) => 1.96 * Math.sqrt(Math.max(cov[j][j] * s2, 0)));
+    for (let a = 0; a < k; a++)
+      for (let b = a + 1; b < k; b++) {
+        const rho = cov[a][b] / Math.sqrt(Math.max(cov[a][a] * cov[b][b], 1e-300));
+        if (Math.abs(rho) > 0.98)
+          corrWarn.push(prob.pn[a] + "–" + prob.pn[b] + " " + (100 * Math.abs(rho)).toFixed(1) + "% correlated");
+      }
+  }
+  return { modelId, label: model.label, pn: prob.pn, theta: th, ci, corrWarn,
+           ssew: best.ssew, sseU, rmse, r2, aicc, k, N, iters: best.iters,
+           f: prob.f, mode, weighting, stats: prob.stats, vhInfo: prob.vhInfo };
+}
+
+function invSym(A) {
+  const k = A.length;
+  const M = A.map((row, i) => row.concat(Array.from({ length: k }, (_, j) => i === j ? 1 : 0)));
+  for (let c = 0; c < k; c++) {
+    let piv = c;
+    for (let r = c + 1; r < k; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+    if (Math.abs(M[piv][c]) < 1e-300) return null;
+    [M[c], M[piv]] = [M[piv], M[c]];
+    const dv = M[c][c];
+    for (let cc = 0; cc < 2 * k; cc++) M[c][cc] /= dv;
+    for (let r = 0; r < k; r++) {
+      if (r === c) continue;
+      const fmul = M[r][c];
+      if (fmul !== 0) for (let cc = 0; cc < 2 * k; cc++) M[r][cc] -= fmul * M[c][cc];
+    }
+  }
+  return M.map(row => row.slice(k));
+}
+
+/* ---------- isosteric heat from a global fit: qst(q) = -R dlnp/d(1/T) ---- */
+function isostericHeat(fitRes, data, nq) {
+  if (!fitRes || fitRes.mode !== "global") return null;
+  const Tmid = data.T.reduce((a, b) => a + b, 0) / data.T.length;
+  const T1 = Tmid - 10, T2 = Tmid + 10;
+  const pmax = Math.max(...data.p);
+  const f = fitRes.f, th = fitRes.theta;
+  const qcap = Math.min(f(th, pmax * 10, Tmid), f(th, pmax * 10, T2));
+  const out = { q: [], qst: [] };
+  const solveP = (q, T) => {
+    let lo = 1e-12, hi = pmax * 10;
+    if (f(th, hi, T) < q) return NaN;
+    for (let it = 0; it < 80; it++) {
+      const m = Math.sqrt(lo * hi);
+      if (f(th, m, T) < q) lo = m; else hi = m;
+    }
+    return Math.sqrt(lo * hi);
+  };
+  for (let i = 1; i <= (nq || 40); i++) {
+    const q = qcap * i / ((nq || 40) + 1) * 0.95;
+    const p1 = solveP(q, T1), p2 = solveP(q, T2);
+    if (!isFinite(p1) || !isFinite(p2) || p1 <= 0 || p2 <= 0) continue;
+    const qst = R_GAS * Math.log(p2 / p1) / (1 / T1 - 1 / T2);
+    out.q.push(q); out.qst.push(qst / 1000);   // kJ/mol
+  }
+  return out;
+}
+
+/* ---------- model-free isosteric heat from the raw data ----------
+   For each loading level q in the range covered by >=2 temperature groups,
+   interpolate ln p LINEARLY in q within each group (standard practice —
+   far better behaved than interpolating p on the steep branch), then
+   qst = -R * slope of ln p vs 1/T (least squares across groups). kJ/mol. */
+function expIsostericHeat(data, nq) {
+  const Tg = [...new Set(data.T.map(v => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+  if (Tg.length < 2) return null;
+  const groups = Tg.map(Tv => {
+    const idx = [];
+    for (let i = 0; i < data.T.length; i++)
+      if (Math.abs(data.T[i] - Tv) < 0.05 && data.p[i] > 0 && data.q[i] > 0) idx.push(i);
+    idx.sort((a, b) => data.p[a] - data.p[b]);
+    return { T: Tv, p: idx.map(i => data.p[i]), q: idx.map(i => data.q[i]) };
+  }).filter(gr => gr.p.length >= 2);
+  if (groups.length < 2) return null;
+  let qlo = 0, qhi = Infinity;
+  groups.forEach(gr => {
+    qlo = Math.max(qlo, Math.min.apply(null, gr.q));
+    qhi = Math.min(qhi, Math.max.apply(null, gr.q));
+  });
+  if (!(qhi > qlo)) return null;
+  const lnPat = (gr, qv) => {
+    for (let i = 1; i < gr.q.length; i++) {
+      const a = gr.q[i - 1], b = gr.q[i];
+      if ((a - qv) * (b - qv) <= 0 && a !== b) {
+        const w = (qv - a) / (b - a);
+        return Math.log(gr.p[i - 1]) + w * (Math.log(gr.p[i]) - Math.log(gr.p[i - 1]));
+      }
+    }
+    return NaN;
+  };
+  const out = { q: [], qst: [] };
+  const NQ = nq || 25;
+  for (let k = 1; k <= NQ; k++) {
+    const qv = qlo + (qhi - qlo) * k / (NQ + 1);
+    const xs = [], ys = [];
+    for (const gr of groups) {
+      const lp = lnPat(gr, qv);
+      if (isFinite(lp)) { xs.push(1 / gr.T); ys.push(lp); }
+    }
+    if (xs.length < 2) continue;
+    const n = xs.length;
+    let sx = 0, sy = 0, sxy = 0, sxx = 0;
+    for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxy += xs[i] * ys[i]; sxx += xs[i] * xs[i]; }
+    const den = n * sxx - sx * sx;
+    if (Math.abs(den) < 1e-300) continue;
+    const slope = (n * sxy - sx * sy) / den;
+    out.q.push(qv);
+    out.qst.push(-R_GAS * slope / 1000);
+  }
+  return out.q.length ? out : null;
+}
+
+if (typeof globalThis !== "undefined") {
+  globalThis.IFIT = { FIT_MODELS, compileCustom, dataStats, makeWeights,
+                      lmFit, fitModel, isostericHeat, expIsostericHeat, R_GAS };
+}
+
+</script>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const E = globalThis.IFIT;
+  const LSKEY = "isofit_v1";
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const MCOL = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
+  const TCOL = ["#64748b", "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed"];
+
+  const st = {
+    raw: "", pu: "bar", qu: "molkg", M: 44.01, Tdef: 298.15,
+    wt: "rel", mt: "perT", expr: "", xax: "log",
+    checked: [], sel: null, excluded: [], hidden: [], hiddenT: []
+  };
+  try { const s = JSON.parse(localStorage.getItem(LSKEY)); if (s && typeof s === "object") Object.assign(st, s); } catch (e) {}
+  function saveLS() { try { localStorage.setItem(LSKEY, JSON.stringify(st)); } catch (e) {} }
+
+  let data = null;       // {p[], q[], T[], Tgroups[]} x-basis / mol/kg / K
+  let results = [];      // ranked fit results
+  let qstData = null;    // model-based qst (selected global fit)
+  let expQst = null;     // model-free qst from the raw data (>=2 temperatures)
+
+  /* ---------- parsing + units ---------- */
+  const PFAC = { bar: 1, kPa: 0.01, Pa: 1e-5, MPa: 10, atm: 1.01325, mmHg: 0.00133322 };
+  const CONC = ["molm3", "molL", "gL"];
+  const isConc = () => CONC.includes(st.pu);
+  const xUnit = () => isConc() ? ({ molm3: "mol/m\u00b3", molL: "mol/L", gL: "g/L" })[st.pu] : "bar";
+  const xSym = () => isConc() ? "c" : "p";
+  function qToMolKg(v) {
+    switch (st.qu) {
+      case "molkg": return v;
+      case "mmolkg": return v * 1e-3;
+      case "cm3g": return v / 22.414;          // cm3 STP/g -> mmol/g = mol/kg
+      case "mgg": return v / st.M;
+      case "wt": return 10 * v / st.M;
+      default: return v;
+    }
+  }
+  function parseData() {
+    const lines = st.raw.split(/\n/);
+    const rows = [];
+    for (const ln of lines) {
+      const toks = ln.trim().split(/[\s,;\t]+/).filter(t => t.length);
+      if (!toks.length) continue;
+      const nums = toks.map(parseFloat);
+      if (nums.some(v => !isFinite(v))) continue;     // header/comment line
+      if (nums.length >= 3) rows.push([nums[0], nums[1], nums[2]]);
+      else if (nums.length === 2) rows.push([st.Tdef, nums[0], nums[1]]);
+    }
+    if (rows.length < 3) return null;
+    const ncol3 = rows.length;
+    const p = [], q = [], T = [];
+    rows.forEach(([Tv, pv, qv], i) => {
+      if (st.excluded.includes(i)) return;
+      const pb = isConc() ? pv : pv * PFAC[st.pu];   // concentration: fitted as entered
+      const qm = qToMolKg(qv);
+      if (pb > 0 && qm >= 0 && Tv > 0) { p.push(pb); q.push(qm); T.push(Tv); }
+    });
+    if (p.length < 3) return null;
+    const Tgroups = [...new Set(T.map(v => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+    return { p, q, T, Tgroups, nRows: rows.length, rows };
+  }
+
+  /* ---------- fitting ---------- */
+  const IDS = Object.keys(E.FIT_MODELS).filter(k => k !== "custom");
+  function fitAll() {
+    results = [];
+    qstData = null;
+    if (!data) return;
+    const multiT = data.Tgroups.length > 1;
+    const mode = multiT ? st.mt : "perT";
+    const t0 = performance.now();
+    let custom = null;
+    if (st.expr.trim()) {
+      try { custom = E.compileCustom(st.expr.trim()); $("if-err").classList.remove("show"); }
+      catch (e) { showErr("Custom model: " + e); }
+    }
+    const list = IDS.slice();
+    if (custom) list.push("custom");
+    for (const id of list) {
+      const opts = { weighting: st.wt, nStarts: 8 };
+      if (id === "custom") opts.custom = custom;
+      let agg = null;
+      if (mode === "global" && id !== "custom") {
+        const r = E.fitModel(id, data, Object.assign({ mode: "global", nStarts: 12 }, opts));
+        if (r && !r.error) agg = { id, label: r.label, global: r, perT: null,
+          ssew: r.ssew, k: r.k, N: r.N, rmse: r.rmse, r2: r.r2, aicc: r.aicc,
+          warns: r.corrWarn || [] };
+      } else if (mode === "global" && id === "custom") {
+        const r = E.fitModel(id, data, opts);
+        if (r && !r.error) agg = { id, label: "Custom", global: r, perT: null,
+          ssew: r.ssew, k: r.k, N: r.N, rmse: r.rmse, r2: r.r2, aicc: r.aicc,
+          warns: r.corrWarn || [] };
+      } else {
+        // per-T: independent fit for each temperature group
+        const per = [];
+        let ssew = 0, sseU = 0, N = 0, kTot = 0, warns = [];
+        let okAll = true;
+        for (const Tg of data.Tgroups) {
+          const idx = data.T.map((v, i) => [v, i]).filter(([v]) => Math.abs(v - Tg) < 0.05).map(([, i]) => i);
+          const sub = { p: idx.map(i => data.p[i]), q: idx.map(i => data.q[i]), T: idx.map(i => data.T[i]) };
+          const r = E.fitModel(id, sub, opts);
+          if (!r || r.error) { okAll = false; break; }
+          per.push({ T: Tg, r });
+          ssew += r.ssew; sseU += r.sseU; N += r.N; kTot += r.k;
+          (r.corrWarn || []).forEach(w => warns.push(Tg.toFixed(0) + " K: " + w));
+        }
+        if (okAll && per.length) {
+          const aicc = (N - kTot - 1 > 0)
+            ? N * Math.log(ssew / N) + 2 * kTot + 2 * kTot * (kTot + 1) / (N - kTot - 1)
+            : Infinity;
+          let sst = 0, qbar = data.q.reduce((a, b) => a + b, 0) / data.q.length;
+          data.q.forEach(v => sst += (v - qbar) ** 2);
+          agg = { id, label: per[0].r.label, global: null, perT: per,
+            ssew, k: kTot, N, rmse: Math.sqrt(sseU / N), r2: 1 - sseU / Math.max(sst, 1e-300),
+            aicc, warns };
+        }
+      }
+      if (agg) results.push(agg);
+    }
+    results.sort((a, b) => a.aicc - b.aicc);
+    const ms = performance.now() - t0;
+    // default overlay: top 5
+    if (!st.checked.length || !st.checked.some(id => results.find(r => r.id === id)))
+      st.checked = results.slice(0, 5).map(r => r.id);
+    if (!st.sel || !results.find(r => r.id === st.sel)) st.sel = results.length ? results[0].id : null;
+    // qst for selected global fit + model-free qst from the data
+    computeQst();
+    expQst = data.Tgroups.length > 1 ? E.expIsostericHeat(data, 25) : null;
+    $("if-status").innerHTML = "<b>" + data.p.length + "</b> points" +
+      (data.Tgroups.length > 1 ? " at <b>" + data.Tgroups.length + "</b> temperatures (" +
+        data.Tgroups.map(v => v.toFixed(1)).join(", ") + " K), mode: <b>" +
+        (mode === "global" ? "global van 't Hoff" : "per-temperature") + "</b>" : "") +
+      " &middot; weighting: <b>" + st.wt + "</b> &middot; fitted <b>" + results.length +
+      "</b> models in " + ms.toFixed(0) + " ms" +
+      (isConc() ? " &middot; <b>concentration basis</b> (values fitted as entered; a global-fit U is the c-basis internal energy)" : "");
+    return ms;
+  }
+  function computeQst() {
+    qstData = null;
+    const R = results.find(r => r.id === st.sel);
+    if (R && R.global && R.global.mode === "global")
+      qstData = E.isostericHeat(R.global, data, 40);
+  }
+
+  /* ---------- model evaluation for plots ---------- */
+  function evalModel(R, p, T) {
+    if (R.global) return R.global.f(R.global.theta, p, T);
+    // per-T: nearest temperature group
+    let best = R.perT[0], d = Infinity;
+    for (const e of R.perT) if (Math.abs(e.T - T) < d) { d = Math.abs(e.T - T); best = e; }
+    return best.r.f(best.r.theta, p, T);
+  }
+
+  /* ---------- UI: results table + details ---------- */
+  const fmtg = (v, d) => !isFinite(v) ? "∞" : (+v.toPrecision(d || 4)).toString();
+  function renderTable() {
+    const tb = $("if-restable");
+    if (!results.length) { tb.innerHTML = ""; return; }
+    const best = results[0].aicc;
+    let h = "<tr><th></th><th>#</th><th>model</th><th>k</th><th>RMSE (mol/kg)</th><th>R²</th><th>AICc</th><th>ΔAICc</th><th></th></tr>";
+    results.forEach((r, i) => {
+      h += "<tr data-id='" + r.id + "'" + (r.id === st.sel ? " class='sel'" : "") + ">" +
+        "<td><input type='checkbox' data-ck='" + r.id + "'" + (st.checked.includes(r.id) ? " checked" : "") + "></td>" +
+        "<td class='" + (i === 0 ? "rankbest" : "") + "'>" + (i + 1) + "</td>" +
+        "<td>" + r.label + "</td><td>" + r.k + "</td>" +
+        "<td>" + fmtg(r.rmse, 4) + "</td><td>" + (r.r2 < -9 ? "–" : r.r2.toFixed(5)) + "</td>" +
+        "<td>" + (isFinite(r.aicc) ? r.aicc.toFixed(1) : "∞") + "</td>" +
+        "<td>" + (isFinite(r.aicc) ? (r.aicc - best).toFixed(1) : "∞") + "</td>" +
+        "<td class='warnchip'>" + (r.warns.length ? "⚠ " + r.warns.length : "") + "</td></tr>";
+    });
+    tb.innerHTML = h;
+    tb.querySelectorAll("input[type=checkbox]").forEach(ck => {
+      ck.addEventListener("click", ev => {
+        ev.stopPropagation();
+        const id = ck.dataset.ck;
+        if (ck.checked) { if (!st.checked.includes(id)) st.checked.push(id); }
+        else st.checked = st.checked.filter(x => x !== id);
+        saveLS(); drawMain();
+      });
+    });
+    tb.querySelectorAll("tr[data-id]").forEach(tr => {
+      tr.addEventListener("click", () => {
+        st.sel = tr.dataset.id;
+        saveLS(); computeQst(); renderTable(); renderDetail(); drawAll();
+      });
+    });
+  }
+
+  const FR = (a, b) => '<span class="frac"><span class="fn">' + a + '</span><span class="fd">' + b + '</span></span>';
+  const g5 = v => (+(+v).toPrecision(5)).toString();
+  function numFormula(id, th) {
+    const t = th.map(g5);
+    switch (id) {
+      case "linear": return t[0] + "·p";
+      case "langmuir": return FR(t[0] + "·" + t[1] + "·p", "1 + " + t[1] + "·p");
+      case "dsl": return FR(t[0] + "·" + t[1] + "·p", "1 + " + t[1] + "·p") + " + " + FR(t[2] + "·" + t[3] + "·p", "1 + " + t[3] + "·p");
+      case "tsl": return FR(t[0] + "·" + t[1] + "·p", "1 + " + t[1] + "·p") + " + " + FR(t[2] + "·" + t[3] + "·p", "1 + " + t[3] + "·p") + " + " + FR(t[4] + "·" + t[5] + "·p", "1 + " + t[5] + "·p");
+      case "antilang": return FR(t[0] + "·" + t[1] + "·p", "1 − " + t[1] + "·p");
+      case "quad": return FR(t[0] + "·p·(" + t[1] + " + 2·" + t[2] + "·p)", "1 + " + t[1] + "·p + " + t[2] + "·p<sup>2</sup>");
+      case "sips": return FR(t[0] + "·(" + t[1] + "·p)<sup>" + t[2] + "</sup>", "1 + (" + t[1] + "·p)<sup>" + t[2] + "</sup>");
+      case "dss": return FR(t[0] + "·(" + t[1] + "·p)<sup>" + t[2] + "</sup>", "1 + (" + t[1] + "·p)<sup>" + t[2] + "</sup>") + " + " + FR(t[3] + "·(" + t[4] + "·p)<sup>" + t[5] + "</sup>", "1 + (" + t[4] + "·p)<sup>" + t[5] + "</sup>");
+      case "toth": return FR(t[0] + "·" + t[1] + "·p", "[1 + (" + t[1] + "·p)<sup>" + t[2] + "</sup>]<sup>1/" + t[2] + "</sup>");
+      case "freundlich": return t[0] + "·p<sup>1/" + t[1] + "</sup>";
+      case "bet": return FR(t[0] + "·" + t[1] + "·p", "(1 − " + t[2] + "·p)·(1 − " + t[2] + "·p + " + t[1] + "·p)");
+      case "typev": return FR(t[0] + "·" + t[1] + "·p", "1 + " + t[1] + "·p") + " + " + FR(t[2] + "·(" + t[3] + "·p)<sup>" + t[4] + "</sup>", "1 + (" + t[3] + "·p)<sup>" + t[4] + "</sup>");
+      case "unilan": return FR(t[0], "2·" + t[2]) + " ln" + FR("1 + " + t[1] + "·e<sup>" + t[2] + "</sup>·p", "1 + " + t[1] + "·e<sup>−" + t[2] + "</sup>·p");
+      case "temkin": return t[0] + "·ln(1 + " + t[1] + "·p)";
+      case "da": return t[0] + "·exp[−(RT·ln(" + t[3] + "/p)/" + g5(1000 * th[1]) + ")<sup>" + t[2] + "</sup>]";
+      default: return "";
+    }
+  }
+  const SUITE_IDS = ["linear", "langmuir", "dsl", "antilang", "quad", "sips", "toth", "freundlich", "bet", "typev"];
+  const HO_URL = {
+    iast1: ["../IAST/IAST.html", 1], iast2: ["../IAST/IAST.html", 2],
+    uc: ["../UptakeCurves/UptakeCurves.html", 1],
+    chrom: ["../EquilibriumChromatography/EquilibriumChromatography.html", 1],
+    pulse: ["../EquilibriumChromatographyPulse/EquilibriumChromatographyPulse.html", 1],
+    sys1: ["../EquilibriumChromatographySystems/EquilibriumChromatographySystems.html", 1],
+    sys2: ["../EquilibriumChromatographySystems/EquilibriumChromatographySystems.html", 2]
+  };
+  function baseThetaAt(R, Tsel) {
+    if (R.global) {
+      const gl = R.global;
+      if (gl.vhInfo)
+        return gl.vhInfo.slots.map(sl => sl.vh
+          ? gl.theta[sl.j0] * Math.exp(gl.theta[sl.j0 + 1] / (E.R_GAS * Tsel))
+          : gl.theta[sl.j0]);
+      return gl.theta.slice();
+    }
+    let best = R.perT[0], d = Infinity;
+    for (const e of R.perT) if (Math.abs(e.T - Tsel) < d) { d = Math.abs(e.T - Tsel); best = e; }
+    return best.r.theta.slice();
+  }
+  function handOff(R, key) {
+    const [url, slot] = HO_URL[key];
+    const TselEl = document.getElementById("if-hoT");
+    const Tsel = TselEl ? parseFloat(TselEl.value) : (data.Tgroups[0] || 298.15);
+    const th = baseThetaAt(R, Tsel);
+    const pn = E.FIT_MODELS[R.id].pnames;
+    const pvals = {};
+    pn.forEach((nm, j) => pvals[nm] = +th[j].toPrecision(8));
+    const note = "Isotherm Fitter: " + R.label + " (x in " + xUnit() + ", q in mol/kg" +
+                 (data.Tgroups.length > 1 ? ", at " + Tsel + " K" : "") + ")";
+    const payload = { v: 1, model: R.id, pvals, slot, note };
+    window.open(url + "#import=" + encodeURIComponent(JSON.stringify(payload)), "_blank");
+  }
+  function handOffBaam(R, which) {
+    // which: "co2" | "n2". langmuir/dsl -> BAAM extended-DSL slot (b in m3/mol,
+    // van 't Hoff preserved for global c-basis fits; p-basis converted with
+    // U_c = U_p - R*Tmean); other p-basis suite models -> BAAM IAST slot.
+    const url = "../BAAM/BAAM.html";
+    const TselEl = document.getElementById("if-hoT");
+    const Tsel = TselEl ? parseFloat(TselEl.value) : (data.Tgroups[0] || 298.15);
+    const RB = 8.314e-5, RG = E.R_GAS;
+    const conc = isConc();
+    const note = "Isotherm Fitter: " + R.label + " (x in " + (conc ? xUnit() : "bar") + ")";
+    if (R.id === "langmuir" || R.id === "dsl") {
+      let fac;                                  // affinity unit -> m3/mol
+      if (!conc) fac = RB * Tsel;
+      else if (st.pu === "molm3") fac = 1;
+      else if (st.pu === "molL") fac = 1e-3;
+      else { alert("g/L basis needs a molar mass — refit in mol/m³ or mol/L to hand off to BAAM."); return; }
+      const gl = (R.global && R.global.vhInfo && R.global.mode === "global") ? R.global : null;
+      const Tmean = data.T.reduce((a, b) => a + b, 0) / data.T.length;
+      const get = gl
+        ? i => { const sl = gl.vhInfo.slots[i]; return sl.vh
+            ? { b0: gl.theta[sl.j0], U: gl.theta[sl.j0 + 1] } : { v: gl.theta[sl.j0] }; }
+        : (th => (i => ({ v: th[i] })))(baseThetaAt(R, Tsel));
+      const site = (qsI, bI) => {
+        const qs = get(qsI).v, b = get(bI);
+        if (b.b0 !== undefined) {               // van 't Hoff pair preserved
+          let b0c, Uc;
+          if (conc) { b0c = b.b0 * fac; Uc = b.U; }
+          else { Uc = b.U - RG * Tmean; b0c = b.b0 * RB * Tmean * Math.E; }
+          return { qs, b0: b0c, dU: -Uc };
+        }
+        return { qs, b0: b.v * fac, dU: 0 };    // pinned at Tsel
+      };
+      const sA = site(0, 1);
+      const sB = R.id === "dsl" ? site(2, 3) : { qs: 0, b0: 0, dU: 0 };
+      const payload = { v: 1, app: "baam", mode: "edsl", slot: which,
+        pvals: { qsb: +sA.qs.toPrecision(8), b0: +sA.b0.toPrecision(8), dUb: +sA.dU.toPrecision(8),
+                 qsd: +sB.qs.toPrecision(8), d0: +sB.b0.toPrecision(8), dUd: +sB.dU.toPrecision(8) },
+        note };
+      if (!gl) payload.T = Tsel;               // pin BAAM's T when no vh info
+      window.open(url + "#import=" + encodeURIComponent(JSON.stringify(payload)), "_blank");
+    } else {                                    // p-basis IAST-style payload
+      const th = baseThetaAt(R, Tsel);
+      const pvals = {};
+      E.FIT_MODELS[R.id].pnames.forEach((nm, j) => pvals[nm] = +th[j].toPrecision(8));
+      const payload = { v: 1, model: R.id, pvals,
+        slot: which === "co2" ? "comp1" : "comp2",
+        note: note + (data.Tgroups.length > 1 ? ", at " + Tsel + " K" : "") };
+      window.open(url + "#import=" + encodeURIComponent(JSON.stringify(payload)), "_blank");
+    }
+  }
+  function renderDetail() {
+    const el = $("if-detail");
+    const R = results.find(r => r.id === st.sel);
+    if (!R) { el.innerHTML = ""; return; }
+    let h = "<b>" + R.label + "</b> — RMSE " + fmtg(R.rmse, 4) + " mol/kg · R² " + R.r2.toFixed(5) +
+            " · AICc " + (isFinite(R.aicc) ? R.aicc.toFixed(1) : "∞");
+    if (R.warns.length) h += "<br><span class='warnchip'>⚠ " + R.warns.join(" · ") + "</span>";
+    const paramRows = (pn, th, ci) => {
+      let s = "<table><tr><th>parameter</th><th>value</th><th>&plusmn;95% CI</th></tr>";
+      pn.forEach((nm, j) => {
+        s += "<tr><td>" + nm + "</td><td>" + fmtg(th[j], 6) + "</td><td>" +
+             (ci && isFinite(ci[j]) ? "±" + fmtg(ci[j], 3) : "–") + "</td></tr>";
+      });
+      return s + "</table>";
+    };
+    if (R.global) {
+      let fh = R.id === "custom" ? st.expr : "";
+      if (R.id !== "custom" && R.global.vhInfo) {
+        // numeric formula at the mean temperature: b(T) = b0 exp(U/RT)
+        const Tref = data.T.reduce((a, b) => a + b, 0) / data.T.length;
+        const bth = R.global.vhInfo.slots.map(sl => sl.vh
+          ? R.global.theta[sl.j0] * Math.exp(R.global.theta[sl.j0 + 1] / (E.R_GAS * Tref))
+          : R.global.theta[sl.j0]);
+        fh = numFormula(R.id, bth) + "&nbsp; <span style='font-size:0.75em'>(evaluated at " + Tref.toFixed(1) + " K)</span>";
+      } else if (R.id !== "custom") {
+        fh = numFormula(R.id, R.global.theta);
+      }
+      h += "<div class='formula'>q(p) = " + fh + "</div>";
+      h += paramRows(R.global.pn, R.global.theta, R.global.ci);
+      if (R.global.mode === "global")
+        h += "<span style='color:var(--muted)'>ΔH<sub>ads</sub> = −U; b(T) = b₀e<sup>U/RT</sup>. Units: q mol/kg, p bar, U J/mol.</span>";
+    } else {
+      const one = R.perT[0];
+      h += "<div class='formula'>q(p) = " + numFormula(R.id, one.r.theta) +
+           (R.perT.length > 1 ? "&nbsp; <span style='font-size:0.75em'>(at " + one.T.toFixed(1) + " K)</span>" : "") + "</div>";
+      for (const e of R.perT) {
+        if (R.perT.length > 1) h += "<b style='font-size:0.78rem'>" + e.T.toFixed(2) + " K</b>";
+        h += paramRows(e.r.pn, e.r.theta, e.r.ci);
+      }
+    }
+    // suite hand-off
+    let hand = "";
+    if (SUITE_IDS.includes(R.id)) {
+      const th = R.global ? R.global.theta : R.perT[0].r.theta;
+      const pn = R.global ? R.global.pn : R.perT[0].r.pn;
+      const obj = {};
+      pn.forEach((nm, j) => obj[nm.replace(/ .*/, "")] = +th[j].toPrecision(6));
+      hand = "Suite parameters (IAST / Uptake Curves / chromatography; p in bar, q in mol/kg):\n" +
+             "model: " + R.id + "\n" + JSON.stringify(obj, null, 0);
+    } else {
+      const th = R.global ? R.global.theta : R.perT[0].r.theta;
+      const pn = R.global ? R.global.pn : R.perT[0].r.pn;
+      hand = "model: " + R.id + "\n" +
+             pn.map((nm, j) => nm + " = " + th[j].toPrecision(8)).join("\n");
+    }
+    h += "<pre class='handoff' id='if-hand'>" + hand.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>" +
+         "<button class='action' id='if-copy' style='font-size:0.75rem; padding:4px 9px'>Copy parameters</button>";
+    // one-click hand-off to sibling apps (URL-hash import)
+    const IAST_OK = ["linear", "langmuir", "dsl", "antilang", "quad", "sips", "toth", "freundlich", "bet", "typev"];
+    const YB_OK = ["linear", "langmuir", "dsl", "antilang", "quad", "sips", "typev", "bet"];
+    const targets = [];
+    if (!isConc()) {
+      if (IAST_OK.includes(R.id)) targets.push(["iast1", "&rarr; IAST comp 1"], ["iast2", "&rarr; IAST comp 2"]);
+      if (YB_OK.includes(R.id)) targets.push(["uc", "&rarr; Uptake Curves"]);
+    } else {
+      if (YB_OK.includes(R.id)) targets.push(["chrom", "&rarr; Chromatography"], ["pulse", "&rarr; Pulse"]);
+      if (R.id === "langmuir") targets.push(["sys1", "&rarr; 2&times;2 Systems A"], ["sys2", "&rarr; 2&times;2 Systems B"]);
+    }
+    if ((R.id === "langmuir" || R.id === "dsl") && (!isConc() || st.pu === "molm3" || st.pu === "molL"))
+      targets.push(["baamA", "&rarr; BAAM CO&#x2082;"], ["baamB", "&rarr; BAAM N&#x2082;"]);
+    else if (!isConc() && IAST_OK.includes(R.id))
+      targets.push(["baamA", "&rarr; BAAM CO&#x2082; (IAST)"], ["baamB", "&rarr; BAAM N&#x2082; (IAST)"]);
+    if (targets.length) {
+      h += "<div class='ctrls' style='margin-top:10px'>";
+      if (data.Tgroups.length > 1)
+        h += "<label class='fld'><span>hand-off at T (K)</span><select id='if-hoT' style='font-size:0.8rem;padding:4px 6px'>" +
+             data.Tgroups.map(t => "<option>" + t + "</option>").join("") + "</select></label>";
+      h += targets.map(([k, lab]) =>
+        "<button class='action' data-ho='" + k + "' style='font-size:0.75rem;padding:4px 9px'>" + lab + "</button>").join("") +
+        "</div>";
+    }
+    el.innerHTML = h;
+    el.querySelectorAll("button[data-ho]").forEach(b =>
+      b.addEventListener("click", () => b.dataset.ho.startsWith("baam")
+        ? handOffBaam(R, b.dataset.ho === "baamA" ? "co2" : "n2")
+        : handOff(R, b.dataset.ho)));
+    const cb = $("if-copy");
+    if (cb) cb.addEventListener("click", () => {
+      navigator.clipboard.writeText($("if-hand").textContent).then(() => {
+        cb.textContent = "Copied ✓";
+        setTimeout(() => { cb.textContent = "Copy parameters"; }, 1200);
+      });
+    });
+  }
+
+  /* ---------- canvas helpers ---------- */
+  function prep(cv, hpx) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth || cv.parentElement.clientWidth - 28;
+    const h = hpx || 260;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.height = h + "px";
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, W: w, H: h };
+  }
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  function ticks(a, b, n) {
+    const span = b - a;
+    if (!(span > 0)) return [a];
+    const step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const norm = step0 / mag;
+    const step = (norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10) * mag;
+    const t = [];
+    for (let v = Math.ceil(a / step) * step; v <= b + 1e-9 * span; v += step)
+      t.push(Math.abs(v) < 1e-12 * span ? 0 : v);
+    return t;
+  }
+  function tickLabel(v) {
+    if (v === 0) return "0";
+    const a = Math.abs(v);
+    if (a >= 1e4 || a < 1e-3) return v.toExponential(0).replace("e+", "e");
+    return (+v.toPrecision(3)).toString();
+  }
+  function axes(ctx, W, H, pad, xr, yr, xlab, ylab, logx) {
+    const [x0, x1] = xr, [y0, y1] = yr;
+    const px = x => pad.l + ((logx ? Math.log10(x / x0) / Math.log10(x1 / x0) : (x - x0) / (x1 - x0))) * (W - pad.l - pad.r);
+    const py = y => H - pad.b - (y - y0) / (y1 - y0) * (H - pad.t - pad.b);
+    ctx.strokeStyle = css("--border"); ctx.lineWidth = 1;
+    ctx.fillStyle = css("--muted"); ctx.font = "10px " + FONT;
+    let xt;
+    if (logx) {
+      xt = [];
+      for (let d = Math.ceil(Math.log10(x0)); d <= Math.floor(Math.log10(x1)); d++) xt.push(Math.pow(10, d));
+      if (xt.length < 2) xt = [x0, Math.sqrt(x0 * x1), x1];
+    } else xt = ticks(x0, x1, 5);
+    const yt = ticks(y0, y1, 5);
+    ctx.beginPath();
+    xt.forEach(v => { ctx.moveTo(px(v), pad.t); ctx.lineTo(px(v), H - pad.b); });
+    yt.forEach(v => { ctx.moveTo(pad.l, py(v)); ctx.lineTo(W - pad.r, py(v)); });
+    ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    xt.forEach(v => ctx.fillText(tickLabel(v), px(v), H - pad.b + 4));
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    yt.forEach(v => ctx.fillText(tickLabel(v), pad.l - 5, py(v)));
+    ctx.strokeStyle = css("--muted");
+    ctx.strokeRect(pad.l, pad.t, W - pad.l - pad.r, H - pad.t - pad.b);
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.font = "11px " + FONT;
+    ctx.fillText(xlab, pad.l + (W - pad.l - pad.r) / 2, H - 2);
+    ctx.save();
+    ctx.translate(10, pad.t + (H - pad.t - pad.b) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textBaseline = "top";
+    ctx.fillText(ylab, 0, 0);
+    ctx.restore();
+    return { px, py };
+  }
+  const PAD = { l: 48, r: 12, t: 10, b: 32 };
+
+  /* ---------- zoom/pan machinery (plotly-style) ---------- */
+  const views = {};      // plotId -> {x0,x1,y0,y1}; absent = autoscale
+  const geo = {};        // plotId -> current axis mapping for handlers
+  function clearViews() { Object.keys(views).forEach(k => delete views[k]); }
+  function withView(id, x0, x1, y0, y1) {
+    const v = views[id];
+    return v ? [v.x0, v.x1, v.y0, v.y1] : [x0, x1, y0, y1];
+  }
+  function wireZoom(cvId, id, redraw, onClick) {
+    const cv = $(cvId);
+    let drag = null;
+    const toData = (mx, my) => {
+      const g = geo[id];
+      if (!g) return null;
+      const fx = (mx - g.pad.l) / (g.W - g.pad.l - g.pad.r);
+      const fy = 1 - (my - g.pad.t) / (g.H - g.pad.t - g.pad.b);
+      const xv = g.logx ? g.x0 * Math.pow(g.x1 / g.x0, fx) : g.x0 + fx * (g.x1 - g.x0);
+      return { xv, yv: g.y0 + fy * (g.y1 - g.y0) };
+    };
+    cv.addEventListener("pointerdown", ev => {
+      const r = cv.getBoundingClientRect();
+      drag = { x0: ev.clientX - r.left, y0: ev.clientY - r.top, moved: false };
+      try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+    });
+    cv.addEventListener("pointermove", ev => {
+      if (!drag) return;
+      const r = cv.getBoundingClientRect();
+      const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (Math.abs(mx - drag.x0) + Math.abs(my - drag.y0) > 7) drag.moved = true;
+      if (!drag.moved) return;
+      drag.x1 = mx; drag.y1 = my;
+      redraw();
+      const ctx = cv.getContext("2d");
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = css("--accent"); ctx.lineWidth = 1.2;
+      ctx.fillStyle = "rgba(96,165,250,0.08)";
+      const rx = Math.min(drag.x0, mx), ry = Math.min(drag.y0, my);
+      ctx.fillRect(rx, ry, Math.abs(mx - drag.x0), Math.abs(my - drag.y0));
+      ctx.strokeRect(rx, ry, Math.abs(mx - drag.x0), Math.abs(my - drag.y0));
+      ctx.setLineDash([]);
+    });
+    cv.addEventListener("pointerup", ev => {
+      if (!drag) return;
+      const d = drag; drag = null;
+      if (d.moved && d.x1 !== undefined) {
+        const a = toData(Math.min(d.x0, d.x1), Math.max(d.y0, d.y1));
+        const b = toData(Math.max(d.x0, d.x1), Math.min(d.y0, d.y1));
+        if (a && b && b.xv > a.xv && b.yv > a.yv) {
+          views[id] = { x0: a.xv, x1: b.xv, y0: a.yv, y1: b.yv };
+        }
+        redraw();
+      } else if (onClick) {
+        const r = cv.getBoundingClientRect();
+        onClick(ev.clientX - r.left, ev.clientY - r.top);
+      }
+    });
+    cv.addEventListener("dblclick", () => { delete views[id]; redraw(); });
+    cv.addEventListener("wheel", ev => {
+      const g = geo[id];
+      if (!g) return;
+      ev.preventDefault();
+      const r = cv.getBoundingClientRect();
+      const t = toData(ev.clientX - r.left, ev.clientY - r.top);
+      if (!t) return;
+      const f = ev.deltaY > 0 ? 1.18 : 1 / 1.18;
+      views[id] = {
+        x0: g.logx ? t.xv * Math.pow(g.x0 / t.xv, f) : t.xv + (g.x0 - t.xv) * f,
+        x1: g.logx ? t.xv * Math.pow(g.x1 / t.xv, f) : t.xv + (g.x1 - t.xv) * f,
+        y0: t.yv + (g.y0 - t.yv) * f,
+        y1: t.yv + (g.y1 - t.yv) * f
+      };
+      redraw();
+    }, { passive: false });
+  }
+
+  /* ---------- plots ---------- */
+  function tColor(T) {
+    if (!data || data.Tgroups.length <= 1) return TCOL[0];
+    return TCOL[(data.Tgroups.findIndex(v => Math.abs(v - T) < 0.05) + 1) % TCOL.length];
+  }
+  const tHidden = T => st.hiddenT.some(v => Math.abs(v - T) < 0.05);
+  let legendHits = [];
+  function drawMain() {
+    const cv = $("if-main");
+    const { ctx, W, H } = prep(cv, 380);
+    ctx.clearRect(0, 0, W, H);
+    legendHits = [];
+    if (!data) return;
+    const logx = st.xax === "log";
+    let pmin = Infinity, pmax = 0, qmax = 0;
+    data.p.forEach(v => { pmin = Math.min(pmin, v); pmax = Math.max(pmax, v); });
+    data.q.forEach(v => { qmax = Math.max(qmax, v); });
+    const [x0v, x1v, y0v, y1v] = withView("main", logx ? pmin / 2 : 0, pmax * 1.05, 0, qmax * 1.1);
+    const { px, py } = axes(ctx, W, H, PAD, [x0v, x1v], [y0v, y1v],
+                            xSym() + " (" + xUnit() + ")", "q (mol/kg)", logx);
+    geo.main = { x0: x0v, x1: x1v, y0: y0v, y1: y1v, logx, pad: PAD, W, H };
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
+    ctx.clip();
+    // curves
+    const shown = results.filter(r => st.checked.includes(r.id));
+    shown.forEach((R, mi) => {
+      if (st.hidden.includes(R.id)) return;
+      const col = MCOL[mi % MCOL.length];
+      const thick = R.id === st.sel ? 2.4 : 1.5;
+      for (const Tg of data.Tgroups) {
+        if (tHidden(Tg)) continue;
+        ctx.strokeStyle = col; ctx.lineWidth = thick;
+        ctx.globalAlpha = R.id === st.sel ? 1 : 0.8;
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i <= 200; i++) {
+          const p = logx ? x0v * Math.pow(x1v / x0v, i / 200) : x0v + (x1v - x0v) * i / 200;
+          if (p <= 0) continue;
+          let qv;
+          try { qv = evalModel(R, p, Tg); } catch (e) { qv = NaN; }
+          if (!isFinite(qv)) { started = false; continue; }
+          const X = px(p), Y = py(qv);
+          if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    });
+    // data points on top
+    for (let i = 0; i < data.p.length; i++) {
+      if (tHidden(data.T[i])) continue;
+      ctx.beginPath();
+      ctx.arc(px(data.p[i]), py(data.q[i]), 3.6, 0, 2 * Math.PI);
+      ctx.fillStyle = tColor(data.T[i]);
+      ctx.fill();
+      ctx.strokeStyle = css("--card"); ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    ctx.restore();
+    // legend with hit zones (click toggles visibility, plotly-style)
+    ctx.font = "10px " + FONT; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    const items = shown.map((R, mi) => ({ kind: "m", id: R.id, label: R.label, col: MCOL[mi % MCOL.length], off: st.hidden.includes(R.id) }));
+    if (data.Tgroups.length > 1)
+      data.Tgroups.forEach(Tg => items.push({ kind: "T", id: Tg, label: Tg.toFixed(1) + " K", col: tColor(Tg), off: tHidden(Tg), dot: true }));
+    if (items.length) {
+      let wMax = 0;
+      items.forEach(it => { wMax = Math.max(wMax, ctx.measureText(it.label).width); });
+      const bx = PAD.l + 8, by = PAD.t + 6, bw = wMax + 44, bh = items.length * 15 + 8;
+      ctx.fillStyle = css("--card"); ctx.globalAlpha = 0.82;
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = css("--border"); ctx.lineWidth = 1;
+      ctx.strokeRect(bx, by, bw, bh);
+      let ly = by + 11;
+      for (const it of items) {
+        ctx.globalAlpha = it.off ? 0.32 : 1;
+        if (it.dot) {
+          ctx.beginPath(); ctx.arc(bx + 16, ly, 3.5, 0, 2 * Math.PI);
+          ctx.fillStyle = it.col; ctx.fill();
+        } else {
+          ctx.strokeStyle = it.col; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(bx + 8, ly); ctx.lineTo(bx + 26, ly); ctx.stroke();
+        }
+        ctx.fillStyle = css("--text");
+        ctx.fillText(it.label, bx + 31, ly);
+        ctx.globalAlpha = 1;
+        legendHits.push({ x: bx + 4, y: ly - 7, w: bw - 8, h: 14, kind: it.kind, id: it.id });
+        ly += 15;
+      }
+    }
+  }
+  function mainClick(mx, my) {
+    for (const hset of legendHits) {
+      if (mx >= hset.x && mx <= hset.x + hset.w && my >= hset.y && my <= hset.y + hset.h) {
+        const arr = hset.kind === "m" ? st.hidden : st.hiddenT;
+        const i = arr.findIndex(v => hset.kind === "m" ? v === hset.id : Math.abs(v - hset.id) < 0.05);
+        if (i >= 0) arr.splice(i, 1); else arr.push(hset.id);
+        saveLS();
+        drawMain(); drawResid(); drawParity();
+        return;
+      }
+    }
+  }
+  function drawResid() {
+    const cv = $("if-resid");
+    const { ctx, W, H } = prep(cv, 250);
+    ctx.clearRect(0, 0, W, H);
+    const R = results.find(r => r.id === st.sel);
+    if (!R || !data) { $("if-resinfo").textContent = ""; return; }
+    let pmin = Infinity, pmax = 0;
+    data.p.forEach(v => { pmin = Math.min(pmin, v); pmax = Math.max(pmax, v); });
+    const rel = [];
+    for (let i = 0; i < data.p.length; i++) {
+      const qm = evalModel(R, data.p[i], data.T[i]);
+      rel.push(100 * (qm - data.q[i]) / Math.max(data.q[i], 1e-6));
+    }
+    const rmax = Math.max(5, ...rel.map(Math.abs)) * 1.15;
+    const [x0v, x1v, y0v, y1v] = withView("resid", pmin / 2, pmax * 1.05, -rmax, rmax);
+    const { px, py } = axes(ctx, W, H, PAD, [x0v, x1v], [y0v, y1v],
+                            xSym() + " (" + xUnit() + ")", "(q_fit − q)/q (%)", true);
+    geo.resid = { x0: x0v, x1: x1v, y0: y0v, y1: y1v, logx: true, pad: PAD, W, H };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b); ctx.clip();
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = css("--muted");
+    ctx.beginPath(); ctx.moveTo(px(x0v), py(0)); ctx.lineTo(px(x1v), py(0)); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < data.p.length; i++) {
+      if (tHidden(data.T[i])) continue;
+      ctx.beginPath();
+      ctx.arc(px(data.p[i]), py(rel[i]), 3.2, 0, 2 * Math.PI);
+      ctx.fillStyle = tColor(data.T[i]); ctx.fill();
+    }
+    ctx.restore();
+    $("if-resinfo").textContent = R.label + " · max |Δq/q| = " + fmtg(Math.max(...rel.map(Math.abs)), 3) + "%";
+  }
+  function drawParity() {
+    const cv = $("if-parity");
+    const { ctx, W, H } = prep(cv, 380);
+    ctx.clearRect(0, 0, W, H);
+    const R = results.find(r => r.id === st.sel);
+    if (!R || !data) { $("if-parinfo").textContent = ""; return; }
+    let qmax = 0;
+    data.q.forEach(v => qmax = Math.max(qmax, v));
+    const [x0v, x1v, y0v, y1v] = withView("parity", 0, qmax * 1.1, 0, qmax * 1.1);
+    const { px, py } = axes(ctx, W, H, PAD, [x0v, x1v], [y0v, y1v],
+                            "q exp (mol/kg)", "q fit (mol/kg)", false);
+    geo.parity = { x0: x0v, x1: x1v, y0: y0v, y1: y1v, logx: false, pad: PAD, W, H };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b); ctx.clip();
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = css("--muted");
+    const dlo = Math.max(x0v, y0v), dhi = Math.min(x1v, y1v);
+    ctx.beginPath(); ctx.moveTo(px(dlo), py(dlo)); ctx.lineTo(px(dhi), py(dhi)); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < data.p.length; i++) {
+      if (tHidden(data.T[i])) continue;
+      const qm = evalModel(R, data.p[i], data.T[i]);
+      ctx.beginPath();
+      ctx.arc(px(data.q[i]), py(qm), 3.2, 0, 2 * Math.PI);
+      ctx.fillStyle = tColor(data.T[i]); ctx.fill();
+    }
+    ctx.restore();
+    $("if-parinfo").textContent = R.label;
+  }
+  function drawQst() {
+    const card = $("if-qstcard");
+    const hasM = qstData && qstData.q.length, hasE = expQst && expQst.q.length;
+    $("if-residcard").className = (hasM || hasE) ? "pcard" : "pcard full";
+    if (!hasM && !hasE) { card.style.display = "none"; return; }
+    card.style.display = "";
+    const cv = $("if-qst");
+    const { ctx, W, H } = prep(cv, 250);
+    ctx.clearRect(0, 0, W, H);
+    let qmax = 0, hmax = 0;
+    if (hasM) { qmax = Math.max(qmax, ...qstData.q); hmax = Math.max(hmax, ...qstData.qst); }
+    if (hasE) { qmax = Math.max(qmax, ...expQst.q); hmax = Math.max(hmax, ...expQst.qst); }
+    const [x0v, x1v, y0v, y1v] = withView("qst", 0, qmax * 1.05, 0, hmax * 1.2);
+    const { px, py } = axes(ctx, W, H, PAD, [x0v, x1v], [y0v, y1v],
+                            "q (mol/kg)", "q_st (kJ/mol)", false);
+    geo.qst = { x0: x0v, x1: x1v, y0: y0v, y1: y1v, logx: false, pad: PAD, W, H };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b); ctx.clip();
+    if (hasM) {
+      ctx.strokeStyle = css("--accent"); ctx.lineWidth = 2;
+      ctx.beginPath();
+      qstData.q.forEach((qv, i) => {
+        const X = px(qv), Y = py(qstData.qst[i]);
+        if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+      });
+      ctx.stroke();
+    }
+    if (hasE) {
+      for (let i = 0; i < expQst.q.length; i++) {
+        ctx.beginPath();
+        ctx.arc(px(expQst.q[i]), py(expQst.qst[i]), 3.2, 0, 2 * Math.PI);
+        ctx.fillStyle = css("--warn"); ctx.fill();
+        ctx.strokeStyle = css("--card"); ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+    ctx.restore();
+    $("if-qstinfo").textContent =
+      (hasE ? "points: model-free (ln p interpolated in q, LSQ over 1/T)" : "") +
+      (hasE && hasM ? " · " : "") +
+      (hasM ? "line: fitted global model" : "") +
+      (hasE && !hasM ? " — select a global fit for the model curve" : "");
+  }
+  wireZoom("if-main", "main", drawMain, mainClick);
+  wireZoom("if-resid", "resid", drawResid);
+  wireZoom("if-parity", "parity", drawParity);
+  wireZoom("if-qst", "qst", drawQst);
+  function drawAll() { drawMain(); drawResid(); drawParity(); drawQst(); }
+  window.addEventListener("resize", () => { if (data && results.length) drawAll(); });
+
+  /* ---------- data table with exclusion ---------- */
+  function renderDataTable(parsed) {
+    const wrap = $("if-dtwrap");
+    if (!parsed) { wrap.style.display = "none"; return; }
+    wrap.style.display = "";
+    let h = "<table><tr><th>#</th><th>use</th><th>T (K)</th><th>p (input)</th><th>q (input)</th></tr>";
+    parsed.rows.forEach(([Tv, pv, qv], i) => {
+      h += "<tr><td>" + (i + 1) + "</td><td><input type='checkbox' data-x='" + i + "'" +
+           (st.excluded.includes(i) ? "" : " checked") + "></td>" +
+           "<td>" + Tv + "</td><td>" + pv + "</td><td>" + qv + "</td></tr>";
+    });
+    $("if-dtable").innerHTML = h + "</table>";
+    $("if-dtable").querySelectorAll("input[type=checkbox]").forEach(ck => {
+      ck.addEventListener("change", () => {
+        const i = +ck.dataset.x;
+        if (ck.checked) st.excluded = st.excluded.filter(x => x !== i);
+        else if (!st.excluded.includes(i)) st.excluded.push(i);
+        onChange();
+      });
+    });
+  }
+
+  /* ---------- CSV export ---------- */
+  function downloadPNG(cvId, name) {
+    const a = document.createElement("a");
+    a.download = name;
+    a.href = $(cvId).toDataURL("image/png");
+    a.click();
+  }
+  function downloadText(name, text) {
+    const a = document.createElement("a");
+    a.download = name;
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  $("if-mainpng").addEventListener("click", () => downloadPNG("if-main", "isotherm_fits.png"));
+  $("if-parpng").addEventListener("click", () => downloadPNG("if-parity", "parity.png"));
+  $("if-respng").addEventListener("click", () => downloadPNG("if-resid", "residuals.png"));
+  $("if-qstpng").addEventListener("click", () => downloadPNG("if-qst", "isosteric_heat.png"));
+  $("if-parcsv").addEventListener("click", () => {
+    const R = results.find(r => r.id === st.sel);
+    if (!R || !data) return;
+    let out = "# parity: " + R.label + " (q in mol/kg)\nT_K,x_" + xUnit().replace(/[^A-Za-z0-9]/g, "") + ",q_exp,q_fit\n";
+    for (let i = 0; i < data.p.length; i++)
+      out += data.T[i].toFixed(2) + "," + data.p[i].toPrecision(6) + "," +
+             data.q[i].toPrecision(8) + "," + evalModel(R, data.p[i], data.T[i]).toPrecision(8) + "\n";
+    downloadText("parity.csv", out);
+  });
+  $("if-rescsv").addEventListener("click", () => {
+    const R = results.find(r => r.id === st.sel);
+    if (!R || !data) return;
+    let out = "# residuals: " + R.label + "\nT_K,x_" + xUnit().replace(/[^A-Za-z0-9]/g, "") + ",resid_pct\n";
+    for (let i = 0; i < data.p.length; i++) {
+      const qm = evalModel(R, data.p[i], data.T[i]);
+      out += data.T[i].toFixed(2) + "," + data.p[i].toPrecision(6) + "," +
+             (100 * (qm - data.q[i]) / Math.max(data.q[i], 1e-6)).toPrecision(6) + "\n";
+    }
+    downloadText("residuals.csv", out);
+  });
+  $("if-qstcsv").addEventListener("click", () => {
+    if (!qstData && !expQst) return;
+    let out = "# isosteric heat (kJ/mol)\nsource,q_molkg,qst_kJmol\n";
+    if (qstData) for (let i = 0; i < qstData.q.length; i++)
+      out += "model," + qstData.q[i].toPrecision(6) + "," + qstData.qst[i].toPrecision(6) + "\n";
+    if (expQst) for (let i = 0; i < expQst.q.length; i++)
+      out += "experimental," + expQst.q[i].toPrecision(6) + "," + expQst.qst[i].toPrecision(6) + "\n";
+    downloadText("isosteric_heat.csv", out);
+  });
+  $("if-fitcsv").addEventListener("click", () => {
+    if (!data || !results.length) return;
+    let pmin = Infinity, pmax = 0;
+    data.p.forEach(v => { pmin = Math.min(pmin, v); pmax = Math.max(pmax, v); });
+    const shown = results.filter(r => st.checked.includes(r.id));
+    let s = "# IsothermFitter fit curves (x in " + xUnit() + ", q mol/kg)\n";
+    s += "T_K,x_" + xUnit().replace(/[^A-Za-z0-9]/g, "") + "," + shown.map(r => r.id).join(",") + "\n";
+    for (const Tg of data.Tgroups) {
+      for (let i = 0; i <= 120; i++) {
+        const p = (pmin / 2) * Math.pow(pmax / (pmin / 2), i / 120);
+        s += Tg.toFixed(2) + "," + p.toPrecision(6);
+        for (const R of shown) {
+          let qv; try { qv = evalModel(R, p, Tg); } catch (e) { qv = NaN; }
+          s += "," + (isFinite(qv) ? qv.toPrecision(8) : "");
+        }
+        s += "\n";
+      }
+    }
+    const a = document.createElement("a");
+    a.download = "isotherm_fits.csv";
+    a.href = URL.createObjectURL(new Blob([s], { type: "text/csv" }));
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+
+  /* ---------- wiring ---------- */
+  const bindSel = (id, key, fn) => {
+    $(id).value = st[key];
+    $(id).addEventListener("change", () => { st[key] = $(id).value; if (fn) fn(); onChange(); });
+  };
+  bindSel("if-pu", "pu"); bindSel("if-wt", "wt"); bindSel("if-mt", "mt");
+  bindSel("if-qu", "qu", () => { $("if-Mfld").style.display = (st.qu === "mgg" || st.qu === "wt") ? "" : "none"; });
+  $("if-Mfld").style.display = (st.qu === "mgg" || st.qu === "wt") ? "" : "none";
+  $("if-M").value = st.M;
+  $("if-M").addEventListener("input", () => { st.M = parseFloat($("if-M").value) || 44.01; onChange(); });
+  $("if-T").value = st.Tdef;
+  $("if-T").addEventListener("input", () => { st.Tdef = parseFloat($("if-T").value) || 298.15; onChange(); });
+  $("if-data").value = st.raw;
+  $("if-data").addEventListener("input", () => { st.raw = $("if-data").value; st.excluded = []; st.sel = null; st.checked = []; st.hidden = []; st.hiddenT = []; clearViews(); onChange(); });
+  $("if-expr").value = st.expr;
+  $("if-expr").addEventListener("input", () => { st.expr = $("if-expr").value; onChange(); });
+  $("if-clear").addEventListener("click", () => { st.raw = ""; st.excluded = []; $("if-data").value = ""; onChange(); });
+  $("if-xax").querySelectorAll("button").forEach(b => {
+    b.classList.toggle("on", b.dataset.m === st.xax);
+    b.addEventListener("click", () => {
+      $("if-xax").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on"); st.xax = b.dataset.m; saveLS(); drawMain();
+    });
+  });
+  function showErr(m) { const e = $("if-err"); e.textContent = m; e.classList.add("show"); }
+
+  /* example data */
+  const EX1 = "# CO2-like single-temperature example (p bar, q mol/kg)\n" +
+    "0.001 0.0334\n0.003 0.0924\n0.01 0.2966\n0.03 0.7837\n0.1 1.7357\n0.3 2.8237\n" +
+    "0.6 3.3103\n1 3.3684\n2 3.8796\n4 3.9487\n7 3.8561\n10 3.9303\n15 4.0271\n" +
+    "20 3.9440\n30 3.9544\n45 3.8150\n60 4.0581\n80 4.0086\n100 4.0279";
+  function ex2Text() {
+    // three-temperature DSL van 't Hoff synthetic (matches the validation set)
+    const P = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 0.6, 1, 2, 4, 7, 10, 15, 20, 30, 45, 60, 80, 100];
+    const th = [3.0, 2.466e-4, 3.0e4, 4.0, 9.058e-3, 1.2e4];
+    const R = 8.314462618;
+    let s = "# T(K)  p(bar)  q(mol/kg) — synthetic DSL with van 't Hoff b(T)\n";
+    let seed = 99;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    for (const T of [273.15, 298.15, 323.15])
+      for (const p of P) {
+        const b1 = th[1] * Math.exp(th[2] / (R * T)), b2 = th[4] * Math.exp(th[5] / (R * T));
+        const q = (th[0] * b1 * p / (1 + b1 * p) + th[3] * b2 * p / (1 + b2 * p)) * (1 + 0.02 * (2 * rnd() - 1));
+        s += T.toFixed(2) + " " + p + " " + q.toFixed(5) + "\n";
+      }
+    return s;
+  }
+  $("if-ex1").addEventListener("click", () => { st.raw = EX1; st.excluded = []; st.sel = null; st.checked = []; st.hidden = []; st.hiddenT = []; clearViews(); $("if-data").value = EX1; onChange(); });
+  $("if-ex2").addEventListener("click", () => { const t = ex2Text(); st.raw = t; st.excluded = []; st.sel = null; st.checked = []; st.hidden = []; st.hiddenT = []; clearViews(); $("if-data").value = t; onChange(); });
+
+  /* ---------- main flow ---------- */
+  let deb = null;
+  function onChange() {
+    saveLS();
+    if (deb) clearTimeout(deb);
+    deb = setTimeout(run, 450);
+  }
+  function run() {
+    $("if-err").classList.remove("show");
+    data = null;
+    const parsed = parseData();
+    renderDataTable(parsed);
+    if (!parsed) {
+      $("if-status").textContent = st.raw.trim() ? "Could not parse ≥3 numeric data rows." : "Paste data or load an example to begin.";
+      $("if-respanel").style.display = "none";
+      $("if-plots").style.display = "none";
+      return;
+    }
+    data = parsed;
+    $("if-mtfld").style.display = data.Tgroups.length > 1 ? "" : "none";
+    fitAll();
+    $("if-respanel").style.display = results.length ? "" : "none";
+    $("if-plots").style.display = results.length ? "grid" : "none";
+    renderTable(); renderDetail(); drawAll();
+  }
+  run();
+  globalThis.__if = { st, views, geo, get data() { return data; }, get results() { return results; } };
+})();
+</script>
+</body>
+</html>

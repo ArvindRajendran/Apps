@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uptake Curves &mdash; Diffusion in Bidisperse Adsorbents</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626; --warn: #d97706; --ok: #16a34a;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171; --warn: #fbbf24; --ok: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1150px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative;
+  }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld > span { white-space: nowrap; }
+  .fld input[type=number], .fld input[type=text] {
+    padding: 7px 9px; font-size: 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .fld input[type=number] { width: 96px; }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); padding-bottom: 7px; cursor: pointer; }
+  .chk input { accent-color: var(--accent); width: 15px; height: 15px; }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  #uc-expr { width: 340px; max-width: 70vw; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+  .formula {
+    font-size: 0.95rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font-family: Georgia, "Times New Roman", serif; font-style: italic;
+    margin-left: auto; padding: 0 4px 4px 12px; color: var(--text); align-self: flex-end;
+  }
+  .formula .frac { display: inline-flex; flex-direction: column; text-align: center; line-height: 1.2; }
+  .formula .frac .fn { border-bottom: 1.2px solid currentColor; padding: 0 5px; }
+  .formula .frac .fd { padding: 0 5px; }
+  .err { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  .warnln { color: var(--warn); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .warnln.show { display: block; }
+  .summary { margin-top: 12px; font-size: 0.84rem; line-height: 1.7; color: var(--muted); }
+  .summary b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .grp { border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px 12px; }
+  .grp .gtitle { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 8px; }
+  details.rh { margin-top: 12px; font-size: 0.8rem; color: var(--muted); }
+  details.rh summary { cursor: pointer; font-weight: 600; }
+  details.rh .ctrls { margin-top: 10px; }
+  .plots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 14px; }
+  .plots .pcard { grid-column: span 2; }
+  .plots .pcard.full { grid-column: span 6; }
+  @media (max-width: 860px) { .plots .pcard, .plots .pcard.full { grid-column: span 6; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  #uc-iso { cursor: grab; touch-action: none; }
+  #uc-up { cursor: crosshair; touch-action: none; }
+  .pcard .pfoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+  .pcard .pfoot button { font-size: 0.75rem; padding: 4px 9px; }
+  .tslider { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px; }
+  .tslider input[type=range] { flex: 1; accent-color: var(--accent); }
+  .tslider .tval { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .status { font-size: 0.75rem; color: var(--muted); min-height: 1.1em; margin-top: 8px; }
+  .status.busy { color: var(--accent); }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  .footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Uptake Curves &mdash; Diffusion in Bidisperse Adsorbents</h2>
+  <div class="sub">Predicts a gravimetric uptake experiment: a step change of sorbate fraction
+    y<sub>0</sub>&rarr;y<sub>1</sub> in an inert carrier at constant total pressure, single component,
+    isothermal spheres. Choose micropore (crystal) diffusion, macropore diffusion, the full bidisperse
+    (macro&nbsp;+&nbsp;micro) model, or an LDF lumped model. Darken&rsquo;s thermodynamic correction available for
+    micropore diffusion. Equilibrium at the outer surface; symmetry at both centres.</div>
+
+  <div class="panel">
+    <div class="ctrls">
+      <label class="fld"><span>Transport model</span><select id="uc-model">
+          <option value="bidisperse">Macro + micro (bidisperse)</option>
+          <option value="micro">Micropore diffusion only</option>
+          <option value="macro">Macropore diffusion only</option>
+          <option value="ldf">LDF (lumped)</option>
+        </select>
+      </label>
+      <label class="fld"><span>T (K)</span><input type="number" id="uc-T" step="1" value="298.15"></label>
+      <label class="fld"><span>P (bar)</span><input type="number" id="uc-P" step="0.1" value="1"></label>
+      <label class="fld"><span>y<sub>0</sub> initial (&ndash;)</span><input type="number" id="uc-y0" step="0.05" min="0" max="0.999" value="0"></label>
+      <label class="fld"><span>y<sub>1</sub> final (&ndash;)</span><input type="number" id="uc-y1" step="0.05" min="0" max="0.999" value="0.5"></label>
+      <button class="action" id="uc-swap" style="margin-bottom:1px" title="Swap y0 and y1 (adsorption ↔ desorption)">&#8645; Swap</button>
+      <label class="chk" id="uc-darkwrap"><input type="checkbox" id="uc-darken" checked>Darken correction D<sub>&mu;</sub>&Gamma;(q), &Gamma; = d&thinsp;ln&thinsp;p/d&thinsp;ln&thinsp;q</label>
+    </div>
+    <div class="ctrls">
+      <label class="fld"><span>Isotherm q = f(y) (mol/kg)</span><select id="uc-iso-sel"></select>
+      </label>
+      <span id="uc-params" style="display:contents"></span>
+      <label class="fld" id="uc-exprfld" style="display:none"><span>f(y) expression &mdash; e.g. 5*y/(1+10*y)</span><input type="text" id="uc-expr" value="5*y/(1+10*y)" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="formula" id="uc-formula"></div>
+    </div>
+    <div class="ctrls">
+      <div class="grp" id="uc-grp-micro">
+        <div class="gtitle">Micropore (crystal)</div>
+        <div class="ctrls">
+          <label class="fld"><span>D<sub>&mu;0</sub> (m&sup2;/s)</span><input type="number" id="uc-Dmu" step="1e-14" value="5e-14"></label>
+          <label class="fld"><span>r<sub>c</sub> (&mu;m)</span><input type="number" id="uc-Rc" step="0.1" value="1"></label>
+        </div>
+      </div>
+      <div class="grp" id="uc-grp-macro">
+        <div class="gtitle">Macropore (particle)</div>
+        <div class="ctrls">
+          <label class="fld"><span>D<sub>m</sub> molecular (m&sup2;/s)</span><input type="number" id="uc-Dm" step="1e-6" value="1e-5"></label>
+          <label class="fld"><span>D<sub>K</sub> Knudsen (m&sup2;/s)</span><input type="number" id="uc-DK" step="1e-6" value="1.26e-5"></label>
+          <label class="fld"><span>&tau;<sub>p</sub> tortuosity (&ndash;)</span><input type="number" id="uc-taup" step="0.1" value="3"></label>
+          <label class="fld"><span>&epsilon;<sub>p</sub> porosity (&ndash;)</span><input type="number" id="uc-epsp" step="0.01" min="0.01" max="0.99" value="0.35"></label>
+          <label class="fld"><span>&rho;<sub>p</sub> (kg/m&sup3;)</span><input type="number" id="uc-rhop" step="10" value="1000"></label>
+          <label class="fld"><span>R<sub>p</sub> (&mu;m)</span><input type="number" id="uc-Rp" step="10" value="150"></label>
+        </div>
+      </div>
+      <div class="grp" id="uc-grp-ldf">
+        <div class="gtitle">LDF</div>
+        <div class="ctrls">
+          <label class="fld"><span>k (1/s)</span><input type="number" id="uc-k" step="0.01" value="0.05"></label>
+          <label class="chk"><input type="checkbox" id="uc-glue">Glueckauf k = 15&thinsp;D<sub>&mu;0</sub>/r<sub>c</sub>&sup2;</label>
+        </div>
+      </div>
+    </div>
+    <div class="err" id="uc-err"></div>
+    <div class="warnln" id="uc-warn"></div>
+    <div class="summary" id="uc-summary"></div>
+    <details class="rh">
+      <summary>Knudsen helper &middot; numerics</summary>
+      <div class="ctrls">
+        <label class="fld"><span>Pore radius r<sub>pore</sub> (nm)</span><input type="number" id="uc-rpore" step="5" value="50"></label>
+        <label class="fld"><span>Molar mass M (g/mol)</span><input type="number" id="uc-M" step="1" value="44"></label>
+        <button class="action" id="uc-dkcalc" style="margin-bottom:1px">Estimate D<sub>K</sub> = (2r<sub>pore</sub>/3)&radic;(8RT/&pi;M)</button>
+        <span class="fld" id="uc-dkout" style="justify-content:center"></span>
+      </div>
+      <div class="ctrls">
+        <label class="fld"><span>Crystal cells N<sub>c</sub></span><input type="number" id="uc-Nc" step="5" min="10" max="200" value="20"></label>
+        <label class="fld"><span>Particle cells N<sub>p</sub></span><input type="number" id="uc-Np" step="5" min="10" max="200" value="20"></label>
+        <label class="fld"><span>Time steps K</span><input type="number" id="uc-K" step="40" min="80" max="1200" value="280"></label>
+        <label class="fld"><span>t<sub>end</sub> (s, blank = auto)</span><input type="number" id="uc-tend" step="1" placeholder="auto"></label>
+      </div>
+    </details>
+    <div class="status" id="uc-status"></div>
+  </div>
+
+  <div class="plots">
+    <div class="pcard">
+      <div class="phead"><h3>Isotherm &amp; step</h3><span class="pinfo" id="uc-isoinfo">drag the state markers</span></div>
+      <canvas id="uc-iso" title="Drag the y0/y1 markers along the curve to change the step"></canvas>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Intracrystalline profile q(r)</h3><span class="pinfo" id="uc-crysinfo"></span></div>
+      <canvas id="uc-crys"></canvas>
+      <div class="pfoot"><button class="action" id="uc-cryscsv" title="Profile at the slider time as CSV">&#11015; CSV</button></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>Intraparticle profile</h3><span class="pinfo" id="uc-partinfo"></span></div>
+      <canvas id="uc-part"></canvas>
+      <div class="pfoot"><button class="action" id="uc-partcsv" title="Profile at the slider time as CSV">&#11015; CSV</button></div>
+    </div>
+    <div class="pcard full">
+      <div class="phead"><h3>Uptake (m<sub>t</sub> &minus; m<sub>0</sub>)/(m<sub>&infin;</sub> &minus; m<sub>0</sub>)</h3>
+        <span class="pinfo" id="uc-upinfo"></span>
+        <div class="seg" id="uc-xax">
+          <button class="on" data-m="t">t</button>
+          <button data-m="sqrt">&radic;t</button>
+        </div>
+      </div>
+      <canvas id="uc-up" height="330"></canvas>
+      <div class="pfoot">
+        <div class="tslider">
+          <button class="action" id="uc-play" title="Animate">&#9654;</button>
+          <input type="range" id="uc-tsl" min="0" max="60" step="1" value="60">
+          <span class="tval" id="uc-tslv"></span>
+        </div>
+        <button class="action" id="uc-upcsv" title="Uptake curve as CSV">&#11015; CSV</button>
+        <button class="action" id="uc-uppng">&#11015; PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Micropore: &part;q/&part;t = r<sup>&minus;2</sup>&part;/&part;r(r&sup2;D<sub>&mu;</sub>(q)&part;q/&part;r) with
+    D<sub>&mu;</sub> = D<sub>&mu;0</sub>&Gamma;(q), &Gamma; = d&thinsp;ln&thinsp;p/d&thinsp;ln&thinsp;q &middot;
+    Macropore: &epsilon;<sub>p</sub>&part;c/&part;t + &rho;<sub>p</sub>&part;q&#772;/&part;t =
+    R<sup>&minus;2</sup>&part;/&part;R(R&sup2;D<sub>e</sub>&part;c/&part;R), D<sub>e</sub> = &epsilon;<sub>p</sub>D<sub>pore</sub>/&tau;<sub>p</sub>,
+    1/D<sub>pore</sub> = 1/D<sub>m</sub> + 1/D<sub>K</sub> (Bosanquet) &middot;
+    Bidisperse couples both scales (Ruckenstein-type); LDF: dq&#772;/dt = k(q* &minus; q&#772;).
+    Conservative finite volumes + L-stable TR-BDF2, validated against exact series solutions (see README).<br>
+    Works offline &mdash; single file, share freely.
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; August 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> &middot; <a href="../index.html">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+
+<script id="uc-engine">
+/* UptakeCurves engine — shared by main thread and worker.
+   Models: micro | macro | bidisperse | ldf. Spheres, step y0->y1 at constant P.
+   FV cell-centered on normalized radius; CN time stepping on sqrt-spaced grid
+   with quasi-Newton (colored FD Jacobian, reuse + rebuild policy, sub-stepping).
+   Mirrors the Python reference uptake_ref.py exactly (same discretization). */
+"use strict";
+const R_GAS = 8.314462618;
+
+/* ---------- isotherm models: q [mol/kg] = f(y), y = mole fraction ---------- */
+const MODELS = {
+  langmuir: { label: "Langmuir", params: [["qs", "q<sub>s</sub> [mol/kg]", 5], ["b", "b [-]", 10]],
+    make: p => y => p.qs*p.b*y/(1 + p.b*y) },
+  antilang: { label: "Anti-Langmuir", params: [["qs", "q<sub>s</sub> [mol/kg]", 1], ["b", "b [-]", 0.9]],
+    make: p => y => p.qs*p.b*y/(1 - p.b*y) },
+  linear: { label: "Linear", params: [["H", "H [mol/kg]", 3]], make: p => y => p.H*y },
+  sips: { label: "Sips / Hill", params: [["qs", "q<sub>s</sub> [mol/kg]", 5], ["b", "b [-]", 10], ["n", "n [-]", 0.7]],
+    make: p => y => { const t = Math.pow(Math.max(p.b*y, 0), p.n); return p.qs*t/(1 + t); } },
+  quad: { label: "Quadratic", params: [["qs", "q<sub>s</sub> [mol/kg]", 3], ["b1", "b<sub>1</sub> [-]", 5], ["b2", "b<sub>2</sub> [-]", 10]],
+    make: p => y => p.qs*y*(p.b1 + 2*p.b2*y)/(1 + p.b1*y + p.b2*y*y) },
+  typev: { label: "Type V (Langmuir + Hill step)",
+    params: [["qs1", "q<sub>s1</sub> [mol/kg]", 1], ["b1", "b<sub>1</sub> [-]", 5],
+             ["qs2", "q<sub>s2</sub> [mol/kg]", 8], ["b2", "b<sub>2</sub> [-]", 2.5], ["n", "n [-]", 6]],
+    make: p => y => { const t = Math.pow(Math.max(p.b2*y, 0), p.n);
+      return p.qs1*p.b1*y/(1 + p.b1*y) + p.qs2*t/(1 + t); } },
+  bet: { label: "BET (Type II/III)",
+    params: [["qs", "q<sub>s</sub> [mol/kg]", 2], ["bs", "b<sub>s</sub> [-]", 30], ["bl", "b<sub>l</sub> [-]", 0.8]],
+    make: p => y => p.qs*p.bs*y/((1 - p.bl*y)*(1 - p.bl*y + p.bs*y)) },
+  dsl: { label: "Dual-site Langmuir",
+    params: [["qs1", "q<sub>s1</sub> [mol/kg]", 3], ["b1", "b<sub>1</sub> [-]", 50],
+             ["qs2", "q<sub>s2</sub> [mol/kg]", 4], ["b2", "b<sub>2</sub> [-]", 1]],
+    make: p => y => p.qs1*p.b1*y/(1 + p.b1*y) + p.qs2*p.b2*y/(1 + p.b2*y) },
+  dodoA: { label: "Do & Do water/AC — ads. branch (Hefti 2015)",
+    params: [["ns", "n<sub>s</sub><sup>&infin;</sup> [mol/kg]", 10.791], ["Ks", "K<sub>s</sub>", 0.258],
+             ["Kc", "K<sub>c</sub>", 0.222], ["nma", "n<sub>&mu;,a</sub><sup>&infin;</sup> [mol/kg]", 2.227],
+             ["Kma", "K<sub>&mu;,a</sub>", 28.579], ["ma", "m<sub>a</sub>", 8.8],
+             ["ys", "y<sub>sat</sub>", 0.0968]],
+    make: p => y => { const x = y/p.ys, t = Math.pow(Math.max(x, 0), p.ma);
+      return p.ns*p.Ks*x/((1 - p.Kc*x)*(1 + (p.Ks - p.Kc)*x)) +
+             p.nma*p.ma*p.Kma*t/(1 + p.Kma*t); } },
+  dodoD: { label: "Do & Do water/AC — des. branch with hysteresis (Hefti 2015)",
+    params: [["ns", "n<sub>s</sub><sup>&infin;</sup> [mol/kg]", 10.791], ["Ks", "K<sub>s</sub>", 0.258],
+             ["Kc", "K<sub>c</sub>", 0.222], ["nma", "n<sub>&mu;,a</sub><sup>&infin;</sup> [mol/kg]", 2.227],
+             ["Kma", "K<sub>&mu;,a</sub>", 28.579], ["ma", "m<sub>a</sub>", 8.8],
+             ["nmd", "n<sub>&mu;,d</sub><sup>&infin;</sup> [mol/kg]", 1.02], ["Kmd", "K<sub>&mu;,d</sub>", 24715],
+             ["md", "m<sub>d</sub>", 18.243], ["ys", "y<sub>sat</sub>", 0.0968]],
+    make: p => y => { const x = y/p.ys, xc = Math.max(x, 0);
+      const ta = Math.pow(xc, p.ma), td = Math.pow(xc, p.md);
+      return p.ns*p.Ks*x/((1 - p.Kc*x)*(1 + (p.Ks - p.Kc)*x)) +
+             Math.max(p.nma*p.ma*p.Kma*ta/(1 + p.Kma*ta),
+                      p.nmd*p.md*p.Kmd*td/(1 + p.Kmd*td)); } },
+  custom: { label: "Custom q = f(y) …", params: [], make: null }
+};
+
+/* ---------- expression parser for custom isotherms (no eval) ---------- */
+function parseExpr(src) {
+  const toks = [];
+  const re = /\s*(\d+\.?\d*(?:[eE][+-]?\d+)?|[A-Za-z_][A-Za-z_0-9]*|\*\*|[-+*/^(),])/y;
+  let i = 0;
+  while (i < src.length) {
+    re.lastIndex = i;
+    const m = re.exec(src);
+    if (!m) throw "Bad token near '" + src.slice(i, i + 8) + "'";
+    toks.push(m[1]); i = re.lastIndex;
+  }
+  const FUN = { exp: Math.exp, log: Math.log, ln: Math.log, sqrt: Math.sqrt,
+                abs: Math.abs, tanh: Math.tanh, pow: Math.pow, min: Math.min, max: Math.max };
+  const CONST = { pi: Math.PI, e: Math.E };
+  const out = [], ops = [];
+  const prec = { "+": 1, "-": 1, "*": 2, "/": 2, "u-": 3, "^": 4, "**": 4 };
+  const rightAssoc = { "^": 1, "**": 1, "u-": 1 };
+  let prev = null;
+  for (const t0 of toks) {
+    let t = t0;
+    if (t === "-" && (prev === null || (prec[prev] || prev === "(" || prev === ","))) t = "u-";
+    if (/^[\d.]/.test(t)) { out.push(parseFloat(t)); }
+    else if (/^[A-Za-z_]/.test(t)) {
+      if (FUN[t]) ops.push(t);
+      else if (t in CONST) out.push(CONST[t]);
+      else if (t === "y" || t === "c" || t === "x") out.push("VAR");
+      else throw "Unknown symbol '" + t + "'";
+    }
+    else if (t === "(") ops.push(t);
+    else if (t === ",") { while (ops.length && ops[ops.length-1] !== "(") out.push(ops.pop()); }
+    else if (t === ")") {
+      while (ops.length && ops[ops.length-1] !== "(") out.push(ops.pop());
+      ops.pop();
+      if (ops.length && FUN[ops[ops.length-1]]) out.push(ops.pop());
+    } else {
+      while (ops.length) {
+        const o = ops[ops.length-1];
+        if (o === "(" || !(prec[o] >= (rightAssoc[t] ? prec[t] + 1 : prec[t]))) break;
+        out.push(ops.pop());
+      }
+      ops.push(t);
+    }
+    prev = t;
+  }
+  while (ops.length) out.push(ops.pop());
+  const f = y => {
+    const st = [];
+    for (const tk of out) {
+      if (typeof tk === "number") st.push(tk);
+      else if (tk === "VAR") st.push(y);
+      else if (FUN[tk]) {
+        if (tk === "pow" || tk === "min" || tk === "max") { const b = st.pop(), a = st.pop(); st.push(FUN[tk](a, b)); }
+        else st.push(FUN[tk](st.pop()));
+      }
+      else if (tk === "u-") st.push(-st.pop());
+      else { const b = st.pop(), a = st.pop();
+        st.push(tk === "+" ? a + b : tk === "-" ? a - b : tk === "*" ? a * b :
+                tk === "/" ? a / b : Math.pow(a, b)); }
+    }
+    if (st.length !== 1) throw "Malformed expression";
+    return st[0];
+  };
+  f(0.123);
+  return f;
+}
+
+function makeIsotherm(iso) {
+  if (iso.id === "custom") return parseExpr(iso.expr);
+  const M = MODELS[iso.id];
+  const p = {};
+  M.params.forEach(([k, , d]) => { p[k] = (iso.pvals && iso.pvals[k] !== undefined) ? +iso.pvals[k] : d; });
+  return M.make(p);
+}
+
+/* ---------- Darken factor table: Gamma(q) = q/(y f'(y)) ---------- */
+function gammaTable(f, ylo, yhi, npts) {
+  npts = npts || 3000;
+  const y0 = Math.max(yhi * 1e-6, ylo <= 0 ? yhi * 1e-6 : ylo * 0.5);
+  const qA = new Float64Array(npts), gA = new Float64Array(npts);
+  let mono = true;
+  for (let k = 0; k < npts; k++) {
+    const y = y0 + (yhi - y0) * k / (npts - 1);
+    const h = Math.max(1e-9, y * 1e-6);
+    const fp = (f(y + h) - f(y - h)) / (2 * h);
+    qA[k] = f(y);
+    gA[k] = qA[k] / (y * fp);
+    if (k > 0 && qA[k] <= qA[k-1]) mono = false;
+    if (!isFinite(qA[k]) || !isFinite(gA[k])) mono = false;
+  }
+  const G = q => {
+    if (q <= qA[0]) return gA[0];
+    if (q >= qA[npts-1]) return gA[npts-1];
+    let lo = 0, hi = npts - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (qA[m] <= q) lo = m; else hi = m; }
+    const w = (q - qA[lo]) / (qA[hi] - qA[lo]);
+    return gA[lo] + w * (gA[hi] - gA[lo]);
+  };
+  return { G, mono, qA, gA };
+}
+
+/* ---------- FV geometry ---------- */
+function fvGeom(N) {
+  const h = 1 / N, rf2 = new Float64Array(N + 1), Vi = new Float64Array(N);
+  for (let i = 0; i <= N; i++) rf2[i] = (i * h) * (i * h);
+  for (let i = 0; i < N; i++) {
+    const a = i * h, b = (i + 1) * h;
+    Vi[i] = (b * b * b - a * a * a) / 3;
+  }
+  return { h, rf2, Vi };
+}
+
+/* crystal RHS: writes dq into out[off..off+Nc), returns surface flux Fs */
+function crystalRhs(x, off, Nc, qs, amu, geo, G, out) {
+  const { h, rf2, Vi } = geo;
+  let Fprev = 0;
+  for (let i = 0; i < Nc; i++) {
+    let Fi;
+    if (i < Nc - 1) {
+      const g = G ? G(0.5 * (x[off + i] + x[off + i + 1])) : 1;
+      Fi = g * (x[off + i + 1] - x[off + i]) / h;
+    } else {
+      const g = G ? G(0.5 * (qs + x[off + i])) : 1;
+      Fi = g * (qs - x[off + i]) / (h / 2);
+    }
+    out[off + i] = amu * (rf2[i + 1] * Fi - rf2[i] * Fprev) / Vi[i];
+    Fprev = Fi;
+  }
+  return Fprev; // flux at rho=1
+}
+
+/* ---------- model assembly ---------- */
+function buildModel(cfg) {
+  const fRaw = makeIsotherm(cfg.iso);
+  const CT = cfg.P / (R_GAS * cfg.T);
+  const ylo = Math.min(cfg.y0, cfg.y1), yhi = Math.max(cfg.y0, cfg.y1);
+  // max principle: y stays in [ylo,yhi]; clamp so Newton wander can't hit
+  // isotherm poles (e.g. Langmuir at y=-1/b, BET at y=1/bl)
+  const f = y => fRaw(y < ylo ? ylo : y > yhi ? yhi : y);
+  let G = null, gmono = true;
+  if (cfg.darken && cfg.model !== "macro" && cfg.model !== "ldf") {
+    const gt = gammaTable(f, ylo, yhi);
+    G = gt.G; gmono = gt.mono;
+    if (!gmono) G = null; // fall back to constant D; UI warns
+  }
+  const amu = cfg.Dmu0 / (cfg.Rc * cfg.Rc);
+  const De = cfg.epsp * (1 / (1 / cfg.Dm + 1 / cfg.DK)) / cfg.taup;
+  const aDe = De / (cfg.Rp * cfg.Rp);
+  const q0 = f(cfg.y0), q1 = f(cfg.y1);
+  const hh = Math.max(1e-9, yhi * 1e-6);
+  // derivative of the RAW isotherm at a point nudged just inside [ylo,yhi],
+  // so the clamp above never truncates the central-difference stencil
+  const fp = y => {
+    const yc = Math.min(Math.max(y, ylo + 2 * hh), Math.max(ylo + 2 * hh, yhi - 2 * hh));
+    return (fRaw(yc + hh) - fRaw(yc - hh)) / (2 * hh);
+  };
+
+  const m = { f, CT, G, gmono, amu, De, aDe, q0, q1, cfg };
+
+  if (cfg.model === "micro") {
+    const Nc = cfg.Nc, geo = fvGeom(Nc);
+    m.n = Nc;
+    m.x0 = new Float64Array(Nc).fill(q0);
+    m.rhs = (x, out) => { crystalRhs(x, 0, Nc, q1, amu, geo, G, out); };
+    m.sparsity = triSparsity(Nc);
+    m.uptake = x => {
+      let qb = 0;
+      for (let i = 0; i < Nc; i++) qb += 3 * geo.Vi[i] * x[i];
+      return (qb - q0) / (q1 - q0);
+    };
+    m.profiles = x => ({ crystal: [Array.from(x)], geoN: Nc });
+  }
+  else if (cfg.model === "macro") {
+    const Np = cfg.Np, geo = fvGeom(Np);
+    m.n = Np;
+    m.x0 = new Float64Array(Np).fill(cfg.y0);
+    m.rhs = (x, out) => {
+      let Fprev = 0;
+      for (let j = 0; j < Np; j++) {
+        const Fj = (j < Np - 1) ? (x[j + 1] - x[j]) / geo.h
+                                : (cfg.y1 - x[j]) / (geo.h / 2);
+        const lap = (geo.rf2[j + 1] * Fj - geo.rf2[j] * Fprev) / geo.Vi[j];
+        const beta = cfg.epsp + (cfg.rhop / CT) * fp(x[j]);
+        out[j] = aDe * lap / beta;
+        Fprev = Fj;
+      }
+    };
+    m.sparsity = triSparsity(Np);
+    const m0 = cfg.epsp * CT * cfg.y0 + cfg.rhop * q0;
+    const minf = cfg.epsp * CT * cfg.y1 + cfg.rhop * q1;
+    m.uptake = x => {
+      let mm = 0;
+      for (let j = 0; j < Np; j++) mm += 3 * geo.Vi[j] * (cfg.epsp * CT * x[j] + cfg.rhop * f(x[j]));
+      return (mm - m0) / (minf - m0);
+    };
+    m.profiles = x => ({ particleY: Array.from(x), qbar: Array.from(x, v => f(v)), geoN: Np });
+  }
+  else if (cfg.model === "bidisperse") {
+    const Np = cfg.Np, Nc = cfg.Nc;
+    const geoC = fvGeom(Nc), geoP = fvGeom(Np);
+    const blk = Nc + 1;
+    m.n = Np * blk;
+    m.x0 = new Float64Array(m.n);
+    for (let j = 0; j < Np; j++) {
+      for (let i = 0; i < Nc; i++) m.x0[j * blk + i] = q0;
+      m.x0[j * blk + Nc] = cfg.y0;
+    }
+    m.rhs = (x, out) => {
+      let Fprev = 0;
+      for (let j = 0; j < Np; j++) {
+        const yj = x[j * blk + Nc];
+        const qs = f(yj);
+        const Fs = crystalRhs(x, j * blk, Nc, qs, amu, geoC, G, out);
+        const dqbar = 3 * amu * Fs;
+        const yR = (j < Np - 1) ? x[(j + 1) * blk + Nc] : 0;
+        const Fj = (j < Np - 1) ? (yR - yj) / geoP.h : (cfg.y1 - yj) / (geoP.h / 2);
+        const lap = (geoP.rf2[j + 1] * Fj - geoP.rf2[j] * Fprev) / geoP.Vi[j];
+        out[j * blk + Nc] = (aDe * lap - (cfg.rhop / CT) * dqbar) / cfg.epsp;
+        Fprev = Fj;
+      }
+    };
+    m.sparsity = bidiSparsity(Np, Nc);
+    const m0 = cfg.epsp * CT * cfg.y0 + cfg.rhop * q0;
+    const minf = cfg.epsp * CT * cfg.y1 + cfg.rhop * q1;
+    m.uptake = x => {
+      let mm = 0;
+      for (let j = 0; j < Np; j++) {
+        let qb = 0;
+        for (let i = 0; i < Nc; i++) qb += 3 * geoC.Vi[i] * x[j * blk + i];
+        mm += 3 * geoP.Vi[j] * (cfg.epsp * CT * x[j * blk + Nc] + cfg.rhop * qb);
+      }
+      return (mm - m0) / (minf - m0);
+    };
+    m.profiles = x => {
+      const pY = [], qbar = [];
+      for (let j = 0; j < Np; j++) {
+        pY.push(x[j * blk + Nc]);
+        let qb = 0;
+        for (let i = 0; i < Nc; i++) qb += 3 * geoC.Vi[i] * x[j * blk + i];
+        qbar.push(qb);
+      }
+      // crystal profiles at particle center, mid, surface shells
+      const shells = [0, Math.floor(Np / 2), Np - 1];
+      const crystal = shells.map(j => Array.from(x.subarray(j * blk, j * blk + Nc)));
+      return { particleY: pY, qbar, crystal, shells, geoN: Np, geoNc: Nc };
+    };
+  }
+  return m;
+}
+
+function triSparsity(n) {
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const c = [i];
+    if (i > 0) c.push(i - 1);
+    if (i < n - 1) c.push(i + 1);
+    rows.push(c);
+  }
+  return rows;
+}
+function bidiSparsity(Np, Nc) {
+  const blk = Nc + 1, rows = [];
+  for (let j = 0; j < Np; j++) {
+    for (let i = 0; i < Nc; i++) {
+      const c = [j * blk + i];
+      if (i > 0) c.push(j * blk + i - 1);
+      if (i < Nc - 1) c.push(j * blk + i + 1);
+      else c.push(j * blk + Nc);           // surface cell sees y_j
+      rows.push(c);
+    }
+    const c = [j * blk + Nc, j * blk + Nc - 1];
+    if (j > 0) c.push((j - 1) * blk + Nc);
+    if (j < Np - 1) c.push((j + 1) * blk + Nc);
+    rows.push(c);
+  }
+  return rows;
+}
+
+/* ---------- greedy column coloring for FD Jacobian ---------- */
+function colorColumns(rows, n) {
+  // columns conflict if they appear in the same row
+  const colRows = Array.from({ length: n }, () => []);
+  rows.forEach((cols, r) => cols.forEach(c => colRows[c].push(r)));
+  const color = new Int32Array(n).fill(-1);
+  let ncol = 0;
+  const rowMark = new Int32Array(rows.length).fill(-1);
+  for (let c = 0; c < n; c++) {
+    const used = new Set();
+    for (const r of colRows[c]) for (const c2 of rows[r]) if (color[c2] >= 0) used.add(color[c2]);
+    let k = 0;
+    while (used.has(k)) k++;
+    color[c] = k;
+    ncol = Math.max(ncol, k + 1);
+  }
+  return { color, ncol, colRows };
+}
+
+/* ---------- dense LU ---------- */
+function luFactor(A, n, piv) {
+  for (let k = 0; k < n; k++) {
+    let p = k, mx = Math.abs(A[k * n + k]);
+    for (let i = k + 1; i < n; i++) { const v = Math.abs(A[i * n + k]); if (v > mx) { mx = v; p = i; } }
+    if (mx === 0) return false;
+    piv[k] = p;
+    if (p !== k) for (let j = 0; j < n; j++) { const t = A[k * n + j]; A[k * n + j] = A[p * n + j]; A[p * n + j] = t; }
+    const d = A[k * n + k];
+    for (let i = k + 1; i < n; i++) {
+      const l = A[i * n + k] / d;
+      A[i * n + k] = l;
+      if (l !== 0) for (let j = k + 1; j < n; j++) A[i * n + j] -= l * A[k * n + j];
+    }
+  }
+  return true;
+}
+function luSolve(A, n, piv, b) {
+  for (let k = 0; k < n; k++) { const p = piv[k]; if (p !== k) { const t = b[k]; b[k] = b[p]; b[p] = t; } }
+  for (let i = 1; i < n; i++) { let s = b[i]; for (let j = 0; j < i; j++) s -= A[i * n + j] * b[j]; b[i] = s; }
+  for (let i = n - 1; i >= 0; i--) {
+    let s = b[i];
+    for (let j = i + 1; j < n; j++) s -= A[i * n + j] * b[j];
+    b[i] = s / A[i * n + i];
+  }
+}
+
+/* ---------- CN integrator with quasi-Newton + colored FD Jacobian ---------- */
+function integrateCN(model, times, opts) {
+  opts = opts || {};
+  const n = model.n, tol = opts.tol || 1e-10;
+  const rhs = model.rhs;
+  const { color, ncol, colRows } = colorColumns(model.sparsity, n);
+  const x = Float64Array.from(model.x0);
+  const f0 = new Float64Array(n), fx = new Float64Array(n), r = new Float64Array(n);
+  const xn = new Float64Array(n), xp = new Float64Array(n), fb = new Float64Array(n);
+  const Jraw = new Float64Array(n * n);   // dF/dx (sparse in dense storage)
+  const M = new Float64Array(n * n);      // I - dt/2 J, LU-factored
+  const piv = new Int32Array(n);
+  let haveJ = false, dtJ = 0;
+  const out = { states: [], stateAt: [] };
+  const keep = opts.keepStates || null;    // array of step indices to snapshot
+  const uptake = new Float64Array(times.length);
+  uptake[0] = model.uptake(x);
+  if (keep && keep.includes(0)) { out.states.push(Float64Array.from(x)); out.stateAt.push(0); }
+
+  const buildJ = (xa) => {
+    Jraw.fill(0);
+    rhs(xa, fb);
+    for (let cgrp = 0; cgrp < ncol; cgrp++) {
+      xp.set(xa);
+      const eps = [];
+      for (let c = 0; c < n; c++) if (color[c] === cgrp) {
+        const e = Math.max(1e-8, 1e-8 * Math.abs(xa[c]));
+        xp[c] += e; eps[c] = e;
+      }
+      rhs(xp, fx);
+      for (let c = 0; c < n; c++) if (color[c] === cgrp) {
+        for (const rr of colRows[c]) Jraw[rr * n + c] = (fx[rr] - fb[rr]) / eps[c];
+      }
+    }
+    haveJ = true;
+  };
+  const factorM = (wdt) => {          // M = I - wdt*J  (wdt = stage weight * dt)
+    for (let i = 0; i < n * n; i++) M[i] = -wdt * Jraw[i];
+    for (let i = 0; i < n; i++) M[i * n + i] += 1;
+    dtJ = wdt;
+    return luFactor(M, n, piv);
+  };
+
+  /* TR-BDF2 (L-stable), gamma = 2-sqrt(2): both stages share M = I - 0.29289*dt*J */
+  const GAM = 2 - Math.SQRT2;
+  const A1 = 1 / (GAM * (2 - GAM)), A2 = (1 - GAM) * (1 - GAM) / (GAM * (2 - GAM));
+  const W = GAM / 2;                             // = (1-GAM)/(2-GAM)
+  const xg = new Float64Array(n), rhsFix = new Float64Array(n);
+
+  // solve xs - w*dt*f(xs) = rhsFix, starting from guess xs (in xn); true on success
+  const solveStage = (w, dt, guess) => {
+    xn.set(guess);
+    let rn0 = Infinity, restarted = false;
+    for (let it = 0; it < 40; it++) {
+      rhs(xn, fx);
+      let rn = 0;
+      for (let i = 0; i < n; i++) { r[i] = xn[i] - w * dt * fx[i] - rhsFix[i]; rn = Math.max(rn, Math.abs(r[i])); }
+      if (!isFinite(rn)) {
+        if (restarted) return false;
+        restarted = true;
+        xn.set(guess); buildJ(x);
+        if (!factorM(w * dt)) return false;
+        rn0 = Infinity;
+        continue;
+      }
+      if (rn < tol * Math.max(1, maxAbs(xn))) return true;
+      if (it > 2 && rn > 0.5 * rn0) {
+        buildJ(xn);
+        if (!factorM(w * dt)) return false;
+      }
+      rn0 = rn;
+      luSolve(M, n, piv, r);
+      for (let i = 0; i < n; i++) xn[i] -= r[i];
+    }
+    return false;
+  };
+
+  const stepCN = (dt) => {
+    rhs(x, f0);
+    if (!haveJ) buildJ(x);
+    if (dtJ === 0 || Math.abs (W * dt / dtJ - 1) > 0.3) { if (!factorM(W * dt)) return false; }
+    // stage 1: TR over gamma*dt
+    for (let i = 0; i < n; i++) rhsFix[i] = x[i] + W * dt * f0[i];
+    if (!solveStage(W, dt, x)) return false;
+    xg.set(xn);
+    // stage 2: BDF2 to t+dt
+    for (let i = 0; i < n; i++) rhsFix[i] = A1 * xg[i] - A2 * x[i];
+    if (!solveStage(W, dt, xg)) return false;
+    return true;
+  };
+
+  for (let k = 1; k < times.length; k++) {
+    const dt = times[k] - times[k - 1];
+    let nsub = 1, done = false;
+    while (!done && nsub <= 64) {
+      const xsave = Float64Array.from(x);
+      let okAll = true;
+      for (let s = 0; s < nsub; s++) {
+        if (stepCN(dt / nsub)) { x.set(xn); }
+        else { okAll = false; break; }
+      }
+      if (okAll) done = true;
+      else { x.set(xsave); haveJ = false; nsub *= 2; }
+    }
+    if (!done) throw new Error("CN step failed at t=" + times[k]);
+    uptake[k] = model.uptake(x);
+    if (keep && keep.includes(k)) { out.states.push(Float64Array.from(x)); out.stateAt.push(k); }
+    if (opts.onProgress && (k & 15) === 0) opts.onProgress(k / (times.length - 1));
+  }
+  out.uptake = uptake;
+  return out;
+}
+function maxAbs(v) { let m = 0; for (let i = 0; i < v.length; i++) m = Math.max(m, Math.abs(v[i])); return m; }
+
+/* ---------- top-level solve ---------- */
+function timesSqrt(T, K) {
+  const t = new Float64Array(K + 1);
+  for (let k = 0; k <= K; k++) t[k] = (k / K) * (k / K) * T;
+  return t;
+}
+
+function autoTend(cfg) {
+  const f = makeIsotherm(cfg.iso);
+  const CT = cfg.P / (R_GAS * cfg.T);
+  const q0 = f(cfg.y0), q1 = f(cfg.y1);
+  const dq = Math.abs(q1 - q0), dy = Math.abs(cfg.y1 - cfg.y0);
+  const Kchord = dy > 0 ? (cfg.rhop * dq / (dy * CT)) : 0;
+  const De = cfg.epsp * (1 / (1 / cfg.Dm + 1 / cfg.DK)) / cfg.taup;
+  const tauMac = cfg.Rp * cfg.Rp * (cfg.epsp + Kchord) / De;
+  let gbar = 1;
+  if (cfg.darken) {
+    const gt = gammaTable(f, Math.min(cfg.y0, cfg.y1), Math.max(cfg.y0, cfg.y1), 400);
+    if (gt.mono) { let s = 0; for (let i = 0; i < gt.gA.length; i++) s += gt.gA[i]; gbar = s / gt.gA.length; }
+  }
+  const tauMic = cfg.Rc * cfg.Rc / (cfg.Dmu0 * Math.max(gbar, 1e-6));
+  if (cfg.model === "ldf") return 5 / cfg.kldf;
+  if (cfg.model === "micro") return 0.5 * tauMic;
+  if (cfg.model === "macro") return 0.5 * tauMac;
+  return 0.5 * tauMic + 0.5 * tauMac;
+}
+
+function solveUptake(cfg, onProgress) {
+  const T = cfg.tEnd || autoTend(cfg);
+  const K = cfg.K || 400;
+  if (cfg.model === "ldf") {
+    const f = makeIsotherm(cfg.iso);
+    const t = timesSqrt(T, K);
+    const U = Float64Array.from(t, tv => 1 - Math.exp(-cfg.kldf * tv));
+    return { t: Array.from(t), U: Array.from(U), snaps: null, T,
+             meta: { q0: f(cfg.y0), q1: f(cfg.y1) } };
+  }
+  const model = buildModel(cfg);
+  const t = timesSqrt(T, K);
+  const nSnap = Math.min(60, K);
+  const keep = [];
+  for (let s = 0; s <= nSnap; s++) keep.push(Math.round(s * K / nSnap));
+  const res = integrateCN(model, t, { keepStates: keep, onProgress });
+  const snaps = res.stateAt.map((ki, idx) => ({
+    t: t[ki], ...model.profiles(res.states[idx])
+  }));
+  return {
+    t: Array.from(t), U: Array.from(res.uptake), snaps, T,
+    meta: { q0: model.q0, q1: model.q1, De: model.De, amu: model.amu,
+            CT: model.CT, gmono: model.gmono }
+  };
+}
+
+/* exports for jsc / worker */
+if (typeof globalThis !== "undefined") {
+  globalThis.UPTAKE = { MODELS, makeIsotherm, gammaTable, buildModel,
+                        integrateCN, timesSqrt, solveUptake, autoTend, parseExpr, fvGeom };
+}
+
+</script>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const U = globalThis.UPTAKE;
+  const LSKEY = "uptake_v1";
+  const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+  /* ---------- state ---------- */
+  const st = {
+    model: "bidisperse", iso: "langmuir", pvals: {}, expr: "5*y/(1+10*y)",
+    T: 298.15, Pbar: 1, y0: 0, y1: 0.5, darken: true,
+    Dmu: 5e-14, Rc: 1, Dm: 1e-5, DK: 1.26e-5, taup: 3, epsp: 0.35, rhop: 1000, Rp: 150,
+    k: 0.05, glue: false, Nc: 20, Np: 20, K: 280, tend: "",
+    xax: "t"
+  };
+  try {
+    const s = JSON.parse(localStorage.getItem(LSKEY));
+    if (s && typeof s === "object") Object.assign(st, s);
+  } catch (e) {}
+  /* ---- parameter import from Isotherm Fitter (#import= URL hash) ---- */
+  try {
+    const mIm = location.hash.match(/#import=([\s\S]+)/);
+    if (mIm) {
+      const im = JSON.parse(decodeURIComponent(mIm[1]));
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e2) {}
+      if (im && im.v === 1 && im.model && (U.MODELS[im.model] && im.model !== "custom")) {
+        const Pb = +st.Pbar || 1;
+        const cv = Object.assign({}, im.pvals);
+        if (im.model === "linear") cv.H *= Pb;
+        else if (im.model === "langmuir" || im.model === "antilang" || im.model === "sips") cv.b *= Pb;
+        else if (im.model === "dsl" || im.model === "typev") { cv.b1 *= Pb; cv.b2 *= Pb; }
+        else if (im.model === "bet") { cv.bs *= Pb; cv.bl *= Pb; }
+        else if (im.model === "quad") { cv.b1 *= Pb; cv.b2 *= Pb * Pb; }
+        st.iso = im.model;
+        st.pvals[im.model] = cv;
+        im.note = (im.note || im.model) + " \u2014 converted to y-basis at P = " + Pb + " bar";
+        const tdv = document.createElement("div");
+        tdv.textContent = "Imported \u2014 " + (im.note || im.model);
+        tdv.style.cssText = "position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#2563eb;color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.35);transition:opacity .6s;max-width:90vw";
+        document.body.appendChild(tdv);
+        setTimeout(() => { tdv.style.opacity = "0"; setTimeout(() => tdv.remove(), 700); }, 6000);
+      }
+    }
+  } catch (eIm) {}
+
+  function saveLS() { try { localStorage.setItem(LSKEY, JSON.stringify(st)); } catch (e) {} }
+
+  let sol = null;          // last solution from the engine
+  let solCfg = null;       // cfg that produced it
+  let hovUp = null;        // uptake-plot hover {t, U}
+  let slIdx = -1;          // slider snapshot index (-1 = end)
+  let playTimer = null;
+
+  /* ---------- isotherm UI ---------- */
+  const selIso = $("uc-iso-sel");
+  Object.keys(U.MODELS).forEach(k => {
+    const o = document.createElement("option");
+    o.value = k; o.innerHTML = U.MODELS[k].label;
+    selIso.appendChild(o);
+  });
+  selIso.value = st.iso;
+
+  function renderParams() {
+    const span = $("uc-params");
+    span.innerHTML = "";
+    $("uc-exprfld").style.display = st.iso === "custom" ? "" : "none";
+    if (st.iso === "custom") { $("uc-expr").value = st.expr; return; }
+    U.MODELS[st.iso].params.forEach(([key, label, dflt]) => {
+      const lab = document.createElement("label");
+      lab.className = "fld";
+      lab.innerHTML = "<span>" + label + "</span>";
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "any";
+      const cur = (st.pvals[st.iso] || {})[key];
+      inp.value = cur !== undefined ? cur : dflt;
+      inp.addEventListener("input", () => {
+        if (!st.pvals[st.iso]) st.pvals[st.iso] = {};
+        st.pvals[st.iso][key] = parseFloat(inp.value);
+        onChange();
+      });
+      lab.appendChild(inp);
+      span.appendChild(lab);
+    });
+  }
+
+  function isoCfg() {
+    return { id: st.iso, pvals: st.pvals[st.iso] || {}, expr: st.expr };
+  }
+
+  /* ---------- isotherm formula display ---------- */
+  const FR = (n, d) => '<span class="frac"><span class="fn">' + n + '</span><span class="fd">' + d + '</span></span>';
+  const gnum = v => (+(+v).toPrecision(5)).toString();
+  function pcur() {
+    const M = U.MODELS[st.iso], p = {};
+    (M.params || []).forEach(([k, , d]) => {
+      const v = (st.pvals[st.iso] || {})[k];
+      p[k] = (v === undefined || !isFinite(v)) ? d : +v;
+    });
+    return p;
+  }
+  function updateFormula() {
+    const p = pcur(), g = gnum;
+    let h = "q(y)&nbsp;=&nbsp;";
+    switch (st.iso) {
+      case "linear": h += g(p.H) + "·y"; break;
+      case "langmuir":
+        h += FR(g(p.qs) + "·" + g(p.b) + "·y", "1 + " + g(p.b) + "·y"); break;
+      case "antilang":
+        h += FR(g(p.qs) + "·" + g(p.b) + "·y", "1 − " + g(p.b) + "·y"); break;
+      case "sips":
+        h += FR(g(p.qs) + "·(" + g(p.b) + "·y)<sup>" + g(p.n) + "</sup>",
+                "1 + (" + g(p.b) + "·y)<sup>" + g(p.n) + "</sup>"); break;
+      case "quad":
+        h += FR(g(p.qs) + "·y·(" + g(p.b1) + " + 2·" + g(p.b2) + "·y)",
+                "1 + " + g(p.b1) + "·y + " + g(p.b2) + "·y<sup>2</sup>"); break;
+      case "typev":
+        h += FR(g(p.qs1) + "·" + g(p.b1) + "·y", "1 + " + g(p.b1) + "·y") +
+             "&nbsp;+&nbsp;" +
+             FR(g(p.qs2) + "·(" + g(p.b2) + "·y)<sup>" + g(p.n) + "</sup>",
+                "1 + (" + g(p.b2) + "·y)<sup>" + g(p.n) + "</sup>"); break;
+      case "bet":
+        h += FR(g(p.qs) + "·" + g(p.bs) + "·y",
+                "(1 − " + g(p.bl) + "·y)·(1 − " + g(p.bl) + "·y + " + g(p.bs) + "·y)"); break;
+      case "dsl":
+        h += FR(g(p.qs1) + "·" + g(p.b1) + "·y", "1 + " + g(p.b1) + "·y") +
+             "&nbsp;+&nbsp;" +
+             FR(g(p.qs2) + "·" + g(p.b2) + "·y", "1 + " + g(p.b2) + "·y"); break;
+      case "dodoA":
+        h += FR(g(p.ns) + "·" + g(p.Ks) + "·x", "(1 − " + g(p.Kc) + "·x)(1 + " + g(p.Ks - p.Kc) + "·x)") +
+             " + " +
+             FR(g(p.nma * p.ma) + "·" + g(p.Kma) + "·x<sup>" + g(p.ma) + "</sup>",
+                "1 + " + g(p.Kma) + "·x<sup>" + g(p.ma) + "</sup>") +
+             ",&nbsp; x = y/" + g(p.ys); break;
+      case "dodoD":
+        h += FR(g(p.ns) + "·" + g(p.Ks) + "·x", "(1 − " + g(p.Kc) + "·x)(1 + " + g(p.Ks - p.Kc) + "·x)") +
+             " + max(n<sub>μ,a</sub>, " +
+             FR(g(p.nmd * p.md) + "·" + g(p.Kmd) + "·x<sup>" + g(p.md) + "</sup>",
+                "1 + " + g(p.Kmd) + "·x<sup>" + g(p.md) + "</sup>") +
+             "),&nbsp; x = y/" + g(p.ys); break;
+      case "custom": {
+        let e = st.expr.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        e = e.replace(/\*/g, "·")
+             .replace(/\^\(([^)]+)\)/g, "<sup>$1</sup>")
+             .replace(/\^([0-9.]+)/g, "<sup>$1</sup>");
+        h += e; break;
+      }
+    }
+    $("uc-formula").innerHTML = h;
+  }
+  function isoFn() {
+    try { return U.makeIsotherm(isoCfg()); }
+    catch (e) { showErr("Isotherm: " + e); return null; }
+  }
+
+  /* ---------- field wiring ---------- */
+  const bind = (id, key, parse) => {
+    const el = $(id);
+    el.value = st[key];
+    el.addEventListener("input", () => {
+      st[key] = parse ? parse(el.value) : parseFloat(el.value);
+      onChange();
+    });
+  };
+  bind("uc-T", "T"); bind("uc-P", "Pbar");
+  bind("uc-y0", "y0"); bind("uc-y1", "y1");
+  bind("uc-Dmu", "Dmu"); bind("uc-Rc", "Rc");
+  bind("uc-Dm", "Dm"); bind("uc-DK", "DK"); bind("uc-taup", "taup");
+  bind("uc-epsp", "epsp"); bind("uc-rhop", "rhop"); bind("uc-Rp", "Rp");
+  bind("uc-k", "k");
+  bind("uc-Nc", "Nc"); bind("uc-Np", "Np"); bind("uc-K", "K");
+  $("uc-tend").value = st.tend;
+  $("uc-tend").addEventListener("input", () => { st.tend = $("uc-tend").value; onChange(); });
+  $("uc-model").value = st.model;
+  $("uc-model").addEventListener("change", () => { st.model = $("uc-model").value; onChange(); });
+  $("uc-darken").checked = st.darken;
+  $("uc-darken").addEventListener("change", () => { st.darken = $("uc-darken").checked; onChange(); });
+  $("uc-glue").checked = st.glue;
+  $("uc-glue").addEventListener("change", () => { st.glue = $("uc-glue").checked; onChange(); });
+  selIso.addEventListener("change", () => { st.iso = selIso.value; renderParams(); onChange(); });
+  $("uc-expr").addEventListener("input", () => { st.expr = $("uc-expr").value; onChange(); });
+  $("uc-swap").addEventListener("click", () => {
+    const t = st.y0; st.y0 = st.y1; st.y1 = t;
+    $("uc-y0").value = st.y0; $("uc-y1").value = st.y1;
+    onChange();
+  });
+  $("uc-dkcalc").addEventListener("click", () => {
+    const r = parseFloat($("uc-rpore").value) * 1e-9;
+    const M = parseFloat($("uc-M").value) * 1e-3;
+    const dk = (2 * r / 3) * Math.sqrt(8 * 8.314462618 * st.T / (Math.PI * M));
+    st.DK = dk;
+    $("uc-DK").value = dk.toExponential(3);
+    $("uc-dkout").textContent = "DK = " + dk.toExponential(3) + " m²/s";
+    onChange();
+  });
+  $("uc-xax").querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      $("uc-xax").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      st.xax = b.dataset.m;
+      saveLS();
+      drawUptake();
+    });
+  });
+  $("uc-xax").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.m === st.xax));
+
+  function updateVisibility() {
+    const m = st.model;
+    $("uc-grp-micro").style.display = (m === "micro" || m === "bidisperse" || (m === "ldf" && st.glue)) ? "" : "none";
+    $("uc-grp-macro").style.display = (m === "macro" || m === "bidisperse") ? "" : "none";
+    $("uc-grp-ldf").style.display = (m === "ldf") ? "" : "none";
+    $("uc-darkwrap").style.display = (m === "micro" || m === "bidisperse") ? "" : "none";
+  }
+
+  /* ---------- errors / warnings ---------- */
+  function showErr(msg) { const e = $("uc-err"); e.textContent = msg; e.classList.add("show"); }
+  function clearErr() { $("uc-err").classList.remove("show"); }
+  function showWarn(msg) { const e = $("uc-warn"); e.textContent = msg; e.classList.add("show"); }
+  function clearWarn() { $("uc-warn").classList.remove("show"); }
+
+  /* ---------- engine cfg ---------- */
+  function buildCfg() {
+    const kldf = st.glue ? 15 * st.Dmu / Math.pow(st.Rc * 1e-6, 2) : st.k;
+    const nc = st.Nc, np = st.Np;   // user-controlled grids for every model
+    return {
+      model: st.model, iso: isoCfg(),
+      T: st.T, P: st.Pbar * 1e5, y0: st.y0, y1: st.y1,
+      darken: st.darken,
+      Dmu0: st.Dmu, Rc: st.Rc * 1e-6,
+      Dm: st.Dm, DK: st.DK, taup: st.taup, epsp: st.epsp, rhop: st.rhop,
+      Rp: st.Rp * 1e-6, kldf,
+      Nc: Math.max(8, Math.round(nc)), Np: Math.max(8, Math.round(np)),
+      K: Math.max(80, Math.round(st.K)),
+      tEnd: st.tend === "" || isNaN(parseFloat(st.tend)) ? null : parseFloat(st.tend)
+    };
+  }
+
+  /* ---------- worker ---------- */
+  const engineSrc = $("uc-engine").textContent;
+  const workerSrc = engineSrc + "\n" +
+    "onmessage = e => {\n" +
+    "  try {\n" +
+    "    const sol = UPTAKE.solveUptake(e.data, f => postMessage({ type: 'prog', f }));\n" +
+    "    postMessage({ type: 'done', sol });\n" +
+    "  } catch (err) { postMessage({ type: 'err', msg: String((err && err.message) || err) }); }\n" +
+    "};";
+  let worker = null, workerBusy = false, pendingCfg = null;
+
+  function spawnWorker() {
+    try {
+      worker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: "text/javascript" })));
+      worker.onmessage = ev => {
+        const d = ev.data;
+        if (d.type === "prog") { $("uc-status").textContent = "computing… " + Math.round(d.f * 100) + "%"; return; }
+        workerBusy = false;
+        if (d.type === "err") { showErr("Solver: " + d.msg); $("uc-status").textContent = ""; $("uc-status").classList.remove("busy"); return; }
+        onSolved(d.sol);
+        if (pendingCfg) { const c = pendingCfg; pendingCfg = null; postRun(c); }
+      };
+      worker.onerror = () => { worker = null; };
+    } catch (e) { worker = null; }
+  }
+  spawnWorker();
+
+  function postRun(cfg) {
+    $("uc-status").textContent = "computing…";
+    $("uc-status").classList.add("busy");
+    solCfg = cfg;
+    if (worker) {
+      if (workerBusy) {                      // preempt: kill and respawn
+        worker.terminate(); spawnWorker();
+      }
+      workerBusy = true;
+      worker.postMessage(cfg);
+    } else {
+      setTimeout(() => {                     // synchronous fallback
+        try { onSolved(U.solveUptake(cfg, null)); }
+        catch (e) { showErr("Solver: " + e.message); $("uc-status").textContent = ""; }
+      }, 10);
+    }
+  }
+
+  let autoExt = 0;
+  function onSolved(s) {
+    // auto-t_end underestimates slow tails (e.g. S-shaped isotherms where the
+    // Darken factor collapses near the plateau): extend and re-run, max twice
+    const manualT = !(st.tend === "" || isNaN(parseFloat(st.tend)));
+    if (!manualT && s.U[s.U.length - 1] < 0.97 && autoExt < 2) {
+      autoExt++;
+      postRun(Object.assign({}, solCfg, { tEnd: s.T * 3 }));
+      return;
+    }
+    autoExt = 0;
+    sol = s;
+    $("uc-status").textContent = "";
+    $("uc-status").classList.remove("busy");
+    slIdx = sol.snaps ? sol.snaps.length - 1 : -1;
+    const sl = $("uc-tsl");
+    if (sol.snaps) { sl.max = sol.snaps.length - 1; sl.value = slIdx; sl.disabled = false; }
+    else { sl.disabled = true; }
+    summarize();
+    drawAll();
+  }
+
+  /* ---------- solve request (debounced) ---------- */
+  let deb = null;
+  function onChange() {
+    saveLS();
+    updateVisibility();
+    updateFormula();
+    clearErr(); clearWarn();
+    if (deb) clearTimeout(deb);
+    deb = setTimeout(() => {
+      deb = null;
+      const f = isoFn();
+      if (!f) return;
+      if (!(st.y1 !== st.y0)) { showErr("y0 and y1 must differ (a step is needed)."); return; }
+      let bad = null;
+      try {
+        const q0 = f(st.y0), q1 = f(st.y1);
+        if (!isFinite(q0) || !isFinite(q1)) bad = "isotherm not finite at the step values";
+        else if (Math.min(q0, q1) < 0) bad = "isotherm negative at the step values";
+      } catch (e) { bad = String(e); }
+      if (bad) { showErr("Isotherm: " + bad); return; }
+      const cfg = buildCfg();
+      if (workerBusy) { pendingCfg = cfg; worker.terminate(); spawnWorker(); workerBusy = false; postRun(cfg); return; }
+      postRun(cfg);
+    }, 350);
+  }
+
+  /* ---------- summary ---------- */
+  const fmt = (v, d) => !isFinite(v) ? "–" : v.toExponential(d === undefined ? 3 : d);
+  const fmtg = (v, d) => !isFinite(v) ? "–" : (+v.toPrecision(d || 4)).toString();
+  function summarize() {
+    const f = isoFn();
+    if (!f || !sol) return;
+    const cfg = solCfg;
+    const CT = cfg.P / (8.314462618 * cfg.T);
+    const q0 = sol.meta.q0, q1 = sol.meta.q1;
+    const Dpore = 1 / (1 / cfg.Dm + 1 / cfg.DK);
+    const De = cfg.epsp * Dpore / cfg.taup;
+    const dq = Math.abs(q1 - q0), dy = Math.abs(cfg.y1 - cfg.y0);
+    const Kch = dy > 0 ? cfg.rhop * dq / (dy * CT) : 0;
+    const tauMic = cfg.Rc * cfg.Rc / cfg.Dmu0;
+    const tauMac = cfg.Rp * cfg.Rp * (cfg.epsp + Kch) / De;
+    let hs = "step q: <b>" + fmtg(q0) + "</b> &rarr; <b>" + fmtg(q1) + "</b> mol/kg";
+    if (cfg.model === "macro" || cfg.model === "bidisperse")
+      hs += " &middot; D<sub>pore</sub> = <b>" + fmt(Dpore, 2) + "</b>, D<sub>e</sub> = &epsilon;<sub>p</sub>D<sub>pore</sub>/&tau;<sub>p</sub> = <b>" + fmt(De, 2) + "</b> m&sup2;/s" +
+            " &middot; &tau;<sub>macro</sub> = R<sub>p</sub>&sup2;(&epsilon;<sub>p</sub>+K)/D<sub>e</sub> = <b>" + fmtg(tauMac, 3) + "</b> s (K = " + fmtg(Kch, 3) + ")";
+    if (cfg.model === "micro" || cfg.model === "bidisperse")
+      hs += " &middot; &tau;<sub>micro</sub> = r<sub>c</sub>&sup2;/D<sub>&mu;0</sub> = <b>" + fmtg(tauMic, 3) + "</b> s";
+    if (cfg.model === "bidisperse") {
+      const g = tauMic / tauMac;
+      hs += " &middot; &tau;<sub>micro</sub>/&tau;<sub>macro</sub> = <b>" + fmtg(g, 3) + "</b> (" +
+            (g > 3 ? "micropore-controlled" : g < 0.33 ? "macropore-controlled" : "both resistances matter") + ")";
+    }
+    if (cfg.model === "ldf")
+      hs += " &middot; k = <b>" + fmtg(cfg.kldf, 3) + "</b> 1/s &middot; t<sub>63%</sub> = 1/k = <b>" + fmtg(1 / cfg.kldf, 3) + "</b> s";
+    // t50 / t90 and sqrt-t slope
+    const tArr = sol.t, UA = sol.U;
+    const tAt = lvl => {
+      for (let i = 1; i < UA.length; i++)
+        if (UA[i] >= lvl) return tArr[i-1] + (tArr[i] - tArr[i-1]) * (lvl - UA[i-1]) / (UA[i] - UA[i-1]);
+      return NaN;
+    };
+    const t50 = tAt(0.5), t90 = tAt(0.9);
+    hs += "<br>t<sub>50</sub> = <b>" + fmtg(t50, 3) + "</b> s &middot; t<sub>90</sub> = <b>" + fmtg(t90, 3) + "</b> s";
+    if (cfg.model !== "ldf") {
+      const g = cfg.model === "micro" ? "N<sub>c</sub> = " + cfg.Nc :
+                cfg.model === "macro" ? "N<sub>p</sub> = " + cfg.Np :
+                "N<sub>c</sub> &times; N<sub>p</sub> = " + cfg.Nc + " &times; " + cfg.Np;
+      hs += " &middot; grid: " + g + ", " + cfg.K + " steps";
+    }
+    let s0 = 0, n0 = 0;
+    for (let i = 1; i < UA.length && UA[i] < 0.3; i++) { s0 += UA[i] / Math.sqrt(tArr[i]); n0++; }
+    if (n0 > 3) {
+      const slope = s0 / n0;
+      const DR2 = Math.PI * slope * slope / 36;
+      hs += " &middot; initial &radic;t slope &rarr; apparent D/R&sup2; = &pi;s&sup2;/36 = <b>" + fmt(DR2, 2) + "</b> 1/s";
+    }
+    if (cfg.darken && sol.meta.gmono === false)
+      showWarn("Isotherm is not monotonic over [y0, y1] — Darken correction disabled for this run.");
+    $("uc-summary").innerHTML = hs;
+  }
+
+  /* ---------- canvas helpers ---------- */
+  function prep(cv, hpx) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth || cv.parentElement.clientWidth - 28;
+    const h = hpx || 250;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.height = h + "px";
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, W: w, H: h };
+  }
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  function axes(ctx, W, H, pad, xr, yr, xlab, ylab, opts) {
+    opts = opts || {};
+    const [x0, x1] = xr, [y0, y1] = yr;
+    const px = x => pad.l + (x - x0) / (x1 - x0) * (W - pad.l - pad.r);
+    const py = y => H - pad.b - (y - y0) / (y1 - y0) * (H - pad.t - pad.b);
+    ctx.strokeStyle = css("--border"); ctx.lineWidth = 1;
+    ctx.fillStyle = css("--muted");
+    ctx.font = "10px " + FONT;
+    const xt = ticks(x0, x1, 5), yt = ticks(y0, y1, 5);
+    ctx.beginPath();
+    xt.forEach(v => { ctx.moveTo(px(v), pad.t); ctx.lineTo(px(v), H - pad.b); });
+    yt.forEach(v => { ctx.moveTo(pad.l, py(v)); ctx.lineTo(W - pad.r, py(v)); });
+    ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    xt.forEach(v => ctx.fillText(tickLabel(v), px(v), H - pad.b + 4));
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    yt.forEach(v => ctx.fillText(tickLabel(v), pad.l - 5, py(v)));
+    ctx.strokeStyle = css("--muted");
+    ctx.strokeRect(pad.l, pad.t, W - pad.l - pad.r, H - pad.t - pad.b);
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.font = "11px " + FONT;
+    ctx.fillText(xlab, pad.l + (W - pad.l - pad.r) / 2, H - 2);
+    ctx.save();
+    ctx.translate(10, pad.t + (H - pad.t - pad.b) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textBaseline = "top";
+    ctx.fillText(ylab, 0, 0);
+    ctx.restore();
+    if (opts.y2lab) {
+      ctx.save();
+      ctx.translate(W - 8, pad.t + (H - pad.t - pad.b) / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.textBaseline = "top";
+      ctx.fillText(opts.y2lab, 0, 0);
+      ctx.restore();
+    }
+    return { px, py };
+  }
+  function ticks(a, b, n) {
+    const span = b - a;
+    if (!(span > 0)) return [a];
+    const step0 = span / n;
+    const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const norm = step0 / mag;
+    const step = (norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10) * mag;
+    const t = [];
+    for (let v = Math.ceil(a / step) * step; v <= b + 1e-9 * span; v += step) t.push(Math.abs(v) < 1e-12 * span ? 0 : v);
+    return t;
+  }
+  function tickLabel(v) {
+    if (v === 0) return "0";
+    const a = Math.abs(v);
+    if (a >= 1e4 || a < 1e-3) return v.toExponential(0).replace("e+", "e");
+    return (+v.toPrecision(3)).toString();
+  }
+  function line(ctx, px, py, xs, ys, color, width, dash) {
+    ctx.strokeStyle = color; ctx.lineWidth = width || 1.6;
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < xs.length; i++) {
+      if (!isFinite(ys[i])) { started = false; continue; }
+      const X = px(xs[i]), Y = py(ys[i]);
+      if (!started) { ctx.moveTo(X, Y); started = true; }
+      else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function dot(ctx, x, y, r, color, stroke) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = color; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+  }
+  const PAD = { l: 46, r: 14, t: 10, b: 32 };
+
+  /* ---------- isotherm plot (draggable states) ---------- */
+  let isoGeo = null;
+  function drawIso() {
+    const f = isoFn();
+    if (!f) return;
+    const cv = $("uc-iso");
+    const { ctx, W, H } = prep(cv, 250);
+    ctx.clearRect(0, 0, W, H);
+    const yMax = Math.min(0.999, Math.max(0.05, 1.3 * Math.max(st.y0, st.y1)));
+    const N = 240, xs = [], qs = [];
+    let qMax = 0, lastOk = yMax;
+    for (let i = 0; i <= N; i++) {
+      const y = yMax * i / N;
+      let q;
+      try { q = f(y); } catch (e) { q = NaN; }
+      if (!isFinite(q) || q < 0 || q > 1e6) { q = NaN; if (i > 2 && lastOk === yMax) lastOk = xs[xs.length-1]; }
+      xs.push(y); qs.push(q);
+      if (isFinite(q)) qMax = Math.max(qMax, q);
+    }
+    if (!(qMax > 0)) qMax = 1;
+    const pad = { l: 46, r: st.darken ? 40 : 14, t: 10, b: 32 };
+    const darkOn = st.darken && (st.model === "micro" || st.model === "bidisperse");
+    const { px, py } = axes(ctx, W, H, pad, [0, yMax], [0, qMax * 1.08], "y (–)", "q (mol/kg)",
+                            darkOn ? { y2lab: "Γ (–)" } : {});
+    line(ctx, px, py, xs, qs, css("--accent"), 2);
+    // Gamma overlay
+    if (darkOn) {
+      try {
+        const gt = U.gammaTable(f, Math.min(st.y0, st.y1), Math.max(st.y0, st.y1, 1e-4), 400);
+        if (gt.mono) {
+          let gmax = 0, gmin = Infinity;
+          for (let i = 0; i < gt.gA.length; i++) { gmax = Math.max(gmax, gt.gA[i]); gmin = Math.min(gmin, gt.gA[i]); }
+          gmax = Math.max(gmax * 1.1, 1.2);
+          const py2 = g => H - pad.b - g / gmax * (H - pad.t - pad.b);
+          const gx = [], gy = [];
+          const ylo = Math.min(st.y0, st.y1), yhi = Math.max(st.y0, st.y1);
+          for (let i = 0; i < gt.qA.length; i++) {
+            const y = (ylo <= 0 ? yhi * 1e-6 : ylo * 0.5) + (yhi - (ylo <= 0 ? yhi * 1e-6 : ylo * 0.5)) * i / (gt.qA.length - 1);
+            gx.push(y); gy.push(gt.gA[i]);
+          }
+          ctx.save();
+          ctx.strokeStyle = css("--warn"); ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          let started = false;
+          for (let i = 0; i < gx.length; i++) {
+            if (!isFinite(gy[i])) { started = false; continue; }
+            const X = px(gx[i]), Y = py2(gy[i]);
+            if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+          }
+          ctx.stroke();
+          ctx.restore();
+          // right axis ticks for Gamma
+          ctx.fillStyle = css("--warn"); ctx.font = "9px " + FONT;
+          ctx.textAlign = "left"; ctx.textBaseline = "middle";
+          ticks(0, gmax, 4).forEach(g => ctx.fillText(tickLabel(g), W - pad.r + 4, py2(g)));
+        }
+      } catch (e) {}
+    }
+    // state markers
+    let q0, q1;
+    try { q0 = f(st.y0); q1 = f(st.y1); } catch (e) { q0 = q1 = NaN; }
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = css("--muted"); ctx.lineWidth = 1;
+    if (isFinite(q0)) { ctx.beginPath(); ctx.moveTo(px(st.y0), py(0)); ctx.lineTo(px(st.y0), py(q0)); ctx.lineTo(px(0), py(q0)); ctx.stroke(); }
+    if (isFinite(q1)) { ctx.beginPath(); ctx.moveTo(px(st.y1), py(0)); ctx.lineTo(px(st.y1), py(q1)); ctx.lineTo(px(0), py(q1)); ctx.stroke(); }
+    ctx.setLineDash([]);
+    if (isFinite(q0)) {
+      dot(ctx, px(st.y0), py(q0), 6, css("--muted"), css("--card"));
+      ctx.fillStyle = css("--muted"); ctx.font = "bold 10px " + FONT;
+      ctx.textAlign = "center"; ctx.fillText("0", px(st.y0), py(q0) - 11);
+    }
+    if (isFinite(q1)) {
+      dot(ctx, px(st.y1), py(q1), 6, css("--accent"), css("--card"));
+      ctx.fillStyle = css("--accent"); ctx.font = "bold 10px " + FONT;
+      ctx.textAlign = "center"; ctx.fillText("1", px(st.y1), py(q1) - 11);
+    }
+    isoGeo = { px, py, yMax, f, W, H, pad };
+    $("uc-isoinfo").textContent = "y: " + fmtg(st.y0, 3) + " → " + fmtg(st.y1, 3);
+  }
+
+  /* isotherm dragging */
+  (() => {
+    const cv = $("uc-iso");
+    let dragging = null;
+    const hit = ev => {
+      if (!isoGeo) return null;
+      const r = cv.getBoundingClientRect();
+      const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      for (const [key, yv] of [["y1", st.y1], ["y0", st.y0]]) {
+        let q; try { q = isoGeo.f(yv); } catch (e) { continue; }
+        if (!isFinite(q)) continue;
+        const dx = mx - isoGeo.px(yv), dy = my - isoGeo.py(q);
+        if (dx * dx + dy * dy < 140) return key;
+      }
+      return null;
+    };
+    const move = ev => {
+      if (!dragging || !isoGeo) return;
+      const r = cv.getBoundingClientRect();
+      const mx = ev.clientX - r.left;
+      let y = (mx - isoGeo.pad.l) / (isoGeo.W - isoGeo.pad.l - isoGeo.pad.r) * isoGeo.yMax;
+      y = Math.min(0.999, Math.max(0, y));
+      st[dragging] = +y.toPrecision(4);
+      $("uc-" + dragging).value = st[dragging];
+      drawIso();
+      onChange();
+      ev.preventDefault();
+    };
+    cv.addEventListener("pointerdown", ev => {
+      dragging = hit(ev);
+      if (dragging) { cv.setPointerCapture(ev.pointerId); ev.preventDefault(); }
+    });
+    cv.addEventListener("pointermove", ev => {
+      if (dragging) move(ev);
+      else cv.style.cursor = hit(ev) ? "grab" : "default";
+    });
+    cv.addEventListener("pointerup", () => { dragging = null; });
+  })();
+
+  /* ---------- profiles ---------- */
+  function ghostIdx() {
+    if (!sol || !sol.snaps) return [];
+    const targets = [0.15, 0.3, 0.5, 0.7, 0.85];
+    const idx = [];
+    for (const tv of targets) {
+      let best = 0, bd = Infinity;
+      sol.snaps.forEach((s, i) => {
+        const Ui = interpU(s.t);
+        const d = Math.abs(Ui - tv);
+        if (d < bd) { bd = d; best = i; }
+      });
+      if (!idx.includes(best)) idx.push(best);
+    }
+    return idx;
+  }
+  function interpU(t) {
+    if (!sol) return NaN;
+    const T = sol.t, UA = sol.U;
+    if (t <= T[0]) return UA[0];
+    if (t >= T[T.length-1]) return UA[UA.length-1];
+    let lo = 0, hi = T.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (T[m] <= t) lo = m; else hi = m; }
+    return UA[lo] + (UA[hi] - UA[lo]) * (t - T[lo]) / (T[hi] - T[lo]);
+  }
+
+  function drawCrystal() {
+    const cv = $("uc-crys");
+    const { ctx, W, H } = prep(cv, 250);
+    ctx.clearRect(0, 0, W, H);
+    const cfg = solCfg;
+    const noCrys = !sol || !sol.snaps || !cfg || cfg.model === "macro" || cfg.model === "ldf";
+    $("uc-cryscsv").disabled = noCrys;
+    $("uc-cryscsv").style.opacity = noCrys ? 0.4 : 1;
+    if (noCrys) {
+      ctx.fillStyle = css("--muted"); ctx.font = "12px " + FONT;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(cfg && cfg.model === "ldf" ? "LDF: uniform loading — no internal profile" :
+                   "no crystal field in this model", W / 2, H / 2);
+      $("uc-crysinfo").textContent = "";
+      return;
+    }
+    const q0 = sol.meta.q0, q1 = sol.meta.q1;
+    const qlo = Math.min(q0, q1), qhi = Math.max(q0, q1);
+    const span = (qhi - qlo) || 1;
+    const { px, py } = axes(ctx, W, H, PAD, [0, 1], [qlo - 0.05 * span, qhi + 0.05 * span],
+                            "r/rc (–)", "q (mol/kg)");
+    const cur = sol.snaps[slIdx < 0 ? sol.snaps.length - 1 : slIdx];
+    const gIdx = ghostIdx();
+    const drawProf = (snap, color, width, alpha) => {
+      const prof = snap.crystal;
+      if (!prof) return;
+      ctx.globalAlpha = alpha;
+      const Nc = prof[0].length;
+      const rr = Array.from({ length: Nc }, (_, i) => (i + 0.5) / Nc);
+      const styles = [[], [6, 4], [2, 3]];
+      prof.forEach((p, si) => line(ctx, px, py, rr, p, color, width, prof.length > 1 ? styles[si % 3] : []));
+      ctx.globalAlpha = 1;
+    };
+    gIdx.forEach(i => { if (i !== slIdx) drawProf(sol.snaps[i], css("--muted"), 1, 0.35); });
+    drawProf(cur, css("--accent"), 2, 1);
+    if (cfg.model === "bidisperse" && cur.shells) {
+      ctx.fillStyle = css("--muted"); ctx.font = "9px " + FONT;
+      ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("crystals at particle centre (solid) · mid (dash) · surface (dot)", PAD.l + 4, PAD.t + 3);
+    }
+    $("uc-crysinfo").textContent = "t = " + fmtg(cur.t, 3) + " s";
+  }
+
+  function drawParticle() {
+    const cv = $("uc-part");
+    const { ctx, W, H } = prep(cv, 250);
+    ctx.clearRect(0, 0, W, H);
+    const cfg = solCfg;
+    const noPart = !sol || !sol.snaps || !cfg || cfg.model === "micro" || cfg.model === "ldf";
+    $("uc-partcsv").disabled = noPart;
+    $("uc-partcsv").style.opacity = noPart ? 0.4 : 1;
+    if (noPart) {
+      ctx.fillStyle = css("--muted"); ctx.font = "12px " + FONT;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(cfg && cfg.model === "ldf" ? "LDF: uniform loading — no internal profile" :
+                   "no macropore field in this model", W / 2, H / 2);
+      $("uc-partinfo").textContent = "";
+      return;
+    }
+    const ylo = Math.min(cfg.y0, cfg.y1), yhi = Math.max(cfg.y0, cfg.y1);
+    const span = (yhi - ylo) || 1;
+    const pad = { l: 46, r: 40, t: 10, b: 32 };
+    const { px, py } = axes(ctx, W, H, pad, [0, 1], [ylo - 0.05 * span, yhi + 0.05 * span],
+                            "R/Rp (–)", "y (–)", { y2lab: "q̄ (mol/kg)" });
+    const q0 = sol.meta.q0, q1 = sol.meta.q1;
+    const qlo2 = Math.min(q0, q1), qhi2 = Math.max(q0, q1);
+    const qspan = (qhi2 - qlo2) || 1;
+    const py2 = q => H - pad.b - (q - (qlo2 - 0.05 * qspan)) / (1.1 * qspan) * (H - pad.t - pad.b);
+    const cur = sol.snaps[slIdx < 0 ? sol.snaps.length - 1 : slIdx];
+    const gIdx = ghostIdx();
+    const drawProf = (snap, colY, colQ, width, alpha) => {
+      if (!snap.particleY) return;
+      ctx.globalAlpha = alpha;
+      const Np = snap.particleY.length;
+      const rr = Array.from({ length: Np }, (_, i) => (i + 0.5) / Np);
+      line(ctx, px, py, rr, snap.particleY, colY, width);
+      if (snap.qbar) {
+        ctx.strokeStyle = colQ; ctx.lineWidth = width; ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        for (let i = 0; i < Np; i++) {
+          const X = px(rr[i]), Y = py2(snap.qbar[i]);
+          if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.globalAlpha = 1;
+    };
+    gIdx.forEach(i => { if (i !== slIdx) drawProf(sol.snaps[i], css("--muted"), css("--muted"), 1, 0.3); });
+    drawProf(cur, css("--accent"), css("--warn"), 2, 1);
+    // right-axis ticks for qbar
+    ctx.fillStyle = css("--warn"); ctx.font = "9px " + FONT;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ticks(qlo2, qhi2, 4).forEach(q => ctx.fillText(tickLabel(q), W - pad.r + 4, py2(q)));
+    ctx.fillStyle = css("--muted"); ctx.font = "9px " + FONT;
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("y gas (solid) · q̄ crystal-avg (dashed)", pad.l + 4, PAD.t + 3);
+    $("uc-partinfo").textContent = "t = " + fmtg(cur.t, 3) + " s";
+  }
+
+  /* ---------- uptake plot ---------- */
+  let upGeo = null;
+  function drawUptake() {
+    const cv = $("uc-up");
+    const { ctx, W, H } = prep(cv, 330);
+    ctx.clearRect(0, 0, W, H);
+    if (!sol) return;
+    const sq = st.xax === "sqrt";
+    const xs = sol.t.map(t => sq ? Math.sqrt(t) : t);
+    const xmax = xs[xs.length - 1];
+    const { px, py } = axes(ctx, W, H, PAD, [0, xmax * 1.02], [0, 1.05],
+                            sq ? "√t (s½)" : "t (s)", "(mt − m0)/(m∞ − m0) (–)");
+    // guide at 1
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = css("--muted"); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px(0), py(1)); ctx.lineTo(px(xmax * 1.02), py(1)); ctx.stroke();
+    ctx.setLineDash([]);
+    line(ctx, px, py, xs, sol.U, css("--accent"), 2.2);
+    // snapshot marker
+    if (sol.snaps && slIdx >= 0) {
+      const tCur = sol.snaps[slIdx].t;
+      const xCur = sq ? Math.sqrt(tCur) : tCur;
+      dot(ctx, px(xCur), py(interpU(tCur)), 5, css("--warn"), css("--card"));
+    }
+    // hover crosshair
+    if (hovUp) {
+      const xh = sq ? Math.sqrt(hovUp.t) : hovUp.t;
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = css("--muted");
+      ctx.beginPath();
+      ctx.moveTo(px(xh), PAD.t); ctx.lineTo(px(xh), H - PAD.b);
+      ctx.moveTo(PAD.l, py(hovUp.U)); ctx.lineTo(W - PAD.r, py(hovUp.U));
+      ctx.stroke(); ctx.setLineDash([]);
+      dot(ctx, px(xh), py(hovUp.U), 3.5, css("--accent"));
+    }
+    upGeo = { px, py, xmax, sq, W, H };
+    $("uc-upinfo").textContent = hovUp
+      ? "t = " + fmtg(hovUp.t, 4) + " s · √t = " + fmtg(Math.sqrt(hovUp.t), 4) + " · (mt−m0)/(m∞−m0) = " + hovUp.U.toFixed(4)
+      : "";
+  }
+  (() => {
+    const cv = $("uc-up");
+    cv.addEventListener("pointermove", ev => {
+      if (!upGeo || !sol) return;
+      const r = cv.getBoundingClientRect();
+      const mx = ev.clientX - r.left;
+      let xv = (mx - PAD.l) / (upGeo.W - PAD.l - PAD.r) * upGeo.xmax * 1.02;
+      xv = Math.max(0, Math.min(upGeo.xmax, xv));
+      const t = upGeo.sq ? xv * xv : xv;
+      hovUp = { t, U: interpU(t) };
+      drawUptake();
+    });
+    cv.addEventListener("pointerleave", () => { hovUp = null; drawUptake(); });
+  })();
+
+  /* ---------- slider / play ---------- */
+  $("uc-tsl").addEventListener("input", () => {
+    slIdx = parseInt($("uc-tsl").value, 10);
+    updateSliderLabel();
+    drawCrystal(); drawParticle(); drawUptake();
+  });
+  function updateSliderLabel() {
+    if (!sol || !sol.snaps) { $("uc-tslv").textContent = ""; return; }
+    const s = sol.snaps[slIdx < 0 ? sol.snaps.length - 1 : slIdx];
+    $("uc-tslv").textContent = "t = " + fmtg(s.t, 3) + " s · U = " + interpU(s.t).toFixed(3);
+  }
+  $("uc-play").addEventListener("click", () => {
+    if (playTimer) { clearInterval(playTimer); playTimer = null; $("uc-play").innerHTML = "&#9654;"; return; }
+    if (!sol || !sol.snaps) return;
+    $("uc-play").innerHTML = "&#10074;&#10074;";
+    if (slIdx >= sol.snaps.length - 1) slIdx = 0;
+    playTimer = setInterval(() => {
+      slIdx++;
+      if (slIdx >= sol.snaps.length) { clearInterval(playTimer); playTimer = null; $("uc-play").innerHTML = "&#9654;"; slIdx = sol.snaps.length - 1; }
+      $("uc-tsl").value = slIdx;
+      updateSliderLabel();
+      drawCrystal(); drawParticle(); drawUptake();
+    }, 70);
+  });
+
+  /* ---------- PNG export ---------- */
+  $("uc-uppng").addEventListener("click", () => {
+    const a = document.createElement("a");
+    a.download = "uptake_curve.png";
+    a.href = $("uc-up").toDataURL("image/png");
+    a.click();
+  });
+
+  /* ---------- CSV export ---------- */
+  function downloadCSV(name, text) {
+    const a = document.createElement("a");
+    a.download = name;
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  function csvMeta() {
+    const c = solCfg;
+    const iso = c.iso.id === "custom" ? "custom: " + c.iso.expr
+      : U.MODELS[c.iso.id].label.replace(/<[^>]+>/g, "") + " " + JSON.stringify(c.iso.pvals);
+    let l = "# UptakeCurves export\n" +
+            "# model=" + c.model + " · isotherm=" + iso.replace(/"/g, "") + "\n" +
+            "# T=" + c.T + " K · P=" + c.P + " Pa · y0=" + c.y0 + " · y1=" + c.y1 +
+            " · darken=" + c.darken + "\n";
+    if (c.model !== "macro" && c.model !== "ldf")
+      l += "# Dmu0=" + c.Dmu0 + " m2/s · rc=" + c.Rc + " m\n";
+    if (c.model === "macro" || c.model === "bidisperse")
+      l += "# Dm=" + c.Dm + " · DK=" + c.DK + " · taup=" + c.taup + " · epsp=" + c.epsp +
+           " · rhop=" + c.rhop + " kg/m3 · Rp=" + c.Rp + " m\n";
+    if (c.model === "ldf") l += "# k=" + c.kldf + " 1/s\n";
+    l += "# q0=" + sol.meta.q0 + " mol/kg · q1=" + sol.meta.q1 + " mol/kg\n";
+    return l;
+  }
+  $("uc-upcsv").addEventListener("click", () => {
+    if (!sol) return;
+    let s = csvMeta() + "t_s,sqrt_t_s0.5,uptake_fraction\n";
+    for (let i = 0; i < sol.t.length; i++)
+      s += sol.t[i].toPrecision(8) + "," + Math.sqrt(sol.t[i]).toPrecision(8) + "," +
+           sol.U[i].toPrecision(8) + "\n";
+    downloadCSV("uptake_curve.csv", s);
+  });
+  $("uc-cryscsv").addEventListener("click", () => {
+    if (!sol || !sol.snaps) return;
+    const snap = sol.snaps[slIdx < 0 ? sol.snaps.length - 1 : slIdx];
+    if (!snap.crystal) return;
+    const Nc = snap.crystal[0].length;
+    let head = "r_over_rc," + (snap.crystal.length > 1
+      ? "q_molkg_particle_centre,q_molkg_particle_mid,q_molkg_particle_surface"
+      : "q_molkg") + "\n";
+    let s = csvMeta() + "# crystal profile at t=" + snap.t.toPrecision(6) + " s\n" + head;
+    for (let i = 0; i < Nc; i++)
+      s += ((i + 0.5) / Nc).toPrecision(6) + "," +
+           snap.crystal.map(p => p[i].toPrecision(8)).join(",") + "\n";
+    downloadCSV("crystal_profile.csv", s);
+  });
+  $("uc-partcsv").addEventListener("click", () => {
+    if (!sol || !sol.snaps) return;
+    const snap = sol.snaps[slIdx < 0 ? sol.snaps.length - 1 : slIdx];
+    if (!snap.particleY) return;
+    const Np = snap.particleY.length;
+    let s = csvMeta() + "# particle profile at t=" + snap.t.toPrecision(6) + " s\n" +
+            "R_over_Rp,y_gas,qbar_molkg\n";
+    for (let j = 0; j < Np; j++)
+      s += ((j + 0.5) / Np).toPrecision(6) + "," + snap.particleY[j].toPrecision(8) + "," +
+           snap.qbar[j].toPrecision(8) + "\n";
+    downloadCSV("particle_profile.csv", s);
+  });
+
+  /* ---------- draw all ---------- */
+  function drawAll() {
+    drawIso(); drawCrystal(); drawParticle(); drawUptake(); updateSliderLabel();
+  }
+  window.addEventListener("resize", () => { if (sol) drawAll(); else drawIso(); });
+
+  /* ---------- init ---------- */
+  renderParams();
+  updateVisibility();
+  updateFormula();
+  drawIso();
+  onChange();
+  globalThis.__uc = { st, get sol() { return sol; }, get cfg() { return solCfg; } };
+})();
+</script>
+</body>
+</html>

@@ -1193,6 +1193,27 @@
       if (s.units === "dim" || s.units === "nd") st.units = s.units;
       if ([0, 1, 2].includes(s.cmap)) st.cmap = s.cmap;
     }
+  /* ---- parameter import from Isotherm Fitter (#import= URL hash) ---- */
+  try {
+    const mIm = location.hash.match(/#import=([\s\S]+)/);
+    if (mIm) {
+      const im = JSON.parse(decodeURIComponent(mIm[1]));
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e2) {}
+      if (im && im.v === 1 && im.model && (im.model === "langmuir")) {
+        st.model = "langI";
+        const sl = im.slot === 2 ? 2 : 1;
+        st.pvals["langI.qs" + sl] = +im.pvals.qs;
+        st.pvals["langI.b" + sl] = +im.pvals.b;
+        im.note = (im.note || "") + " \u2192 component " + (sl === 2 ? "B" : "A") + " of the competitive Langmuir";
+        const tdv = document.createElement("div");
+        tdv.textContent = "Imported \u2014 " + (im.note || im.model);
+        tdv.style.cssText = "position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#2563eb;color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.35);transition:opacity .6s;max-width:90vw";
+        document.body.appendChild(tdv);
+        setTimeout(() => { tdv.style.opacity = "0"; setTimeout(() => tdv.remove(), 700); }, 6000);
+      }
+    }
+  } catch (eIm) {}
+
     $("eq-L").value = st.L; $("eq-v").value = st.v; $("eq-eps").value = st.eps;
     $("eq-c1i").value = st.c1i; $("eq-c2i").value = st.c2i;
     $("eq-c1f").value = st.c1f; $("eq-c2f").value = st.c2f;

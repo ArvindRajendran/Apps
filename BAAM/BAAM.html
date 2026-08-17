@@ -1,0 +1,2779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAAM &mdash; Batch Adsorber Analogue Model</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a202c; --muted: #64748b;
+    --accent: #2563eb; --accent-soft: #dbeafe; --border: #e2e8f0;
+    --danger: #dc2626; --warn: #d97706; --ok: #16a34a; --c2: #dc2626;
+    --blo: #1d4ed8; --evac: #059669; --lpp: #ea580c; --ads: #7c3aed;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #94a3b8;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --border: #2c3a52;
+      --danger: #f87171; --warn: #fbbf24; --ok: #4ade80; --c2: #f87171;
+      --blo: #60a5fa; --evac: #34d399; --lpp: #fb923c; --ads: #a78bfa;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 36px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 1200px; }
+  h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin: 5px 0 18px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative; margin-bottom: 14px;
+  }
+  .panel h3.ptitle { font-size: 0.95rem; margin-bottom: 10px; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .ctrls + .ctrls { margin-top: 12px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .fld > span { white-space: nowrap; }
+  .fld input[type=number], .fld input[type=text] {
+    padding: 7px 9px; font-size: 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .fld input[type=number] { width: 92px; }
+  .fld input:focus { border-color: var(--accent); }
+  .fld select {
+    padding: 7px 9px; font-size: 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+  }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); padding-bottom: 7px; cursor: pointer; }
+  .chk input { accent-color: var(--accent); width: 15px; height: 15px; }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 0.78rem; font-weight: 600; padding: 6px 10px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  button.action {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  .chip { font-size: 0.72rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: none; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .grp { border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px 12px; flex: 1; min-width: 330px; }
+  .grp .gtitle { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .grp.comp1 .gtitle { color: var(--accent); }
+  .grp.comp2 .gtitle { color: var(--c2); }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.bad { color: var(--danger); border-color: var(--danger); }
+  .formula {
+    font-size: 0.85rem; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    font-family: Georgia, "Times New Roman", serif; font-style: italic;
+    margin-top: 10px; color: var(--text);
+  }
+  .formula .frac { display: inline-flex; flex-direction: column; text-align: center; line-height: 1.2; }
+  .formula .frac .fn { border-bottom: 1.2px solid currentColor; padding: 0 5px; }
+  .formula .frac .fd { padding: 0 5px; }
+  .err { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .err.show { display: block; }
+  .note { font-size: 0.78rem; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kpi .kl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .kv { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi .kd { font-size: 0.7rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .plots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .plots .pcard { grid-column: span 3; }
+  .plots .pcard.third { grid-column: span 2; }
+  .plots .pcard.full { grid-column: span 6; }
+  @media (max-width: 900px) { .plots .pcard, .plots .pcard.full, .plots .pcard.third { grid-column: span 6; } }
+  .pcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .pcard .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pcard h3 { font-size: 0.85rem; font-weight: 700; }
+  .pcard .pinfo { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pcard canvas { width: 100%; display: block; border-radius: 6px; }
+  .pcard .pfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .pcard .pfoot button { font-size: 0.75rem; padding: 4px 9px; }
+  .schewrap { overflow-x: auto; }
+  .schewrap svg { display: block; margin: 0 auto; }
+  .sllab { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--muted); }
+  .sllab b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .slnum { width: 74px; padding: 3px 6px; font-size: 0.78rem; text-align: right;
+    border: 1.5px solid var(--border); border-radius: 6px; background: var(--bg);
+    color: var(--text); outline: none; font-variant-numeric: tabular-nums; }
+  .slnum:focus { border-color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .readout { margin-top: 10px; font-size: 0.8rem; line-height: 1.8; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .readout b { color: var(--text); }
+  #ba-toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    background: var(--card); border: 1.5px solid var(--accent); color: var(--text);
+    border-radius: 10px; padding: 10px 18px; font-size: 0.85rem; box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 60; max-width: 90vw;
+  }
+  #ba-toast.show { opacity: 1; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+  .footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>BAAM &mdash; Batch Adsorber Analogue Model</h2>
+  <div class="sub">Rapid screening of 4-step VSA/PVSA cycles for binary CO<sub>2</sub>/N<sub>2</sub> separation:
+    a well-mixed, isothermal batch adsorber at instantaneous equilibrium
+    (Subramanian&nbsp;Balashankar et&nbsp;al. 2019; e-BAAM extensions of Liske&nbsp;&amp;&nbsp;Rajendran 2026).
+    The whole cycle reduces to one composition-path ODE plus algebraic balances &mdash; no CSS iteration &mdash;
+    so purity, recovery, energy and working capacity respond instantly to the three design pressures
+    P<sub>H</sub>&nbsp;&gt;&nbsp;P<sub>INT</sub>&nbsp;&gt;&nbsp;P<sub>LOW</sub>, and the cycle can be drawn directly on the competitive isotherms.</div>
+
+  <div class="panel">
+    <h3 class="ptitle">Adsorbent &amp; competitive equilibrium</h3>
+    <div class="ctrls">
+      <label class="fld"><span>Adsorbent preset</span><select id="ba-preset"></select></label>
+      <label class="fld"><span>Mixture model</span>
+        <select id="ba-mode">
+          <option value="edsl">Extended dual-site Langmuir (concentration basis)</option>
+          <option value="iast">IAST from two pure isotherms (pressure basis)</option>
+        </select></label>
+      <label class="fld"><span>Particle density &rho;<sub>s</sub> [kg/m&sup3;]</span><input type="number" id="ba-rho" step="10" value="1130"></label>
+      <label class="fld"><span>Bed voidage &epsilon; [-]</span><input type="number" id="ba-eps" step="0.01" min="0.05" max="0.9" value="0.37"></label>
+    </div>
+    <div class="note" style="margin-top:2px">Own material? Pick <b>Custom</b> above and either type dual-site Langmuir parameters, or switch the
+      mixture model to <b>IAST</b> &mdash; that route takes any pair of pure isotherms from the same 11-model menu as the IAST app
+      (Langmuir, Sips, Toth, BET/GAB, UNILAN, &hellip; or a free q(p) expression) and solves the mixture by ideal adsorbed solution theory.</div>
+
+    <div class="ctrls" id="ba-edsl">
+      <div class="grp comp1">
+        <div class="gtitle">CO&#x2082; (component A)</div>
+        <div class="ctrls">
+          <label class="fld"><span>q<sub>sb</sub> [mol/kg]</span><input type="number" id="ba-A-qsb" step="0.1"></label>
+          <label class="fld"><span>b&#x2080; [m&sup3;/mol]</span><input type="number" id="ba-A-b0" step="1e-8"></label>
+          <label class="fld"><span>&minus;&Delta;U<sub>b</sub> [kJ/mol]</span><input type="number" id="ba-A-dUb" step="0.1"></label>
+          <label class="fld"><span>q<sub>sd</sub> [mol/kg]</span><input type="number" id="ba-A-qsd" step="0.1"></label>
+          <label class="fld"><span>d&#x2080; [m&sup3;/mol]</span><input type="number" id="ba-A-d0" step="1e-8"></label>
+          <label class="fld"><span>&minus;&Delta;U<sub>d</sub> [kJ/mol]</span><input type="number" id="ba-A-dUd" step="0.1"></label>
+        </div>
+        <div class="formula" id="ba-fA"></div>
+      </div>
+      <div class="grp comp2">
+        <div class="gtitle">N&#x2082; (component B)</div>
+        <div class="ctrls">
+          <label class="fld"><span>q<sub>sb</sub> [mol/kg]</span><input type="number" id="ba-B-qsb" step="0.1"></label>
+          <label class="fld"><span>b&#x2080; [m&sup3;/mol]</span><input type="number" id="ba-B-b0" step="1e-8"></label>
+          <label class="fld"><span>&minus;&Delta;U<sub>b</sub> [kJ/mol]</span><input type="number" id="ba-B-dUb" step="0.1"></label>
+          <label class="fld"><span>q<sub>sd</sub> [mol/kg]</span><input type="number" id="ba-B-qsd" step="0.1"></label>
+          <label class="fld"><span>d&#x2080; [m&sup3;/mol]</span><input type="number" id="ba-B-d0" step="1e-8"></label>
+          <label class="fld"><span>&minus;&Delta;U<sub>d</sub> [kJ/mol]</span><input type="number" id="ba-B-dUd" step="0.1"></label>
+        </div>
+        <div class="formula" id="ba-fB"></div>
+      </div>
+    </div>
+
+    <div class="ctrls" id="ba-iast" style="display:none">
+      <div class="grp comp1">
+        <div class="gtitle">CO&#x2082; &mdash; pure isotherm q<sub>A</sub>(p) [mol/kg], p [bar]</div>
+        <div class="ctrls">
+          <label class="fld"><span>Model</span><select id="ba-i1m"></select></label>
+          <span id="ba-i1p" style="display:contents"></span>
+          <label class="fld" id="ba-i1ef" style="display:none"><span>q(p) expression</span>
+            <input type="text" id="ba-i1e" value="3*50*p/(1+50*p)" spellcheck="false" style="width:230px"></label>
+        </div>
+      </div>
+      <div class="grp comp2">
+        <div class="gtitle">N&#x2082; &mdash; pure isotherm q<sub>B</sub>(p) [mol/kg], p [bar]</div>
+        <div class="ctrls">
+          <label class="fld"><span>Model</span><select id="ba-i2m"></select></label>
+          <span id="ba-i2p" style="display:contents"></span>
+          <label class="fld" id="ba-i2ef" style="display:none"><span>q(p) expression</span>
+            <input type="text" id="ba-i2e" value="5*0.7*p/(1+0.7*p)" spellcheck="false" style="width:230px"></label>
+        </div>
+      </div>
+    </div>
+    <div class="badges" id="ba-badges"></div>
+
+    <div class="ctrls">
+      <label class="fld"><span>T [K]</span><input type="number" id="ba-T" step="1" value="298.15"></label>
+      <label class="fld"><span>y<sub>CO&#x2082;</sub> feed [-]</span><input type="number" id="ba-yF" step="0.01" min="0.005" max="0.95" value="0.15"></label>
+      <span style="display:inline-flex; gap:6px; padding-bottom:7px">
+        <button class="chip" data-yf="0.04">NGCC 4%</button>
+        <button class="chip" data-yf="0.15">coal 15%</button>
+        <button class="chip" data-yf="0.25">cement 25%</button>
+      </span>
+      <label class="fld"><span>Cycle</span>
+        <select id="ba-cycle">
+          <option value="LPP">4-step VSA &mdash; light product pressurization</option>
+          <option value="FP">4-step VSA &mdash; feed pressurization</option>
+        </select></label>
+      <label class="fld"><span>Vacuum-pump efficiency &eta;</span>
+        <select id="ba-eta">
+          <option value="const">constant 72% (Balashankar 2019)</option>
+          <option value="maruyama">&eta;(P) = 0.8&middot;19.55P/(1+19.55P) (e-BAAM)</option>
+        </select></label>
+      <label class="fld"><span>ODE grid &Delta;P [bar]</span><input type="number" id="ba-dP" step="1e-4" min="1e-5" max="0.01" value="0.0001"></label>
+      <span class="fld" style="justify-content:flex-end; padding-bottom:9px" id="ba-dPeff"></span>
+    </div>
+    <div class="err" id="ba-err"></div>
+    <div class="note">Presets: 2019 paper set (dual-site Langmuir, Table&nbsp;1) and e-BAAM set (single-site refits; CALF-20 dual-site).
+      Isotherm parameters are concentration-based: b(T)&nbsp;=&nbsp;b&#x2080;e<sup>&minus;&Delta;U/RT</sup>, c<sub>i</sub>&nbsp;=&nbsp;Py<sub>i</sub>/RT.
+      The IAST route accepts any pair from the IAST app&rsquo;s isotherm menu (partial-pressure basis) and computes the
+      mixture by ideal adsorbed solution theory with finite-difference partials &mdash; slower but fully general.
+      Basis: 1&nbsp;kg adsorbent; column volume V&nbsp;=&nbsp;w/(&rho;<sub>s</sub>(1&minus;&epsilon;)).</div>
+  </div>
+
+  <div class="panel">
+    <h3 class="ptitle">Cycle &amp; design pressures</h3>
+    <div class="ctrls">
+      <div style="flex:2; min-width:340px" class="schewrap"><svg id="ba-scheme"></svg></div>
+      <div style="flex:1; min-width:260px; display:flex; flex-direction:column; gap:14px">
+        <div>
+          <div class="sllab"><span>P<sub>H</sub> (adsorption)</span>
+            <input type="number" class="slnum" id="ba-PH" step="0.05" min="0.2" max="5" value="1"></div>
+          <input type="range" id="ba-PHs" min="0.2" max="5" step="0.05" value="1">
+        </div>
+        <div>
+          <div class="sllab"><span>P<sub>INT</sub> (end of blowdown)</span><b id="ba-PintV"></b></div>
+          <input type="range" id="ba-Pint" min="0.04" max="0.99" step="0.005" value="0.15">
+        </div>
+        <div>
+          <div class="sllab"><span>P<sub>LOW</sub> (end of evacuation)</span><b id="ba-PlowV"></b></div>
+          <input type="range" id="ba-Plow" min="0.01" max="0.30" step="0.005" value="0.03">
+        </div>
+        <div class="note" id="ba-states"></div>
+      </div>
+    </div>
+    <div class="kpis" id="ba-kpis"></div>
+    <div class="note" id="ba-enote"></div>
+  </div>
+
+  <div class="plots">
+    <div class="pcard">
+      <div class="phead"><h3>CO&#x2082; loading &mdash; cycle transitions</h3>
+        <div class="seg" id="ba-axA"><button class="on" data-m="log">log P</button><button data-m="lin">lin</button></div>
+      </div>
+      <canvas id="ba-isoA"></canvas>
+      <div class="pfoot"><span class="pinfo" id="ba-infoA" style="margin-right:auto"></span></div>
+    </div>
+    <div class="pcard">
+      <div class="phead"><h3>N&#x2082; loading &mdash; cycle transitions</h3>
+        <div class="seg" id="ba-axB"><button class="on" data-m="log">log P</button><button data-m="lin">lin</button></div>
+      </div>
+      <canvas id="ba-isoB"></canvas>
+      <div class="pfoot"><span class="pinfo" id="ba-infoB" style="margin-right:auto"></span></div>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Composition path y<sub>CO&#x2082;</sub>(P)</h3></div>
+      <canvas id="ba-ypath"></canvas>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Design space</h3>
+        <select id="ba-qty" style="font-size:0.75rem; padding:3px 6px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text)">
+          <option value="Pu">purity [%]</option>
+          <option value="Re">recovery [%]</option>
+          <option value="En" selected>energy [kWh&#x2091;/t]</option>
+          <option value="WC">working capacity [mol/m&sup3;]</option>
+        </select>
+      </div>
+      <canvas id="ba-map"></canvas>
+      <div class="pfoot"><span class="pinfo" id="ba-mapinfo" style="margin-right:auto"></span></div>
+    </div>
+    <div class="pcard third">
+      <div class="phead"><h3>Purity&ndash;recovery Pareto</h3><span class="pinfo" id="ba-parinfo"></span></div>
+      <canvas id="ba-pareto"></canvas>
+    </div>
+    <div class="pcard full">
+      <div class="readout" id="ba-class"></div>
+      <div class="ctrls" style="margin-top:8px">
+        <label class="fld"><span>P<sub>LOW</sub> scan min [bar]</span><input type="number" id="ba-gl0" step="0.005" value="0.03"></label>
+        <label class="fld"><span>P<sub>LOW</sub> scan max [bar]</span><input type="number" id="ba-gl1" step="0.005" value="0.10"></label>
+        <label class="fld"><span># P<sub>LOW</sub></span><input type="number" id="ba-gnl" step="1" min="3" max="40" value="15"></label>
+        <label class="fld"><span># P<sub>INT</sub></span><input type="number" id="ba-gni" step="1" min="10" max="120" value="48"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Model: N<sub>i</sub> = Py<sub>i</sub>V&epsilon;/R<sub>g</sub>T + wq<sub>i</sub>*(P,y);
+    blowdown/evacuation follow dy/dP = (a&#x2081;y&minus;a&#x2082;)/(f&#x2082;&minus;f&#x2081;y) with coefficients from the
+    competitive-isotherm partials; pressurization and adsorption are algebraic balances
+    (raffinate leaves at the pre-adsorption composition); adiabatic vacuum work below 1&nbsp;bar
+    with the selected efficiency model, feed compression added when P<sub>H</sub>&nbsp;&gt;&nbsp;1&nbsp;bar.
+    Validated against the authors&rsquo; original MATLAB BAAM (Table&nbsp;2 of the 2019 paper reproduced exactly;
+    converged cross-validation to &le;10<sup>&minus;5</sup>) and the e-BAAM worked examples &mdash; see the README.
+    The US-DOE classification uses the e-BAAM calibration (r<sub>cut</sub> = 124.5) and the e-BAAM full-model
+    energy scaling E<sub>full</sub> &asymp; 1.58&middot;E<sub>BAAM</sub>.<br>
+    Works offline &mdash; single file, share freely.
+    <span style="display:block; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); opacity:.9;">Built by Arvind Rajendran with Claude Code &middot; v1.0 &middot; August 2026 &middot; educational &amp; research use &middot; no warranty &mdash; use at your own risk<br>Runs entirely in your browser, no data collected &middot; &copy; 2026 &middot; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> &middot; <a href="../index.html">Part of the Research Apps suite &rarr;</a></span>
+  </div>
+</div>
+<div id="ba-toast"></div>
+
+<script id="ba-engine">
+/* BAAM engine — Batch Adsorber Analogue Model (Balashankar 2019 / e-BAAM
+   Liske 2026). 4-step VSA/PVSA cycles with LPP or FP pressurization.
+   Mixture equilibria: extended dual-site Langmuir (analytic partials,
+   concentration basis) or binary IAST over pure-component isotherms
+   (partial-pressure basis, FD partials). No DOM access.
+
+   Sections 1-2 (parseExprP, IAST_MODELS, buildPsiTable, makeComponent,
+   iastSolve) are copied VERBATIM from the IAST app engine (ia-engine block in
+   Apps/IAST/IAST.html) — keep in sync with that app. */
+"use strict";
+
+/* ================= 1. expression parser (from IAST app) ================= */
+function parseExprP(src) {
+  const toks = [];
+  const re = /\s*(\d+\.?\d*(?:[eE][+-]?\d+)?|[A-Za-z_][A-Za-z_0-9]*|\*\*|[-+*/^(),])/y;
+  let i = 0;
+  while (i < src.length) {
+    re.lastIndex = i;
+    const m = re.exec(src);
+    if (!m) throw "Bad token near '" + src.slice(i, i + 8) + "'";
+    toks.push(m[1]); i = re.lastIndex;
+  }
+  const FUN = { exp: Math.exp, log: Math.log, ln: Math.log, sqrt: Math.sqrt,
+                abs: Math.abs, tanh: Math.tanh, pow: Math.pow, min: Math.min, max: Math.max };
+  const CONST = { pi: Math.PI, e: Math.E };
+  const out = [], ops = [];
+  const prec = { "+": 1, "-": 1, "*": 2, "/": 2, "u-": 3, "^": 4, "**": 4 };
+  const rightAssoc = { "^": 1, "**": 1, "u-": 1 };
+  let prev = null;
+  for (const t0 of toks) {
+    let t = t0;
+    if (t === "-" && (prev === null || (prec[prev] || prev === "(" || prev === ","))) t = "u-";
+    if (/^[\d.]/.test(t)) out.push(parseFloat(t));
+    else if (/^[A-Za-z_]/.test(t)) {
+      if (FUN[t]) ops.push(t);
+      else if (t in CONST) out.push(CONST[t]);
+      else if (t === "p" || t === "P") out.push("VAR");
+      else throw "Unknown symbol '" + t + "' — use p, numbers, exp/log/sqrt/…";
+    }
+    else if (t === "(") ops.push(t);
+    else if (t === ",") { while (ops.length && ops[ops.length-1] !== "(") out.push(ops.pop()); }
+    else if (t === ")") {
+      while (ops.length && ops[ops.length-1] !== "(") out.push(ops.pop());
+      ops.pop();
+      if (ops.length && FUN[ops[ops.length-1]]) out.push(ops.pop());
+    } else {
+      while (ops.length) {
+        const o = ops[ops.length-1];
+        if (o === "(" || !(prec[o] >= (rightAssoc[t] ? prec[t] + 1 : prec[t]))) break;
+        out.push(ops.pop());
+      }
+      ops.push(t);
+    }
+    prev = t;
+  }
+  while (ops.length) out.push(ops.pop());
+  const f = p => {
+    const st = [];
+    for (const tk of out) {
+      if (typeof tk === "number") st.push(tk);
+      else if (tk === "VAR") st.push(p);
+      else if (FUN[tk]) {
+        if (tk === "pow" || tk === "min" || tk === "max") { const b = st.pop(), a = st.pop(); st.push(FUN[tk](a, b)); }
+        else st.push(FUN[tk](st.pop()));
+      }
+      else if (tk === "u-") st.push(-st.pop());
+      else { const b = st.pop(), a = st.pop();
+        st.push(tk === "+" ? a + b : tk === "-" ? a - b : tk === "*" ? a * b :
+                tk === "/" ? a / b : Math.pow(a, b)); }
+    }
+    if (st.length !== 1) throw "Malformed expression";
+    return st[0];
+  };
+  f(0.123);
+  return f;
+}
+
+/* ================= 2. IAST pieces (from IAST app) ======================= */
+const IAST_MODELS = {
+  linear: { label: "Linear", params: [["H", "H [mol/(kg·bar)]", 3]],
+    make: c => ({ f: p => c.H * p, psi: p => c.H * p, henry: c.H, pole: null, psiKind: "exact" }) },
+  langmuir: { label: "Langmuir", params: [["qs", "q<sub>s</sub> [mol/kg]", 4], ["b", "b [1/bar]", 8]],
+    make: c => ({ f: p => c.qs * c.b * p / (1 + c.b * p),
+                  psi: p => c.qs * Math.log(1 + c.b * p),
+                  henry: c.qs * c.b, pole: null, psiKind: "exact" }) },
+  dsl: { label: "Dual-site Langmuir",
+    params: [["qs1", "q<sub>s1</sub> [mol/kg]", 3], ["b1", "b<sub>1</sub> [1/bar]", 50],
+             ["qs2", "q<sub>s2</sub> [mol/kg]", 4], ["b2", "b<sub>2</sub> [1/bar]", 1]],
+    make: c => ({ f: p => c.qs1 * c.b1 * p / (1 + c.b1 * p) + c.qs2 * c.b2 * p / (1 + c.b2 * p),
+                  psi: p => c.qs1 * Math.log(1 + c.b1 * p) + c.qs2 * Math.log(1 + c.b2 * p),
+                  henry: c.qs1 * c.b1 + c.qs2 * c.b2, pole: null, psiKind: "exact" }) },
+  antilang: { label: "Anti-Langmuir", params: [["qs", "q<sub>s</sub> [mol/kg]", 1], ["b", "b [1/bar]", 0.05]],
+    make: c => ({ f: p => c.qs * c.b * p / (1 - c.b * p),
+                  psi: p => -c.qs * Math.log(1 - c.b * p),
+                  henry: c.qs * c.b, pole: 1 / c.b, psiKind: "exact" }) },
+  quad: { label: "Quadratic", params: [["qs", "q<sub>s</sub> [mol/kg]", 3], ["b1", "b<sub>1</sub> [1/bar]", 5], ["b2", "b<sub>2</sub> [1/bar²]", 10]],
+    make: c => ({ f: p => c.qs * p * (c.b1 + 2 * c.b2 * p) / (1 + c.b1 * p + c.b2 * p * p),
+                  psi: p => c.qs * Math.log(1 + c.b1 * p + c.b2 * p * p),
+                  henry: c.qs * c.b1, pole: null, psiKind: "exact" }) },
+  sips: { label: "Sips / Hill", params: [["qs", "q<sub>s</sub> [mol/kg]", 5], ["b", "b [1/bar]", 2], ["n", "n [-]", 0.85]],
+    make: c => ({ f: p => { const t = Math.pow(Math.max(c.b * p, 0), c.n); return c.qs * t / (1 + t); },
+                  psi: p => c.qs / c.n * Math.log(1 + Math.pow(Math.max(c.b * p, 0), c.n)),
+                  henry: c.n === 1 ? c.qs * c.b : (c.n < 1 ? Infinity : 0),
+                  pole: null, psiKind: "exact" }) },
+  toth: { label: "Toth", params: [["qs", "q<sub>s</sub> [mol/kg]", 4], ["b", "b [1/bar]", 8], ["t", "t [-]", 0.6]],
+    make: c => ({ f: p => c.qs * c.b * p / Math.pow(1 + Math.pow(Math.max(c.b * p, 0), c.t), 1 / c.t),
+                  psi: null, henry: c.qs * c.b, pole: null, psiKind: "table" }) },
+  freundlich: { label: "Freundlich", params: [["k", "k [mol/(kg·bar<sup>1/n</sup>)]", 2], ["n", "n [-]", 2]],
+    make: c => ({ f: p => c.k * Math.pow(Math.max(p, 0), 1 / c.n),
+                  psi: p => c.n * c.k * Math.pow(Math.max(p, 0), 1 / c.n),
+                  henry: c.n === 1 ? c.k : (c.n > 1 ? Infinity : 0),
+                  pole: null, psiKind: "exact" }) },
+  bet: { label: "BET (Type II/III)", params: [["qs", "q<sub>s</sub> [mol/kg]", 2], ["bs", "b<sub>s</sub> [1/bar]", 30], ["bl", "b<sub>l</sub> [1/bar]", 0.8]],
+    make: c => ({ f: p => c.qs * c.bs * p / ((1 - c.bl * p) * (1 - c.bl * p + c.bs * p)),
+                  psi: p => c.qs * Math.log((1 + (c.bs - c.bl) * p) / (1 - c.bl * p)),
+                  henry: c.qs * c.bs, pole: 1 / c.bl, psiKind: "exact" }) },
+  typev: { label: "Type V (Langmuir + Hill step)",
+    params: [["qs1", "q<sub>s1</sub> [mol/kg]", 1], ["b1", "b<sub>1</sub> [1/bar]", 5],
+             ["qs2", "q<sub>s2</sub> [mol/kg]", 8], ["b2", "b<sub>2</sub> [1/bar]", 2.5], ["n", "n [-]", 6]],
+    make: c => ({ f: p => { const t = Math.pow(Math.max(c.b2 * p, 0), c.n);
+                    return c.qs1 * c.b1 * p / (1 + c.b1 * p) + c.qs2 * t / (1 + t); },
+                  psi: p => c.qs1 * Math.log(1 + c.b1 * p) +
+                            c.qs2 / c.n * Math.log(1 + Math.pow(Math.max(c.b2 * p, 0), c.n)),
+                  henry: c.n < 1 ? Infinity : c.qs1 * c.b1,
+                  pole: null, psiKind: "exact" }) },
+  custom: { label: "Custom q(p) …", params: [], make: null }
+};
+
+function buildPsiTable(f, pMax, N) {
+  N = N || 20000;
+  const uLo = Math.log(1e-10), uHi = Math.log(pMax);
+  const h = (uHi - uLo) / N;
+  const F = new Float64Array(N + 1), Psi = new Float64Array(N + 1);
+  for (let i = 0; i <= N; i++) F[i] = f(Math.exp(uLo + i * h));
+  const p0 = Math.exp(uLo);
+  const q0 = f(p0), qh = f(p0 / 2);
+  const alpha = (q0 > 0 && qh > 0) ? Math.log(q0 / qh) / Math.LN2 : 1;
+  Psi[0] = alpha > 0.01 ? q0 / alpha : 0;
+  for (let i = 0; i + 2 <= N; i += 2) {
+    Psi[i + 1] = Psi[i] + h / 12 * (5 * F[i] + 8 * F[i + 1] - F[i + 2]);
+    Psi[i + 2] = Psi[i + 1] + h / 12 * (-F[i] + 8 * F[i + 1] + 5 * F[i + 2]);
+  }
+  return { uLo, h, N, Psi,
+    eval(p) {
+      if (p <= 0) return 0;
+      const u = Math.log(p);
+      if (u <= this.uLo) return this.Psi[0] * Math.exp(alpha * (u - this.uLo));
+      const s = (u - this.uLo) / this.h;
+      const i = Math.min(this.N - 1, Math.floor(s));
+      const w = s - i;
+      return this.Psi[i] + w * (this.Psi[i + 1] - this.Psi[i]);
+    } };
+}
+
+function makeComponent(cfg, pMaxNeeded) {
+  let inst;
+  if (cfg.id === "custom") {
+    const f = parseExprP(cfg.expr);
+    inst = { f, psi: null, henry: NaN, pole: null, psiKind: "table" };
+    const h1 = f(1e-8) / 1e-8, h2 = f(1e-9) / 1e-9;
+    inst.henry = Math.abs(h1 / h2 - 1) < 0.02 ? h2 : (h2 > h1 ? Infinity : 0);
+  } else {
+    const M = IAST_MODELS[cfg.id];
+    const par = {};
+    M.params.forEach(([k, , d]) => {
+      const v = cfg.pvals ? cfg.pvals[k] : undefined;
+      par[k] = (v === undefined || !isFinite(v)) ? d : +v;
+    });
+    inst = M.make(par);
+    inst.par = par;
+  }
+  const cap = inst.pole ? inst.pole * (1 - 1e-9) : (pMaxNeeded || 1e10);
+  inst.pCap = cap;
+  if (inst.psiKind === "table" || !inst.psi) {
+    const tab = buildPsiTable(inst.f, cap);
+    inst.psi = p => tab.eval(Math.min(p, cap));
+    inst.psiTab = tab;
+  } else {
+    const psiRaw = inst.psi;
+    inst.psi = p => psiRaw(Math.min(p, cap));
+  }
+  inst.mono = true;
+  let prevQ = 0;
+  for (let k = 0; k <= 240; k++) {
+    const p = Math.pow(10, -8 + 10.5 * k / 240);
+    if (p >= cap) break;
+    const q = inst.f(p);
+    if (!isFinite(q) || q < prevQ - 1e-12 * Math.abs(prevQ)) { inst.mono = false; break; }
+    prevQ = q;
+  }
+  return inst;
+}
+
+function iastSolve(P, y1, c1, c2) {
+  if (y1 <= 0) { const q = c2.f(P); return { x1: 0, q1: 0, q2: q, qT: q, p1o: 0, p2o: P, psi: c2.psi(P), edge: true }; }
+  if (y1 >= 1) { const q = c1.f(P); return { x1: 1, q1: q, q2: 0, qT: q, p1o: P, p2o: 0, psi: c1.psi(P), edge: true }; }
+  const y2 = 1 - y1;
+  const G = x1 => c1.psi(P * y1 / x1) - c2.psi(P * y2 / (1 - x1));
+  let lo = 1e-15, hi = 1 - 1e-15;
+  for (let it = 0; it < 50; it++) {
+    const mid = 0.5 * (lo + hi);
+    if (G(mid) > 0) lo = mid; else hi = mid;
+  }
+  let x1 = 0.5 * (lo + hi);
+  for (let it = 0; it < 6; it++) {
+    const p1o = P * y1 / x1, p2o = P * y2 / (1 - x1);
+    const g = c1.psi(p1o) - c2.psi(p2o);
+    const dg = -c1.f(Math.min(p1o, c1.pCap)) / x1 - c2.f(Math.min(p2o, c2.pCap)) / (1 - x1);
+    const step = g / dg;
+    const x1n = x1 - step;
+    if (!(x1n > 0 && x1n < 1)) break;
+    x1 = x1n;
+    if (Math.abs(step) < 1e-16) break;
+  }
+  const p1o = P * y1 / x1, p2o = P * y2 / (1 - x1);
+  const q1o = c1.f(Math.min(p1o, c1.pCap)), q2o = c2.f(Math.min(p2o, c2.pCap));
+  const qT = 1 / (x1 / q1o + (1 - x1) / q2o);
+  return { x1, q1: x1 * qT, q2: (1 - x1) * qT, qT,
+           p1o, p2o, psi: c1.psi(p1o),
+           capped: (p1o >= c1.pCap * 0.999) || (p2o >= c2.pCap * 0.999) };
+}
+
+/* ================= 3. BAAM core ========================================= */
+const BA_RB = 8.314e-5;   // m3 bar / (mol K)
+const BA_RE = 8.314;      // J / (mol K)
+const BA_K  = 1.4;        // adiabatic constant
+const BA_J2KWH = 1 / 3.6e6;
+
+/* mixture: extended DSL, concentration basis (paper Eq. 20-21).
+   co2/n2: {qsb,qsd,b0,d0,dUb,dUd}; dU in J/mol, NEGATIVE for exothermic. */
+function edslMix(co2, n2, T) {
+  const act = g => [(g.b0 > 0) ? g.b0 * Math.exp(-g.dUb / (BA_RE * T)) : 0,
+                    (g.d0 > 0) ? g.d0 * Math.exp(-g.dUd / (BA_RE * T)) : 0];
+  const [bA, dA] = act(co2), [bB, dB] = act(n2);
+  const sites = [[bA, bB, co2.qsb, n2.qsb], [dA, dB, co2.qsd, n2.qsd]];
+  return { T, kind: "edsl", sites,
+    loadings(P, y) {
+      const RT = BA_RB * T;
+      const c1 = P * y / RT, c2 = P * (1 - y) / RT;
+      const c1P = y / RT, c2P = (1 - y) / RT, c1y = P / RT, c2y = -P / RT;
+      let q1 = 0, q2 = 0, q1c1 = 0, q1c2 = 0, q2c1 = 0, q2c2 = 0;
+      for (const [kA, kB, qsA, qsB] of sites) {
+        const D = 1 + kA * c1 + kB * c2, D2 = D * D;
+        q1 += qsA * kA * c1 / D;
+        q2 += qsB * kB * c2 / D;
+        q1c1 += qsA * kA * (1 + kB * c2) / D2;
+        q1c2 += -qsA * kA * c1 * kB / D2;
+        q2c2 += qsB * kB * (1 + kA * c1) / D2;
+        q2c1 += -qsB * kB * c2 * kA / D2;
+      }
+      return [q1, q2,
+              q1c1 * c1P + q1c2 * c2P, q1c1 * c1y + q1c2 * c2y,
+              q2c1 * c1P + q2c2 * c2P, q2c1 * c1y + q2c2 * c2y];
+    } };
+}
+
+/* mixture: binary IAST over two makeComponent instances (p-basis, bar);
+   partials by central finite differences (same deltas as the Python ref). */
+function iastMix(comp1, comp2, T) {
+  function qq(P, y) {
+    if (P <= 0) return [0, 0];
+    const r = iastSolve(P, Math.min(Math.max(y, 0), 1), comp1, comp2);
+    return [r.q1, r.q2];
+  }
+  return { T, kind: "iast", comp1, comp2,
+    q(P, y) { return qq(P, y); },     // fast path: loadings only, no partials
+    loadings(P, y) {
+      const dP = Math.max(1e-6, 1e-6 * P);
+      const dy = 1e-7;
+      const yl = Math.max(0, y - dy), yh = Math.min(1, y + dy);
+      const c0 = qq(P, y);
+      const cp = qq(P + dP, y), cm = qq(Math.max(P - dP, 1e-12), y);
+      const cyh = qq(P, yh), cyl = qq(P, yl);
+      return [c0[0], c0[1],
+              (cp[0] - cm[0]) / (2 * dP), (cyh[0] - cyl[0]) / (yh - yl),
+              (cp[1] - cm[1]) / (2 * dP), (cyh[1] - cyl[1]) / (yh - yl)];
+    } };
+}
+
+function etaOf(mode, Pbar) {
+  if (mode && mode.type === "maruyama") {
+    const Patm = Pbar / 1.01325;
+    return 0.8 * (19.55 * Patm) / (1 + 19.55 * Patm);
+  }
+  return (mode && mode.val) || 0.72;
+}
+
+/* BLO/EVAC path: RK4 fixed step on the uniform dP grid from PH down to Plow.
+   Returns arrays + cumulative removed moles and vacuum work (MATLAB
+   convention: slice dN charged at the slice-END pressure; only P < 1 bar). */
+function blowPath(mix, opt) {
+  const T = opt.T, w = opt.w ?? 1, eps = opt.eps ?? 0.37;
+  const V = w / (opt.rho * (1 - eps));
+  const RT = BA_RB * T;
+  const rhs = (P, yv) => {
+    const y = Math.min(Math.max(yv, 0), 1);
+    const L = mix.loadings(P, y);
+    const a1 = V * eps / RT + w * (L[2] + L[4]);
+    const a2 = y * V * eps / RT + w * L[2];
+    const f1 = w * (L[3] + L[5]);
+    const f2 = P * V * eps / RT + w * L[3];
+    return (a1 * y - a2) / (f2 - f1 * y);
+  };
+  const dP = opt.dP ?? 1e-4;
+  const n = Math.round((opt.PH - opt.Plow) / dP);
+  const P = new Float64Array(n + 1), y = new Float64Array(n + 1);
+  P[0] = opt.PH; y[0] = opt.yF;
+  const h = -dP;
+  for (let i = 0; i < n; i++) {
+    const Pi = opt.PH - i * dP;
+    const k1 = rhs(Pi, y[i]);
+    const k2 = rhs(Pi + h / 2, y[i] + h / 2 * k1);
+    const k3 = rhs(Pi + h / 2, y[i] + h / 2 * k2);
+    const k4 = rhs(Pi + h, y[i] + h * k3);
+    P[i + 1] = opt.PH - (i + 1) * dP;
+    y[i + 1] = Math.min(Math.max(y[i] + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4), 0), 1);
+  }
+  const q1 = new Float64Array(n + 1), q2 = new Float64Array(n + 1);
+  const N1s = new Float64Array(n + 1), N2s = new Float64Array(n + 1);
+  for (let i = 0; i <= n; i++) {
+    const L = mix.loadings(P[i], y[i]);
+    q1[i] = L[0]; q2[i] = L[1];
+    N1s[i] = P[i] * y[i] * V * eps / RT + w * L[0];
+    N2s[i] = P[i] * (1 - y[i]) * V * eps / RT + w * L[1];
+  }
+  const N = new Float64Array(n + 1), N1 = new Float64Array(n + 1), W = new Float64Array(n + 1);
+  const kk = (BA_K - 1) / BA_K, fac = BA_K / (BA_K - 1) * BA_RE * T;
+  for (let i = 1; i <= n; i++) {
+    const dN = (N1s[i - 1] + N2s[i - 1]) - (N1s[i] + N2s[i]);
+    N[i] = N[i - 1] + dN;
+    N1[i] = N1[i - 1] + (N1s[i - 1] - N1s[i]);
+    W[i] = W[i - 1] + (P[i] < 1
+      ? fac / etaOf(opt.eta, P[i]) * dN * (Math.pow(1 / P[i], kk) - 1) : 0);
+  }
+  return { P, y, q1, q2, N, N1, W, N1s, N2s, V, w, eps, T, dP, PH: opt.PH, eta: opt.eta };
+}
+
+function baIdx(path, Pq) {
+  const i = Math.round((path.PH - Pq) / path.dP);
+  return Math.min(Math.max(i, 0), path.P.length - 1);
+}
+
+function baInv(mix, T, V, eps, w, P, y) {
+  const L = mix.q ? mix.q(P, y) : mix.loadings(P, y);
+  return [P * y * V * eps / (BA_RB * T) + w * L[0],
+          P * (1 - y) * V * eps / (BA_RB * T) + w * L[1]];
+}
+
+/* bisection helper on [lo,hi] for scalar g with bracket scan fallback */
+function baRoot(g, lo, hi) {
+  let glo = g(lo), ghi = g(hi);
+  if (glo * ghi > 0) {
+    let found = false;
+    let pl = lo, gl = glo;
+    for (let k = 1; k <= 400; k++) {
+      const t = lo + (hi - lo) * k / 400;
+      const gt = g(t);
+      if (gl * gt <= 0) { lo = pl; hi = t; found = true; break; }
+      pl = t; gl = gt;
+    }
+    if (!found) return null;
+  }
+  glo = g(lo);
+  for (let it = 0; it < 200; it++) {
+    const mid = 0.5 * (lo + hi);
+    if (glo * g(mid) <= 0) hi = mid; else { lo = mid; glo = g(lo); }
+    if (hi - lo < 1e-16) break;
+  }
+  return 0.5 * (lo + hi);
+}
+
+/* LPP: pressurize (Plow,ygam)->(PH,ydel) with gas of composition ydel */
+function solveLPP(mix, T, V, eps, w, PH, Plow, ygam) {
+  const [N1i, N2i] = baInv(mix, T, V, eps, w, Plow, ygam);
+  const Ni = N1i + N2i;
+  const g = yd => {
+    const [N1f, N2f] = baInv(mix, T, V, eps, w, PH, yd);
+    return N1i - N1f + ((N1f + N2f) - Ni) * yd;
+  };
+  const yd = baRoot(g, 1e-12, ygam);
+  if (yd === null) return null;
+  const [N1f, N2f] = baInv(mix, T, V, eps, w, PH, yd);
+  return { ydel: yd, Npr: (N1f + N2f) - Ni };
+}
+
+/* FP: pressurize with FEED gas */
+function solveFP(mix, T, V, eps, w, PH, Plow, ygam, yF) {
+  const [N1i, N2i] = baInv(mix, T, V, eps, w, Plow, ygam);
+  const Ni = N1i + N2i;
+  const g = ye => {
+    const [N1f, N2f] = baInv(mix, T, V, eps, w, PH, ye);
+    return N1i - N1f + ((N1f + N2f) - Ni) * yF;
+  };
+  const ye = baRoot(g, 1e-12, Math.max(ygam, yF));
+  if (ye === null) return null;
+  const [N1f, N2f] = baInv(mix, T, V, eps, w, PH, ye);
+  return { ydel: ye, Npr: (N1f + N2f) - Ni };
+}
+
+/* ADS: linear solve; raffinate leaves at y_delta (BAAM.m convention) */
+function solveADS(mix, T, V, eps, w, PH, ydel, yF) {
+  const [N1i, N2i] = baInv(mix, T, V, eps, w, PH, ydel);
+  const [N1f, N2f] = baInv(mix, T, V, eps, w, PH, yF);
+  const A = (N1f + N2f) - (N1i + N2i);
+  const B = N1f - N1i;
+  const Nfeed = (B - A * ydel) / (yF - ydel);
+  return { Nfeed, Nraff: Nfeed - A };
+}
+
+/* full-cycle KPIs at (Pint, Plow) reusing a precomputed path.
+   mode: "LPP" | "FP". Compression work for PH>1 bar per e-BAAM. */
+function cycleKPIs(mix, path, opt) {
+  const { Pint, Plow, yF } = opt;
+  const mode = opt.mode || "LPP";
+  const T = path.T, V = path.V, eps = path.eps, w = path.w, PH = path.PH;
+  const ib = baIdx(path, Pint), ig = baIdx(path, Plow);
+  const n1e = path.N1[ig] - path.N1[ib];
+  const ne = path.N[ig] - path.N[ib];
+  const Wblo = path.W[ib], Wevac = path.W[ig] - path.W[ib];
+  const ygam = path.y[ig];
+  // pressurization + ADS depend on Plow only — memoizable across a Pint sweep
+  const ck = opt.cache ? `${ig}|${mode}|${yF}` : null;
+  let pa = ck && opt.cache[ck];
+  if (!pa) {
+    const pr = (mode === "LPP")
+      ? solveLPP(mix, T, V, eps, w, PH, Plow, ygam)
+      : solveFP(mix, T, V, eps, w, PH, Plow, ygam, yF);
+    if (!pr) return null;
+    pa = { pr, ads: solveADS(mix, T, V, eps, w, PH, pr.ydel, yF) };
+    if (ck) opt.cache[ck] = pa;
+  }
+  const { ydel, Npr } = pa.pr;
+  const ads = pa.ads;
+  const kk = (BA_K - 1) / BA_K;
+  const comp = N => (PH > 1)
+    ? N * BA_K / (BA_K - 1) * BA_RE * T / etaOf(path.eta, 1.0) * (Math.pow(PH, kk) - 1) : 0;
+  const Wads = comp(ads.Nfeed);
+  const Wpr = (mode === "FP") ? comp(Npr) : 0;
+  const mT = n1e * 44e-6;                      // tonnes CO2 (44 g/mol, as BAAM.m)
+  const fed = ads.Nfeed * yF + (mode === "FP" ? Npr * yF : 0);
+  const nin = ads.Nfeed + (mode === "FP" ? Npr : 0);
+  const nout = (ads.Nraff - (mode === "LPP" ? Npr : 0)) + path.N[ib] + ne;
+  return {
+    Pu: 100 * n1e / ne,
+    Re: 100 * n1e / fed,
+    EnBLO: Wblo * BA_J2KWH / mT,
+    EnEVAC: Wevac * BA_J2KWH / mT,
+    EnPR: Wpr * BA_J2KWH / mT,
+    EnADS: Wads * BA_J2KWH / mT,
+    En: (Wblo + Wevac + Wads + Wpr) * BA_J2KWH / mT,
+    WC: n1e / (V * (1 - eps)),
+    ydel, ygam, Npr, Nfeed: ads.Nfeed, Nraff: ads.Nraff,
+    n1evac: n1e, nevac: ne,
+    mbal: (nin - nout) / Math.max(Math.abs(nout), 1e-300) * 100
+  };
+}
+
+/* design-space scan: KPI matrices over (Plow columns, Pint rows).
+   One path + one pressurization/ADS solve per Plow; buffer diffs per Pint. */
+function gridScan(mix, path, opt) {
+  const { plows, pints, yF } = opt;
+  const nr = pints.length, nc = plows.length;
+  const mk = () => { const a = new Float64Array(nr * nc); a.fill(NaN); return a; };
+  const Pu = mk(), Re = mk(), En = mk(), WC = mk();
+  const cache = {};
+  for (let j = 0; j < nc; j++) {
+    const Plow = plows[j];
+    for (let i = 0; i < nr; i++) {
+      const Pint = pints[i];
+      if (Pint <= Plow + 1e-12 || Pint >= path.PH - 1e-12) continue;
+      const k = cycleKPIs(mix, path, { Pint, Plow, yF, mode: opt.mode, cache });
+      if (!k) continue;
+      const m = i * nc + j;
+      Pu[m] = k.Pu; Re[m] = k.Re; En[m] = k.En; WC[m] = k.WC;
+    }
+  }
+  return { plows, pints, Pu, Re, En, WC };
+}
+
+/* r_max over a scanned grid + e-BAAM DOE classification (r_cut = 124.5) */
+function rMax(grid) {
+  let rm = 0, im = -1;
+  for (let m = 0; m < grid.Pu.length; m++) {
+    if (!isFinite(grid.Pu[m])) continue;
+    const r = Math.hypot(grid.Pu[m], grid.Re[m]);
+    if (r > rm) { rm = r; im = m; }
+  }
+  return { rmax: rm, idx: im };
+}
+
+const BA_RCUT_EBAAM = 124.5;      // Liske 2026 linear-SVM PRT cutoff
+const BA_EN_SCALE_EBAAM = 1.58;   // En_full ~= 1.58 x En_BAAM (Liske Fig. 9a)
+const BA_RCUT_2019 = 110.25;      // Balashankar 2019 r(95,90)
+const BA_EN_SCALE_2019 = [1.1446, 66.528]; // En_full = 1.1446 En + 66.528
+
+if (typeof globalThis !== "undefined") {
+  globalThis.BAAMENG = { parseExprP, IAST_MODELS, buildPsiTable, makeComponent,
+    iastSolve, edslMix, iastMix, blowPath, cycleKPIs, gridScan, rMax, baIdx,
+    solveLPP, solveFP, solveADS, etaOf,
+    BA_RB, BA_RE, BA_K, BA_RCUT_EBAAM, BA_EN_SCALE_EBAAM, BA_RCUT_2019,
+    BA_EN_SCALE_2019 };
+}
+</script>
+<script id="ba-report-core">
+/* == report-core v1 ==
+ * Shared figure-export + report module for the Research Apps suite.
+ *
+ * CANONICAL COPY: Apps/_shared/report_core.js
+ * Every app carries a byte-identical copy pasted between the sentinel
+ * comments.  Do NOT edit a copy in place — edit this file and re-paste,
+ * then run Apps/_shared/check_report_core.sh to confirm all copies match.
+ *
+ * What it provides
+ *   Report.init(cfg)        one-time wiring (app name, version, redraw hook)
+ *   Report.figure(f)        register a figure (id = canvas id)
+ *   Report.spec(id, spec)   record the last declarative plot spec -> auto CSV
+ *   Report.mount()          insert the PNG/CSV buttons into every .phead
+ *   Report.content(c)       supply the report prose, equations and tables
+ *   Report.open()           open the generate-report dialog
+ *
+ * Two deliberate behaviours
+ *   1. Exports force the LIGHT palette on an opaque white background,
+ *      whatever the screen theme is, so figures are publication-ready.
+ *      This is done by disabling the app's prefers-color-scheme media
+ *      rules for the duration of the capture — no per-app palette copy.
+ *   2. Equations and figures are cross-referenced by id ({{eq:toth}},
+ *      {{fig:isoC}}) and numbered automatically at build time, so the
+ *      numbering can never collide or drift as sections are edited.
+ * ------------------------------------------------------------------- */
+var Report = (function () {
+  "use strict";
+
+  var CFG = null;          // init() config
+  var FIGS = [];           // registered figures, in registration order
+  var BYID = {};           // id -> figure
+  var SPEC = {};           // canvas id -> last plot spec
+  var C = {};              // content bundle from content()
+
+  /* ----------------------------- utils ----------------------------- */
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function num(v, p) {
+    if (v == null || v === "" || !isFinite(v)) return "";
+    return String(+(+v).toPrecision(p || 10));
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function stamp(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  function fileStamp(d) {
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+      "_" + pad(d.getHours()) + pad(d.getMinutes());
+  }
+  function download(name, blob) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+
+  /* --------------------- forced light-palette capture ---------------
+   * The apps define the light palette on a bare :root and override it
+   * inside @media (prefers-color-scheme: dark).  Disabling those media
+   * rules restores the light values for every app without duplicating
+   * any palette here.  Canvas drawing reads the CSS variables, so the
+   * host's redraw() then produces light figures.
+   * ------------------------------------------------------------------ */
+  function darkRules() {
+    var out = [], i, j, ss, rules, r;
+    for (i = 0; i < document.styleSheets.length; i++) {
+      ss = document.styleSheets[i];
+      try { rules = ss.cssRules; } catch (e) { continue; }   // cross-origin
+      if (!rules) continue;
+      for (j = 0; j < rules.length; j++) {
+        r = rules[j];
+        if (r.media && /prefers-color-scheme\s*:\s*dark/.test(r.conditionText || r.media.mediaText))
+          out.push(r);
+      }
+    }
+    return out;
+  }
+  // re-entrancy guard: capturing many figures must flip and redraw once,
+  // not once per figure
+  var lightDepth = 0;
+  function withLight(fn) {
+    if (lightDepth > 0) return fn();
+    var rules = darkRules(), saved = rules.map(function (r) { return r.media.mediaText; });
+    var flipped = false;
+    lightDepth++;
+    try {
+      rules.forEach(function (r) { r.media.mediaText = "not all"; });
+      flipped = rules.length > 0;
+      if (flipped && CFG && CFG.redraw) CFG.redraw();
+      return fn();
+    } finally {
+      lightDepth--;
+      rules.forEach(function (r, i) { r.media.mediaText = saved[i]; });
+      if (flipped && CFG && CFG.redraw) CFG.redraw();
+    }
+  }
+  // opaque white copy of a canvas (canvases are cleared transparent)
+  function onWhite(cv) {
+    var o = document.createElement("canvas");
+    o.width = cv.width; o.height = cv.height;
+    var c = o.getContext("2d");
+    c.fillStyle = "#ffffff";
+    c.fillRect(0, 0, o.width, o.height);
+    c.drawImage(cv, 0, 0);
+    return o;
+  }
+  function shot(id) {
+    var cv = $(id);
+    if (!cv) return null;
+    return withLight(function () { return onWhite(cv); });
+  }
+
+  /* ------------------------------ CSV ------------------------------ */
+  function axName(ax) {
+    if (!ax) return "x";
+    return ax.label || ax.sym || "x";
+  }
+  function serName(s, spec) {
+    var n = s.label || "y";
+    var u = s.unit || null;
+    if (!u) {
+      var ax = s.axis === "y2" ? spec.y2 : spec.y;
+      var mm = ax && ax.label ? /\[([^\]]*)\]/.exec(ax.label) : null;
+      if (mm) u = mm[1];
+    }
+    return u && n.indexOf("[") < 0 ? n + " [" + u + "]" : n;
+  }
+  function csvCell(v) {
+    var s = typeof v === "number" ? num(v) : String(v == null ? "" : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function csvText(head, rows, notes) {
+    var s = "﻿";                                   // BOM: Excel-friendly
+    (notes || []).forEach(function (n) { s += "# " + n + "\n"; });
+    s += head.map(csvCell).join(",") + "\n";
+    rows.forEach(function (r) { s += r.map(csvCell).join(",") + "\n"; });
+    return s;
+  }
+  // Generic CSV from a declarative plot spec: wide table when every series
+  // shares one abscissa, long format otherwise.
+  function csvFromSpec(spec) {
+    var S = (spec.series || []).filter(function (s) { return s.pts && s.pts.length; });
+    if (!S.length) return null;
+    var n = S[0].pts.length;
+    var same = S.every(function (s) {
+      return s.pts.length === n && s.pts.every(function (p, i) {
+        return Math.abs(p[0] - S[0].pts[i][0]) <= 1e-12 * (Math.abs(p[0]) + 1);
+      });
+    });
+    var head, rows = [], i;
+    if (same) {
+      head = [axName(spec.x)].concat(S.map(function (s) { return serName(s, spec); }));
+      for (i = 0; i < n; i++) {
+        rows.push([S[0].pts[i][0]].concat(S.map(function (s) { return s.pts[i][1]; })));
+      }
+    } else {
+      head = ["series", axName(spec.x), "value"];
+      S.forEach(function (s) {
+        s.pts.forEach(function (p) { rows.push([serName(s, spec), p[0], p[1]]); });
+      });
+    }
+    var notes = [];
+    (spec.marks || []).forEach(function (mk) {
+      notes.push("marker " + (mk.label || "") + ": " + axName(spec.x) + " = " +
+        num(mk.x) + ", " + axName(spec.y) + " = " + num(mk.y));
+    });
+    return { head: head, rows: rows, notes: notes };
+  }
+
+  /* --------------------------- registration ------------------------ */
+  function figure(f) {
+    if (BYID[f.id]) {                       // re-registration replaces
+      FIGS[FIGS.indexOf(BYID[f.id])] = f;
+    } else {
+      FIGS.push(f);
+    }
+    BYID[f.id] = f;
+    return f;
+  }
+  // spec(id, null) clears a stale spec — call it when a canvas is drawn by
+  // something other than the declarative plotter, so CSV cannot export the
+  // previous configuration's data
+  function spec(id, s) { if (s) SPEC[id] = s; else delete SPEC[id]; }
+  function ready(f) {
+    try { return f.ready ? !!f.ready() : true; } catch (e) { return false; }
+  }
+  // -> {head, rows, notes} | null.  A figure's own csv() may return null to
+  // defer to the plotted spec — MAPLE's sweep canvas does this, supplying a
+  // grid only while it is showing a heatmap and falling back to the spec in
+  // its one-dimensional mode.
+  function table(f) {
+    if (f.csv) {
+      try { var t = f.csv(); if (t) return t; } catch (e) { /* fall through */ }
+    }
+    return SPEC[f.id] ? csvFromSpec(SPEC[f.id]) : null;
+  }
+
+  /* ---------------------------- downloads -------------------------- */
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  }
+  function baseName(f) { return CFG.filePrefix + "_" + (f.file || slug(f.title)); }
+  function png(id) {
+    var f = BYID[id], o = shot(id);
+    if (!o) return;
+    o.toBlob(function (b) { if (b) download(baseName(f) + ".png", b); }, "image/png");
+  }
+  function csv(id) {
+    var f = BYID[id], t = table(f);
+    if (!t) return;
+    var notes = [CFG.app + " " + CFG.version + " — " + f.title,
+                 "generated " + stamp(new Date())];
+    if (CFG.meta) { try { notes = notes.concat(CFG.meta()); } catch (e) {} }
+    download(baseName(f) + ".csv",
+      new Blob([csvText(t.head, t.rows, notes.concat(t.notes || []))],
+        { type: "text/csv;charset=utf-8" }));
+  }
+
+  /* --------------------- per-figure button rows -------------------- *
+   * A card holding a single figure gets its buttons in the card header,
+   * beside the title.  A card holding several (MAPLE stacks eight in its
+   * optimizer panel) gets a small right-aligned row under each canvas
+   * instead, so every figure has its own pair.
+   * ------------------------------------------------------------------ */
+  function cardOf(cv) { return cv.closest(".pcard") || cv.parentNode; }
+  function mount() {
+    var perCard = {};
+    FIGS.forEach(function (f) {
+      var cv = $(f.id);
+      if (!cv) return;
+      var card = cardOf(cv);
+      card._rpn = (card._rpn || 0) + 1;
+      perCard[f.id] = card;
+    });
+    FIGS.forEach(function (f) {
+      var cv = $(f.id);
+      if (!cv || f._box) return;
+      var card = perCard[f.id], solo = card._rpn === 1, head;
+      if (solo) {
+        head = card.querySelector(".phead");
+        if (!head) {
+          head = document.createElement("div");
+          head.className = "phead";
+          card.insertBefore(head, card.firstChild);
+        }
+      } else {
+        head = document.createElement("div");
+        head.className = "figrow";
+        cv.parentNode.insertBefore(head, cv.nextSibling);
+      }
+      var box = document.createElement("span");
+      box.className = "figx";
+      box.innerHTML =
+        '<button class="figbtn" data-fx="png" title="Download this figure as PNG">&#11015; PNG</button>' +
+        '<button class="figbtn" data-fx="csv" title="Download the plotted data as CSV">&#11015; CSV</button>';
+      box.querySelector('[data-fx="png"]').addEventListener("click", function () { png(f.id); });
+      box.querySelector('[data-fx="csv"]').addEventListener("click", function () { csv(f.id); });
+      head.appendChild(box);
+      f._box = box;
+    });
+    refresh();
+  }
+  // enable/disable the buttons as results appear or go stale
+  function refresh() {
+    FIGS.forEach(function (f) {
+      if (!f._box) return;
+      var ok = ready(f), hasData = ok && !!table(f);
+      f._box.querySelector('[data-fx="png"]').disabled = !ok;
+      f._box.querySelector('[data-fx="csv"]').disabled = !hasData;
+    });
+  }
+
+  /* ---------------------------- content ---------------------------- */
+  function content(c) { C = c || {}; }
+
+  /* ------------------------ report assembly ------------------------ *
+   * Two passes: number every equation and figure in document order,
+   * then substitute {{eq:id}} / {{fig:id}} in all prose.
+   * ------------------------------------------------------------------ */
+  function buildRefs(sections, figs) {
+    var eqn = {}, n = 0;
+    (C.model || []).forEach(function (sec) {
+      (sec.eqs || []).forEach(function (e) { eqn[e.id] = ++n; });
+    });
+    var fign = {};
+    figs.forEach(function (f, i) { fign[f.id] = i + 1; });
+    return { eq: eqn, fig: fign };
+  }
+  function sub(html, R) {
+    return String(html == null ? "" : html)
+      .replace(/\{\{eq:([a-zA-Z0-9_-]+)\}\}/g, function (m, k) {
+        return R.eq[k] ? "(" + R.eq[k] + ")" : "(?)";
+      })
+      .replace(/\{\{fig:([a-zA-Z0-9_-]+)\}\}/g, function (m, k) {
+        return R.fig[k] ? "Figure " + R.fig[k] : "Figure ?";
+      });
+  }
+  function tableHTML(t) {
+    if (!t) return "";
+    var s = '<div class="tw"><table><thead><tr>';
+    (t.head || []).forEach(function (h) { s += "<th>" + h + "</th>"; });
+    s += "</tr></thead><tbody>";
+    (t.rows || []).forEach(function (r) {
+      s += "<tr>";
+      r.forEach(function (c, i) {
+        s += (i === 0 ? '<th scope="row">' : "<td>") + (c == null ? "" : c) +
+          (i === 0 ? "</th>" : "</td>");
+      });
+      s += "</tr>";
+    });
+    return s + "</tbody></table></div>";
+  }
+  function groupsHTML(groups) {
+    var s = "";
+    (groups || []).forEach(function (g) {
+      s += '<h3>' + esc(g.title) + "</h3>" +
+        tableHTML({ head: g.head || ["Quantity", "Value", "Unit"], rows: g.rows });
+      if (g.note) s += '<p class="small">' + g.note + "</p>";
+    });
+    return s;
+  }
+
+  var CSS = [
+    ':root{--ink:#111827;--mut:#5b6473;--rule:#d7dce3;--accent:#1d4ed8;--soft:#f6f7f9}',
+    '*{box-sizing:border-box;margin:0;padding:0}',
+    'body{background:#fff;color:var(--ink);font:16px/1.65 Georgia,"Times New Roman",serif;',
+    '  padding:48px 20px 72px;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+    'main{max-width:52rem;margin:0 auto}',
+    'header{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:26px}',
+    'h1{font-size:1.7rem;line-height:1.25;font-weight:700;letter-spacing:-.01em}',
+    'header .meta{color:var(--mut);font-size:.85rem;margin-top:8px;font-family:system-ui,sans-serif}',
+    'h2{font-size:1.12rem;margin:30px 0 10px;padding-bottom:4px;border-bottom:1px solid var(--rule)}',
+    'h3{font-size:.98rem;margin:20px 0 8px;color:var(--accent)}',
+    'p{margin:9px 0;text-align:justify;hyphens:auto}',
+    'ul,ol{margin:9px 0 9px 26px}li{margin:4px 0}',
+    '.abstract{background:var(--soft);border-left:3px solid var(--accent);padding:14px 18px;margin:18px 0}',
+    '.abstract h2{border:none;margin:0 0 6px;font-size:.95rem}',
+    '.small{font-size:.84rem;color:var(--mut)}',
+    /* wide content scrolls inside its own box — the page body never does */
+    '.tw{overflow-x:auto;margin:12px 0}',
+    'table{border-collapse:collapse;width:100%;min-width:22rem;font-size:.86rem;',
+    '  font-family:system-ui,sans-serif}',
+    'th,td{border:1px solid var(--rule);padding:5px 9px;text-align:left;vertical-align:top}',
+    'thead th{background:var(--soft);font-weight:700}',
+    'tbody th{font-weight:400}',
+    'td{font-variant-numeric:tabular-nums}',
+    '.eq{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;',
+    '  margin:14px 0;page-break-inside:avoid;overflow-x:auto}',
+    '.eq math{font-size:1.06em}',
+    '.eq .tag{color:var(--mut);font-size:.86rem;font-family:system-ui,sans-serif}',
+    '.eq .where{grid-column:1/-1;font-size:.84rem;color:var(--mut);text-align:center;margin-top:2px}',
+    'figure{margin:20px 0;page-break-inside:avoid}',
+    'figure img{width:100%;height:auto;border:1px solid var(--rule);border-radius:4px;display:block}',
+    'figcaption{font-size:.85rem;color:var(--mut);margin-top:7px;font-family:system-ui,sans-serif}',
+    'figcaption b{color:var(--ink)}',
+    '.missing{border:1px dashed var(--rule);padding:20px;text-align:center;color:var(--mut);',
+    '  font-style:italic;font-size:.88rem}',
+    'footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--rule);',
+    '  color:var(--mut);font-size:.8rem;font-family:system-ui,sans-serif}',
+    '@media print{body{padding:0;font-size:11pt}main{max-width:none}',
+    '  h2{page-break-after:avoid}table{page-break-inside:avoid}',
+    '  @page{margin:18mm 16mm}}'
+  ].join("\n");
+
+  function build(opts) {
+    var now = new Date();
+    var figs = FIGS.filter(function (f) { return opts.figs.indexOf(f.id) >= 0; });
+    // capture every figure in ONE forced-light pass (two redraws total)
+    var imgs = withLight(function () {
+      var o = {};
+      figs.forEach(function (f) {
+        var cv = ready(f) ? $(f.id) : null;
+        if (cv) o[f.id] = onWhite(cv).toDataURL("image/png");
+      });
+      return o;
+    });
+    var R = buildRefs(opts.secs, figs);
+    var S = function (h) { return sub(h, R); };
+    var n = 0, body = "";
+
+    body += "<header><h1>" + esc(C.title || CFG.app) + "</h1>" +
+      '<div class="meta">' + esc(CFG.app) + " " + esc(CFG.version) +
+      " &middot; report generated " + esc(stamp(now)) +
+      (C.author ? " &middot; " + esc(C.author) : "") + "</div></header>";
+
+    if (opts.notes && opts.notes.trim()) {
+      body += '<div class="abstract"><h2>Case notes</h2><p>' +
+        esc(opts.notes).replace(/\n\n+/g, "</p><p>").replace(/\n/g, "<br>") + "</p></div>";
+    }
+    if (opts.secs.intro && C.intro) {
+      body += "<h2>" + (++n) + ". Introduction</h2>" + S(C.intro);
+    }
+    if (opts.secs.obj && C.objectives) {
+      body += "<h2>" + (++n) + ". Objectives</h2>" + S(C.objectives);
+    }
+    if (opts.secs.model && C.model) {
+      body += "<h2>" + (++n) + ". Mathematical model</h2>";
+      C.model.forEach(function (sec) {
+        if (sec.heading) body += "<h3>" + esc(sec.heading) + "</h3>";
+        if (sec.html) body += S(sec.html);
+        (sec.eqs || []).forEach(function (e) {
+          body += '<div class="eq">' + e.ml + '<span class="tag">(' + R.eq[e.id] + ")</span>" +
+            (e.where ? '<span class="where">' + S(e.where) + "</span>" : "") + "</div>";
+        });
+        if (sec.after) body += S(sec.after);
+      });
+      if (C.nomenclature) {
+        body += "<h3>Nomenclature</h3>" +
+          tableHTML({ head: ["Symbol", "Meaning", "Unit"], rows: C.nomenclature });
+      }
+    }
+    if (opts.secs.method && C.method) {
+      body += "<h2>" + (++n) + ". Numerical method</h2>" + S(C.method);
+    }
+    if (opts.secs.cond) {
+      body += "<h2>" + (++n) + ". Conditions</h2>";
+      if (C.condIntro) body += S(C.condIntro);
+      body += groupsHTML(C.conditions ? C.conditions() : []);
+    }
+    if (opts.secs.res) {
+      body += "<h2>" + (++n) + ". Results</h2>";
+      var res = C.results ? C.results() : null;
+      if (!res) {
+        body += '<p class="missing">No converged result was available when this report was generated.</p>';
+      } else {
+        if (res.html) body += S(res.html);
+        body += groupsHTML(res.groups);
+      }
+      figs.forEach(function (f, i) {
+        body += "<figure>";
+        if (imgs[f.id]) {
+          body += '<img alt="' + esc(f.title) + '" src="' + imgs[f.id] + '">';
+        } else {
+          body += '<div class="missing">' + esc(f.title) +
+            " &mdash; not computed in this session.</div>";
+        }
+        body += "<figcaption><b>Figure " + (i + 1) + ".</b> " +
+          S(f.caption || f.title) + "</figcaption></figure>";
+      });
+    }
+    if (opts.secs.refs && C.references) {
+      body += "<h2>" + (++n) + ". References</h2><ol>" +
+        C.references.map(function (r) { return "<li>" + r + "</li>"; }).join("") + "</ol>";
+    }
+    body += "<footer>" + (C.footer || "") +
+      "<p>Generated by " + esc(CFG.app) + " " + esc(CFG.version) +
+      ", part of the Research Apps suite. All calculations were performed locally in the " +
+      "browser; this report is self-contained and requires no network access.</p>" +
+      "<p>These tools are provided &ldquo;as is&rdquo;, for educational and research purposes, " +
+      "without warranty of any kind. Results should be verified independently before use in " +
+      "any critical application.</p></footer>";
+
+    return "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n" +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+      "<title>" + esc(C.title || CFG.app) + " &mdash; report " + esc(stamp(now)) + "</title>\n" +
+      "<style>\n" + CSS + "\n</style>\n</head>\n<body>\n<main>\n" + body +
+      "\n</main>\n</body>\n</html>\n";
+  }
+
+  /* ---------------------------- dialog ----------------------------- */
+  var SECS = [
+    { k: "intro", t: "Introduction" },
+    { k: "obj", t: "Objectives" },
+    { k: "model", t: "Mathematical model &amp; equations" },
+    { k: "method", t: "Numerical method" },
+    { k: "cond", t: "Conditions (all input parameters)" },
+    { k: "res", t: "Results, KPI tables &amp; figures" },
+    { k: "refs", t: "References" }
+  ];
+  function dialogHTML() {
+    var s = '<div class="rpbox" role="dialog" aria-modal="true" aria-label="Generate report">' +
+      "<h3>Generate report</h3>" +
+      '<p class="rpnote">A self-contained HTML document describing the model, the ' +
+      "conditions of this run and its results. Open it in any browser; print to PDF " +
+      "for a paper-style document.</p>" +
+      '<label class="rplab" for="rp-notes">Case notes <span>(optional &mdash; appears as an ' +
+      "abstract at the top)</span></label>" +
+      '<textarea id="rp-notes" rows="3" placeholder="Purpose of this run, what is being ' +
+      'compared, what to look for&hellip;"></textarea>' +
+      '<div class="rpcols"><div><div class="rphd">Sections</div>';
+    SECS.forEach(function (x) {
+      s += '<label class="rpchk"><input type="checkbox" checked data-sec="' + x.k + '"> ' +
+        x.t + "</label>";
+    });
+    s += '</div><div><div class="rphd">Figures</div>';
+    FIGS.forEach(function (f) {
+      var ok = ready(f);
+      s += '<label class="rpchk' + (ok ? "" : " off") + '"><input type="checkbox"' +
+        (ok ? " checked" : " disabled") + ' data-fig="' + esc(f.id) + '"> ' +
+        esc(f.title) + (ok ? "" : " <i>(not computed)</i>") + "</label>";
+    });
+    s += "</div></div>" +
+      '<div class="rpact"><button class="action" id="rp-cancel">Cancel</button>' +
+      '<button class="action" id="rp-go">Download report</button></div></div>';
+    return s;
+  }
+  var DLG_CSS = [
+    '.rpwrap{position:fixed;inset:0;background:rgba(15,20,32,.55);display:flex;',
+    '  align-items:center;justify-content:center;padding:20px;z-index:9999}',
+    '.rpbox{background:var(--card);color:var(--text);border:1px solid var(--border);',
+    '  border-radius:14px;box-shadow:var(--shadow);padding:20px 22px;width:100%;',
+    '  max-width:620px;max-height:88vh;overflow:auto}',
+    '.rpbox h3{font-size:1rem;margin-bottom:6px}',
+    '.rpnote{font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:12px}',
+    '.rplab{display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px}',
+    '.rplab span{opacity:.8}',
+    '.rpbox textarea{width:100%;padding:8px 10px;font:inherit;font-size:.85rem;',
+    '  border:1.5px solid var(--border);border-radius:8px;background:var(--bg);',
+    '  color:var(--text);outline:none;resize:vertical}',
+    '.rpbox textarea:focus{border-color:var(--accent)}',
+    '.rpcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));',
+    '  gap:8px 18px;margin:14px 0 4px}',
+    '.rphd{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;',
+    '  color:var(--accent);margin-bottom:6px}',
+    '.rpchk{display:flex;align-items:flex-start;gap:6px;font-size:.78rem;color:var(--text);',
+    '  cursor:pointer;margin:3px 0;line-height:1.4}',
+    '.rpchk.off{color:var(--muted);cursor:default}',
+    '.rpchk i{color:var(--muted)}',
+    '.rpact{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}',
+    /* the Generate-report button sits top right, level with the app title,
+       in every app — the core builds this row itself so the four cycle
+       apps cannot drift apart */
+    '.apphd{display:flex;justify-content:space-between;align-items:center;',
+    '  gap:12px;flex-wrap:wrap}',
+    '.apphd > h2{flex:1 1 auto}',
+    '@media print{.apphd .action{display:none}}',
+    /* per-figure export buttons live in the card header */
+    '.figx{display:inline-flex;gap:5px;margin-left:auto}',
+    '.figrow{display:flex;justify-content:flex-end;margin:2px 0 4px}',
+    '.figbtn{border:1px solid var(--border);background:var(--card);color:var(--muted);',
+    '  border-radius:6px;padding:3px 7px;font-size:.66rem;font-weight:600;cursor:pointer;',
+    '  white-space:nowrap;font-family:inherit;transition:border-color .15s,color .15s}',
+    '.figbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}',
+    '.figbtn:disabled{opacity:.38;cursor:default}',
+    '@media print{.figx{display:none}}'
+  ].join("\n");
+
+  function open() {
+    refresh();
+    var w = document.createElement("div");
+    w.className = "rpwrap";
+    w.innerHTML = dialogHTML();
+    function close() { document.removeEventListener("keydown", key); w.remove(); }
+    function key(e) { if (e.key === "Escape") close(); }
+    w.addEventListener("mousedown", function (e) { if (e.target === w) close(); });
+    document.addEventListener("keydown", key);
+    document.body.appendChild(w);
+    w.querySelector("#rp-cancel").addEventListener("click", close);
+    w.querySelector("#rp-go").addEventListener("click", function () {
+      var secs = {}, figs = [];
+      w.querySelectorAll("[data-sec]").forEach(function (b) { secs[b.dataset.sec] = b.checked; });
+      w.querySelectorAll("[data-fig]").forEach(function (b) {
+        if (b.checked) figs.push(b.dataset.fig);
+      });
+      var html = build({ secs: secs, figs: figs, notes: w.querySelector("#rp-notes").value });
+      download(CFG.filePrefix + "_report_" + fileStamp(new Date()) + ".html",
+        new Blob([html], { type: "text/html;charset=utf-8" }));
+      close();
+    });
+    w.querySelector("#rp-notes").focus();
+  }
+
+  /* ------------------------------ init ----------------------------- *
+   * The report button is built here, not in each app's markup: every app
+   * in the suite opens with `<div class="wrap"><h2>Title</h2>`, so the
+   * core wraps that heading in a flex row and hangs the button off its
+   * right-hand end.  One definition, one position, every app.
+   * ------------------------------------------------------------------ */
+  function mountButton() {
+    var h = document.querySelector(".wrap > h2") || document.querySelector("h2");
+    if (!h || (h.parentNode && h.parentNode.classList.contains("apphd"))) return;
+    var row = document.createElement("div");
+    row.className = "apphd";
+    h.parentNode.insertBefore(row, h);
+    row.appendChild(h);
+    var b = document.createElement("button");
+    b.className = "action";
+    b.id = "rp-open";
+    b.type = "button";
+    b.innerHTML = "&#11015; Generate report";
+    b.title = "Download a self-contained HTML report of this run";
+    b.addEventListener("click", open);
+    row.appendChild(b);
+  }
+  function init(cfg) {
+    CFG = cfg;
+    var st = document.createElement("style");
+    st.textContent = DLG_CSS;
+    document.head.appendChild(st);
+    if (cfg.button !== false) mountButton();
+    return API;
+  }
+
+  var API = { init: init, figure: figure, spec: spec, mount: mount, refresh: refresh,
+              content: content, open: open, png: png, csv: csv, build: build,
+              csvText: csvText, num: num, figures: function () { return FIGS; } };
+  return API;
+})();
+/* == /report-core == */
+</script>
+
+<script>
+"use strict";
+const E = globalThis.BAAMENG;
+const $ = id => document.getElementById(id);
+const LSKEY = "baam_v1";
+const fmt = (v, d) => !isFinite(v) ? "–" : v.toFixed(d ?? 2);
+const fmte = v => !isFinite(v) ? "–" : (v === 0 ? "0" : v.toExponential(3).replace(/e([+-])(\d)$/, "e$10$2"));
+const BA_PH_MIN = 0.2, BA_PH_MAX = 5;
+
+/* ---------------- presets (UI stores -dU in kJ/mol, positive) ------------- */
+const PRESETS = {
+  MgMOF74:  { label: "Mg-MOF-74 (2019 DSL)", rho: 588.25,
+    A: [6.80, 1.81e-7, 39.30, 9.90, 1.06e-6, 21.20], B: [14.00, 3.45e-6, 15.50, 0, 0, 0] },
+  Z13X:     { label: "Zeolite 13X (2019 DSL)", rho: 1130,
+    A: [3.09, 8.65e-7, 36.60, 2.54, 2.63e-8, 35.70], B: [5.84, 2.50e-6, 15.80, 0, 0, 0] },
+  UTSA16:   { label: "UTSA-16 (2019 DSL)", rho: 1092,
+    A: [5.00, 6.24e-7, 30.60, 3.00, 1.87e-23, 44.70], B: [12.70, 2.96e-6, 9.77, 0, 0, 0] },
+  CSAC:     { label: "CS-AC activated carbon (2019 DSL)", rho: 799.5,
+    A: [0.59, 9.40e-6, 25.61, 7.51, 1.04e-5, 17.55], B: [0.16, 1.81e-3, 8.67, 41.30, 1.72e-12, 44.90] },
+  Z13Xssl:  { label: "Zeolite 13X (e-BAAM SSL refit)", rho: 1130,
+    A: [4.390, 2.50e-6, 31.19, 0, 0, 0], B: [4.390, 2.70e-6, 16.38, 0, 0, 0] },
+  UTSA16ssl:{ label: "UTSA-16 (e-BAAM SSL refit)", rho: 1000,
+    A: [4.478, 4.70e-7, 30.57, 0, 0, 0], B: [4.478, 1.400e-6, 9.91, 0, 0, 0] },
+  IISERP2:  { label: "IISERP MOF-2 (e-BAAM SSL)", rho: 1000,
+    A: [4.478, 2.02e-7, 31.13, 0, 0, 0], B: [4.478, 2.64e-7, 11.89, 0, 0, 0] },
+  CALF20:   { label: "CALF-20 (e-BAAM DSL)", rho: 570,
+    A: [2.387, 5.52e-7, 35.06, 3.271, 5.19e-8, 28.95], B: [2.387, 8.14e-7, 17.96, 3.271, 0, 0] },
+  custom:   { label: "Custom / from Isotherm Fitter …", rho: 1000, A: null, B: null },
+};
+
+/* ---------------- state ---------------- */
+const st = {
+  preset: "Z13X", mode: "edsl", rho: 1130, eps: 0.37,
+  e: { A: { qsb: 3.09, b0: 8.65e-7, dUb: 36.60, qsd: 2.54, d0: 2.63e-8, dUd: 35.70 },
+       B: { qsb: 5.84, b0: 2.50e-6, dUb: 15.80, qsd: 0, d0: 0, dUd: 0 } },
+  i: { m1: "langmuir", p1: { qs: 4.39, b: 29.6 }, e1: "3*50*p/(1+50*p)",
+       m2: "langmuir", p2: { qs: 4.39, b: 0.081 }, e2: "5*0.7*p/(1+0.7*p)" },
+  T: 298.15, PH: 1, yF: 0.15, Pint: 0.15, Plow: 0.03,
+  cycle: "LPP", etaMode: "const", dP: 1e-4,
+  axA: "log", axB: "log", qty: "En",
+  g: { l0: 0.03, l1: 0.10, nl: 15, ni: 48 },
+};
+
+function save() { try { localStorage.setItem(LSKEY, JSON.stringify(st)); } catch (e) {} }
+function restore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LSKEY));
+    if (s && s.e && s.g) Object.assign(st, s);
+  } catch (e) {}
+}
+
+/* ---------------- import receiver (Isotherm Fitter hand-off) ------------- */
+function toast(msg) {
+  const t = $("ba-toast");
+  t.innerHTML = msg; t.classList.add("show");
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove("show"), 6000);
+}
+function applyImport() {
+  const h = location.hash;
+  if (!h.startsWith("#import=")) return;
+  let pay;
+  try { pay = JSON.parse(decodeURIComponent(h.slice(8))); } catch (e) { return; }
+  history.replaceState(null, "", location.pathname);
+  try {
+    if (pay.app === "baam" && pay.pvals) {          // EDSL slot from the fitter
+      const k = pay.slot === "n2" ? "B" : "A";
+      const p = pay.pvals;
+      st.e[k] = { qsb: +p.qsb || 0, b0: +p.b0 || 0, dUb: -(+p.dUb || 0) / 1000,
+                  qsd: +p.qsd || 0, d0: +p.d0 || 0, dUd: -(+p.dUd || 0) / 1000 };
+      if (isFinite(+pay.T)) st.T = +pay.T;
+      st.mode = "edsl"; st.preset = "custom";
+      toast(`Imported ${pay.slot === "n2" ? "N₂" : "CO₂"} parameters from Isotherm Fitter${pay.note ? " — " + pay.note : ""}`);
+    } else if (pay.model && pay.pvals && (pay.slot === "comp1" || pay.slot === "comp2")) {
+      const k = pay.slot === "comp1" ? 1 : 2;       // IAST-style payload
+      st.mode = "iast"; st.preset = "custom";
+      st.i["m" + k] = pay.model in E.IAST_MODELS ? pay.model : "custom";
+      st.i["p" + k] = pay.pvals;
+      toast(`Imported ${k === 1 ? "CO₂" : "N₂"} pure isotherm (${pay.model}) from Isotherm Fitter${pay.note ? " — " + pay.note : ""}`);
+    }
+  } catch (e) {}
+}
+
+/* ---------------- UI construction ---------------- */
+function fillPresetSelect() {
+  const s = $("ba-preset");
+  s.innerHTML = Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  s.value = st.preset;
+}
+function fillIastModelSelects() {
+  for (const k of [1, 2]) {
+    const s = $("ba-i" + k + "m");
+    s.innerHTML = Object.entries(E.IAST_MODELS).map(([id, m]) => `<option value="${id}">${m.label.replace(/<[^>]*>/g, "")}</option>`).join("");
+    s.value = st.i["m" + k];
+  }
+}
+function buildIastParams(k) {
+  const id = st.i["m" + k], host = $("ba-i" + k + "p");
+  const ef = $("ba-i" + k + "ef");
+  ef.style.display = id === "custom" ? "" : "none";
+  if (id === "custom") { host.innerHTML = ""; return; }
+  const M = E.IAST_MODELS[id];
+  host.innerHTML = M.params.map(([key, lab, dflt]) => {
+    const v = st.i["p" + k][key] ?? dflt;
+    return `<label class="fld"><span>${lab}</span><input type="number" step="any" data-ipar="${k}:${key}" value="${v}"></label>`;
+  }).join("");
+  host.querySelectorAll("input").forEach(inp => inp.addEventListener("input", () => {
+    const [kk, key] = inp.dataset.ipar.split(":");
+    st.i["p" + kk][key] = +inp.value;
+    st.preset = "custom"; $("ba-preset").value = "custom";
+    onHeavy();
+  }));
+}
+function numStr(v) {
+  if (!isFinite(v) || v === 0) return String(v || 0);
+  const a = Math.abs(v);
+  return (a < 1e-3 || a >= 1e6) ? v.toExponential() : String(v);
+}
+function pushEdslFields() {
+  for (const [k, o] of [["A", st.e.A], ["B", st.e.B]]) {
+    for (const f of ["qsb", "b0", "dUb", "qsd", "d0", "dUd"])
+      $(`ba-${k}-${f}`).value = numStr(o[f]);
+  }
+  $("ba-rho").value = st.rho; $("ba-eps").value = st.eps;
+}
+function pullEdslFields() {
+  for (const [k, o] of [["A", st.e.A], ["B", st.e.B]]) {
+    for (const f of ["qsb", "b0", "dUb", "qsd", "d0", "dUd"])
+      o[f] = +$(`ba-${k}-${f}`).value || 0;
+  }
+}
+function applyPreset(id) {
+  const p = PRESETS[id];
+  st.preset = id;
+  if (p.A) {
+    st.rho = p.rho;
+    st.e.A = { qsb: p.A[0], b0: p.A[1], dUb: p.A[2], qsd: p.A[3], d0: p.A[4], dUd: p.A[5] };
+    st.e.B = { qsb: p.B[0], b0: p.B[1], dUb: p.B[2], qsd: p.B[3], d0: p.B[4], dUd: p.B[5] };
+    st.mode = "edsl"; $("ba-mode").value = "edsl";
+    pushEdslFields();
+  }
+  syncModeVisibility();
+}
+function syncModeVisibility() {
+  $("ba-edsl").style.display = st.mode === "edsl" ? "" : "none";
+  $("ba-iast").style.display = st.mode === "iast" ? "" : "none";
+}
+
+/* ---------------- mixture assembly + badges ---------------- */
+let MIX = null;
+function buildMix() {
+  const T = st.T;
+  const badges = [];
+  if (st.mode === "edsl") {
+    const cnv = o => ({ qsb: o.qsb, qsd: o.qsd, b0: o.b0, d0: o.d0,
+                        dUb: -o.dUb * 1000, dUd: -o.dUd * 1000 });
+    const A = cnv(st.e.A), B = cnv(st.e.B);
+    MIX = E.edslMix(A, B, T);
+    const RE = 8.314;
+    const bA = A.b0 * Math.exp(-A.dUb / (RE * T)), dA = A.d0 > 0 ? A.d0 * Math.exp(-A.dUd / (RE * T)) : 0;
+    const bB = B.b0 * Math.exp(-B.dUb / (RE * T)), dB = B.d0 > 0 ? B.d0 * Math.exp(-B.dUd / (RE * T)) : 0;
+    $("ba-fA").innerHTML = `b(T) = ${fmte(bA)} m³/mol${dA ? ` &nbsp;·&nbsp; d(T) = ${fmte(dA)} m³/mol` : ""}`;
+    $("ba-fB").innerHTML = `b(T) = ${fmte(bB)} m³/mol${dB ? ` &nbsp;·&nbsp; d(T) = ${fmte(dB)} m³/mol` : ""}`;
+    const consistent = Math.abs(st.e.A.qsb - st.e.B.qsb) < 1e-9 * Math.max(st.e.A.qsb, 1) &&
+      (!(dA > 0 && dB > 0) || Math.abs(st.e.A.qsd - st.e.B.qsd) < 1e-9 * Math.max(st.e.A.qsd, 1));
+    badges.push(consistent
+      ? `<span class="badge ok">equal saturation capacities — thermodynamically consistent competitive form</span>`
+      : `<span class="badge warn">unequal q<sub>s</sub> between CO₂ and N₂ — competitive DSL is thermodynamically inconsistent (used as-is in the 2019 paper)</span>`);
+  } else {
+    const mk = k => E.makeComponent(
+      st.i["m" + k] === "custom" ? { id: "custom", expr: st.i["e" + k] }
+                                 : { id: st.i["m" + k], pvals: st.i["p" + k] }, 1e6);
+    const c1 = mk(1), c2 = mk(2);
+    MIX = E.iastMix(c1, c2, T);
+    if (!c1.mono || !c2.mono) badges.push(`<span class="badge bad">non-monotone pure isotherm — IAST unreliable</span>`);
+    badges.push(`<span class="badge">IAST route: mixture solved point-wise, partials by finite differences — slower than extended DSL</span>`);
+    if (c1.pole || c2.pole) badges.push(`<span class="badge warn">pole model present — spreading-pressure extrapolation capped at the pole</span>`);
+  }
+  $("ba-badges").innerHTML = badges.join("");
+}
+
+/* ---------------- compute pipeline ---------------- */
+let PATH = null, KPI = null, GRID = null, PARETO = null, gridToken = 0;
+function etaObj() { return st.etaMode === "maruyama" ? { type: "maruyama" } : { val: 0.72 }; }
+function pathPlowMin() { return Math.min(st.Plow, st.g.l0, 0.02); }
+/* ΔP is deliberately NOT scaled with PH. The vacuum work is a first-order sum
+   over the pressure slices, so its value depends on ΔP at O(ΔP); holding ΔP
+   fixed keeps a PVSA run on exactly the grid the reference was validated on
+   (and keeps every slider pressure, a multiple of 0.005 bar, exactly on it).
+   The cap only bites if the user types an extremely fine ΔP. */
+const BA_NMAX = 2e5;
+function dPeff() {
+  const base = st.mode === "iast" ? Math.max(st.dP, 2.5e-4) : st.dP;
+  return Math.max(base, (st.PH - pathPlowMin()) / BA_NMAX);
+}
+function snapP(P) {                 // nearest point of the ODE grid
+  const d = dPeff();
+  return st.PH - Math.round((st.PH - P) / d) * d;
+}
+
+function computePath() {
+  PATH = E.blowPath(MIX, { T: st.T, rho: st.rho, eps: st.eps, PH: st.PH, yF: st.yF,
+                           Plow: pathPlowMin(), dP: dPeff(), eta: etaObj() });
+}
+function computeKPI() {
+  KPI = E.cycleKPIs(MIX, PATH, { Pint: st.Pint, Plow: st.Plow, yF: st.yF, mode: st.cycle });
+}
+function computeGridAsync(done) {
+  const token = ++gridToken;
+  const plows = [], pints = [];
+  // snapped to the ODE grid so the axis label of a cell is the pressure that
+  // was actually evaluated (baIdx would otherwise round it silently)
+  for (let j = 0; j < st.g.nl; j++) plows.push(snapP(st.g.l0 + (st.g.l1 - st.g.l0) * j / Math.max(st.g.nl - 1, 1)));
+  const i0 = st.g.l0 + 0.01, i1 = st.PH - 0.01;
+  for (let i = 0; i < st.g.ni; i++) pints.push(snapP(i0 + (i1 - i0) * i / Math.max(st.g.ni - 1, 1)));
+  const nr = pints.length, nc = plows.length;
+  const mk = () => { const a = new Float64Array(nr * nc); a.fill(NaN); return a; };
+  const G = { plows, pints, Pu: mk(), Re: mk(), En: mk(), WC: mk() };
+  const cache = {};
+  let j = 0;
+  (function chunk() {
+    if (token !== gridToken) return;                 // cancelled
+    const t0 = performance.now();
+    while (j < nc && performance.now() - t0 < 30) {
+      const Plow = plows[j];
+      for (let i = 0; i < nr; i++) {
+        const Pint = pints[i];
+        if (Pint <= Plow + 5e-3 || Pint >= st.PH - 5e-3) continue;
+        const k = E.cycleKPIs(MIX, PATH, { Pint, Plow, yF: st.yF, mode: st.cycle, cache });
+        if (!k) continue;
+        const m = i * nc + j;
+        G.Pu[m] = k.Pu; G.Re[m] = k.Re; G.En[m] = k.En; G.WC[m] = k.WC;
+      }
+      j++;
+    }
+    $("ba-mapinfo").textContent = j < nc ? `computing… ${Math.round(100 * j / nc)}%` : "";
+    if (j < nc) setTimeout(chunk, 0);
+    else { GRID = G; computePareto(); done && done(); }
+  })();
+}
+function computePareto() {
+  if (!GRID) { PARETO = null; return; }
+  const nc = GRID.plows.length, nr = GRID.pints.length;
+  const pick = [];
+  for (let k = 0; k < 5; k++) pick.push(Math.round(k * (nc - 1) / 4));
+  PARETO = { curves: [...new Set(pick)].map(j => {
+    const pts = [];
+    for (let i = 0; i < nr; i++) {
+      const m = i * nc + j;
+      if (isFinite(GRID.Pu[m])) pts.push([GRID.Re[m], GRID.Pu[m], GRID.pints[i]]);
+    }
+    return { plow: GRID.plows[j], pts };
+  }) };
+}
+
+/* ---------------- canvas helpers ---------------- */
+function cnv(id, hCss) {
+  const c = $(id), dpr = window.devicePixelRatio || 1;
+  const wCss = c.clientWidth || c.parentElement.clientWidth - 28;
+  if (c.width !== Math.round(wCss * dpr) || c.height !== Math.round(hCss * dpr)) {
+    c.width = Math.round(wCss * dpr); c.height = Math.round(hCss * dpr);
+  }
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, wCss, hCss);
+  return { c, ctx, W: wCss, H: hCss };
+}
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function niceTicks(a, b, n) {
+  const span = b - a, step0 = span / Math.max(n, 2);
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n + 1) || mag * 10;
+  const t = [];
+  for (let v = Math.ceil(a / step) * step; v <= b + 1e-12 * span; v += step) t.push(v);
+  return t;
+}
+/* generic axes; xr/yr = {a,b,log} ; returns mapping fns */
+function axes(ctx, R, xr, yr, xlab, ylab) {
+  const tx = v => R.x + (xr.log ? (Math.log10(v) - Math.log10(xr.a)) / (Math.log10(xr.b) - Math.log10(xr.a))
+                                : (v - xr.a) / (xr.b - xr.a)) * R.w;
+  const ty = v => R.y + R.h - (v - yr.a) / (yr.b - yr.a) * R.h;
+  ctx.save();
+  ctx.strokeStyle = css("--border"); ctx.fillStyle = css("--muted");
+  ctx.lineWidth = 1; ctx.font = "10.5px -apple-system, sans-serif";
+  ctx.strokeRect(R.x, R.y, R.w, R.h);
+  if (xr.log) {
+    const d0 = Math.ceil(Math.log10(xr.a)), d1 = Math.floor(Math.log10(xr.b));
+    for (let d = d0; d <= d1; d++) {
+      const v = Math.pow(10, d), x = tx(v);
+      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(x, R.y); ctx.lineTo(x, R.y + R.h); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.textAlign = "center"; ctx.fillText(d >= -2 && d <= 2 ? String(v) : "1e" + d, x, R.y + R.h + 13);
+      for (let m = 2; m < 10; m++) {
+        const vm = m * v; if (vm >= xr.a && vm <= xr.b) { const xm = tx(vm);
+          ctx.globalAlpha = 0.18; ctx.beginPath(); ctx.moveTo(xm, R.y); ctx.lineTo(xm, R.y + R.h); ctx.stroke(); ctx.globalAlpha = 1; }
+      }
+    }
+  } else {
+    for (const v of niceTicks(xr.a, xr.b, 6)) {
+      const x = tx(v);
+      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(x, R.y); ctx.lineTo(x, R.y + R.h); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.textAlign = "center"; ctx.fillText(+v.toPrecision(6), x, R.y + R.h + 13);
+    }
+  }
+  for (const v of niceTicks(yr.a, yr.b, 5)) {
+    const y = ty(v);
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(R.x, y); ctx.lineTo(R.x + R.w, y); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.textAlign = "right"; ctx.fillText(+v.toPrecision(6), R.x - 5, y + 3.5);
+  }
+  ctx.textAlign = "center"; ctx.fillStyle = css("--muted");
+  ctx.fillText(xlab, R.x + R.w / 2, R.y + R.h + 27);
+  ctx.save(); ctx.translate(R.x - 40, R.y + R.h / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText(ylab, 0, 0); ctx.restore();
+  ctx.restore();
+  return { tx, ty };
+}
+function poly(ctx, pts, color, wpx, dash) {
+  if (pts.length < 2) return;
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = wpx || 1.5;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.stroke(); ctx.restore();
+}
+function vir(t) {  // compact viridis-like colormap, t in [0,1]
+  t = Math.min(Math.max(t, 0), 1);
+  const r = Math.round(255 * (0.267 + t * (0.005 + t * (2.7 - 2.05 * t))));
+  const g = Math.round(255 * (0.005 + t * (1.39 - 0.49 * t)));
+  const b = Math.round(255 * (0.329 + t * (1.16 + t * (-2.5 + 1.15 * t))));
+  return `rgb(${Math.min(r,255)},${Math.min(g,255)},${Math.min(b,255)})`;
+}
+
+/* ---------------- plots ---------------- */
+const YFAM = () => [...new Set([0, st.yF, 0.30, 0.45, 0.75, 1].map(v => +v.toFixed(3)))].sort((a, b) => a - b);
+/* composition colours: a single-hue lightness ramp (rose), deliberately kept
+   away from the four step colours (blue / green / orange / violet). */
+function ycol(y) {
+  const t = Math.min(Math.max(y, 0), 1);
+  return `hsl(330, ${Math.round(32 + 46 * t)}%, ${Math.round(70 - 40 * t)}%)`;
+}
+let hovA = null, hovB = null;    // live crosshair position {P, q} in data coords
+
+function famCurves(which) {   // which: 1 CO2, 2 N2 — returns {y, pts:[[P,q],...]}
+  const out = [];
+  const Pmin = Math.min(0.005, st.Plow / 2), Pmax = st.PH;
+  for (const y of YFAM()) {
+    const pts = [];
+    for (let k = 0; k <= 160; k++) {
+      const P = Math.exp(Math.log(Pmin) + (Math.log(Pmax) - Math.log(Pmin)) * k / 160);
+      const L = MIX.q ? MIX.q(P, y) : MIX.loadings(P, y);
+      pts.push([P, which === 1 ? L[0] : L[1]]);
+    }
+    out.push({ y, pts });
+  }
+  return out;
+}
+function pathSegs(which) {
+  // downsampled BLO (PH->Pint) and EVAC (Pint->Plow) segments + LPP + ADS
+  const ib = E.baIdx(PATH, st.Pint), ig = E.baIdx(PATH, st.Plow);
+  const q = which === 1 ? PATH.q1 : PATH.q2;
+  const seg = (a, b) => {
+    const pts = [], step = Math.max(1, Math.floor((b - a) / 400));
+    for (let i = a; i <= b; i += step) pts.push([PATH.P[i], q[i]]);
+    if (pts[pts.length - 1][0] !== PATH.P[b]) pts.push([PATH.P[b], q[b]]);
+    return pts;
+  };
+  const blo = seg(0, ib), evac = seg(ib, ig);
+  let lpp = [], ads = [];
+  if (KPI) {
+    const Ld = MIX.loadings(st.PH, KPI.ydel);
+    const qd = which === 1 ? Ld[0] : Ld[1];
+    lpp = [[PATH.P[ig], q[ig]], [st.PH, qd]];
+    ads = [[st.PH, qd], [st.PH, q[0]]];
+  }
+  return { blo, evac, lpp, ads, ib, ig };
+}
+function drawIsoPlot(which) {
+  const id = which === 1 ? "ba-isoA" : "ba-isoB";
+  const axm = which === 1 ? st.axA : st.axB;
+  const { ctx, W, H, c } = cnv(id, 330);
+  const R = { x: 52, y: 12, w: W - 66, h: H - 54 };
+  const fam = famCurves(which);
+  let qmax = 0;
+  for (const f of fam) for (const p of f.pts) qmax = Math.max(qmax, p[1]);
+  const Pmin = Math.min(0.005, st.Plow / 2);
+  const xr = axm === "log" ? { a: Pmin, b: st.PH, log: true } : { a: 0, b: st.PH, log: false };
+  const yr = { a: 0, b: qmax * 1.06 || 1 };
+  const M = axes(ctx, R, xr, yr, "total pressure P [bar]",
+                 which === 1 ? "q*CO₂ [mol/kg]" : "q*N₂ [mol/kg]");
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+  ctx.font = "10px -apple-system, sans-serif";
+  const labs = [];
+  for (const f of fam) {
+    const col = ycol(f.y), isFeed = f.y === st.yF;
+    poly(ctx, f.pts.filter(p => p[0] >= xr.a).map(p => [M.tx(p[0]), M.ty(p[1])]),
+         col, isFeed ? 2 : 1.3);
+    const pl = f.pts[f.pts.length - 1];
+    labs.push({ col, feed: isFeed, y: M.ty(pl[1]) - 3,
+                txt: "y=" + f.y + (isFeed ? " (feed)" : "") });
+  }
+  // the curves bunch up near saturation — nudge colliding end labels apart
+  labs.sort((a, b) => a.y - b.y);
+  for (let i = labs.length - 2; i >= 0; i--)
+    if (labs[i + 1].y - labs[i].y < 11) labs[i].y = labs[i + 1].y - 11;
+  ctx.textAlign = "right";
+  for (const L of labs) {
+    ctx.fillStyle = L.col;
+    ctx.font = (L.feed ? "bold " : "") + "10px -apple-system, sans-serif";
+    ctx.fillText(L.txt, R.x + R.w - 3, Math.max(L.y, R.y + 9));
+  }
+  const S = pathSegs(which);
+  poly(ctx, S.blo.map(p => [M.tx(p[0]), M.ty(p[1])]), css("--blo"), 2.5);
+  poly(ctx, S.evac.map(p => [M.tx(p[0]), M.ty(p[1])]), css("--evac"), 2.5);
+  poly(ctx, S.lpp.map(p => [M.tx(p[0]), M.ty(p[1])]), css("--lpp"), 2.2, [6, 4]);
+  poly(ctx, S.ads.map(p => [M.tx(p[0]), M.ty(p[1])]), css("--ads"), 2.2, [2, 3]);
+  // state markers
+  const q = which === 1 ? PATH.q1 : PATH.q2;
+  const stpts = [["α", PATH.P[0], q[0]], ["β", PATH.P[S.ib], q[S.ib]], ["γ", PATH.P[S.ig], q[S.ig]]];
+  if (KPI) { const Ld = MIX.loadings(st.PH, KPI.ydel); stpts.push(["δ", st.PH, which === 1 ? Ld[0] : Ld[1]]); }
+  ctx.fillStyle = css("--danger");
+  ctx.font = "bold 12px Georgia, serif";
+  for (const [lab, P, qq] of stpts) {
+    ctx.beginPath(); ctx.arc(M.tx(P), M.ty(qq), 3.5, 0, 7); ctx.fill();
+    ctx.fillText(lab, M.tx(P) + 6, M.ty(qq) - 5);
+  }
+  ctx.restore();
+  c._map = { M, R, xr, yr };
+  c._fam = fam;
+  c._snap = ctx.getImageData(0, 0, c.width, c.height);   // crosshair blits over this
+  const hv = which === 1 ? hovA : hovB;
+  if (hv) drawCross(which, hv.P, hv.q);
+}
+
+/* ---- live crosshair over the isotherm plots ---- */
+function qOn(f, P) {             // loading on one constant-y curve (log-uniform grid)
+  const pts = f.pts, n = pts.length;
+  if (P <= pts[0][0]) return pts[0][1];
+  if (P >= pts[n - 1][0]) return pts[n - 1][1];
+  const t = (Math.log(P) - Math.log(pts[0][0])) / (Math.log(pts[n - 1][0]) - Math.log(pts[0][0])) * (n - 1);
+  const i = Math.min(Math.floor(t), n - 2), u = t - i;
+  return pts[i][1] * (1 - u) + pts[i + 1][1] * u;
+}
+function drawCross(which, P, qc) {
+  const c = $(which === 1 ? "ba-isoA" : "ba-isoB");
+  if (!c._snap || !c._map) return;
+  const ctx = c.getContext("2d"), dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.putImageData(c._snap, 0, 0);                       // restore the clean plot
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (P == null) return;
+  const { M, R, xr, yr } = c._map, fam = c._fam || [];
+  if (P < xr.a || P > xr.b) return;
+  const x = M.tx(P), y = M.ty(qc);
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+  ctx.strokeStyle = css("--muted"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, R.y); ctx.lineTo(x, R.y + R.h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(R.x, y); ctx.lineTo(R.x + R.w, y); ctx.stroke();
+  ctx.setLineDash([]);
+  // markers where the vertical line crosses each composition curve
+  const rows = [];
+  for (const f of fam) {
+    const q = qOn(f, P);
+    ctx.fillStyle = ycol(f.y);
+    ctx.beginPath(); ctx.arc(x, M.ty(q), 3, 0, 7); ctx.fill();
+    rows.push({ col: ycol(f.y), lab: "y = " + f.y, val: fmt(q, 3) });
+  }
+  // the cycle path itself, if this pressure is on it
+  if (PATH && P <= PATH.PH && P >= PATH.P[PATH.P.length - 1]) {
+    const i = E.baIdx(PATH, P), qp = which === 1 ? PATH.q1[i] : PATH.q2[i];
+    const col = P > st.Pint ? css("--blo") : (P >= st.Plow ? css("--evac") : css("--muted"));
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x, M.ty(qp), 3.6, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x, M.ty(qp), 3.6, 0, 7); ctx.stroke();
+    rows.push({ col, lab: "cycle y = " + fmt(PATH.y[i], 3), val: fmt(qp, 3) });
+  }
+  ctx.restore();
+  // readout box
+  const lh = 13, bw = 132, bh = lh * (rows.length + 1) + 10;
+  let bx = x + 12, by = Math.min(Math.max(y - bh / 2, R.y + 2), R.y + R.h - bh - 2);
+  if (bx + bw > R.x + R.w - 2) bx = x - 12 - bw;
+  ctx.save();
+  ctx.fillStyle = css("--card"); ctx.globalAlpha = 0.94;
+  ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+  ctx.strokeStyle = css("--border"); ctx.lineWidth = 1; ctx.strokeRect(bx, by, bw, bh);
+  ctx.font = "bold 10px -apple-system, sans-serif"; ctx.textAlign = "left";
+  ctx.fillStyle = css("--text");
+  ctx.fillText("P = " + fmt(P, 4) + " bar", bx + 7, by + 14);
+  ctx.font = "10px -apple-system, sans-serif";
+  rows.forEach((r, k) => {
+    const ty2 = by + 14 + lh * (k + 1);
+    ctx.fillStyle = r.col; ctx.fillRect(bx + 7, ty2 - 6, 9, 3);
+    ctx.fillStyle = css("--muted"); ctx.fillText(r.lab, bx + 21, ty2);
+    ctx.fillStyle = css("--text"); ctx.textAlign = "right";
+    ctx.fillText(r.val, bx + bw - 7, ty2); ctx.textAlign = "left";
+  });
+  ctx.restore();
+}
+function drawYPath() {
+  const { ctx, W, H, c } = cnv("ba-ypath", 260);
+  const R = { x: 52, y: 10, w: W - 66, h: H - 52 };
+  const xr = { a: Math.min(0.005, st.Plow / 2), b: st.PH, log: true };
+  const M = axes(ctx, R, xr, { a: 0, b: 1.02 }, "total pressure P [bar]", "yCO₂ [-]");
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+  const ib = E.baIdx(PATH, st.Pint), ig = E.baIdx(PATH, st.Plow);
+  const seg = (a, b, col) => {
+    const pts = [], step = Math.max(1, Math.floor((b - a) / 400));
+    for (let i = a; i <= b; i += step) pts.push([M.tx(PATH.P[i]), M.ty(PATH.y[i])]);
+    poly(ctx, pts, col, 2.2);
+  };
+  seg(0, ib, css("--blo")); seg(ib, ig, css("--evac"));
+  for (const [P, lab] of [[st.Pint, "P_INT"], [st.Plow, "P_LOW"]]) {
+    const x = M.tx(P);
+    ctx.strokeStyle = css("--muted"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, R.y); ctx.lineTo(x, R.y + R.h); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = css("--muted"); ctx.font = "9.5px -apple-system, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(lab, x + 3, R.y + 11);
+  }
+  ctx.restore();
+}
+function mapRect(W, H) { return { x: 52, y: 10, w: W - 116, h: H - 52 }; }
+function drawMap() {
+  const { ctx, W, H, c } = cnv("ba-map", 260);
+  const R = mapRect(W, H);
+  if (!GRID) { ctx.fillStyle = css("--muted"); ctx.fillText("computing…", R.x + 10, R.y + 20); return; }
+  const nc = GRID.plows.length, nr = GRID.pints.length;
+  const V = GRID[st.qty];
+  let vmin = Infinity, vmax = -Infinity;
+  const vals = [];
+  for (let m = 0; m < V.length; m++) if (isFinite(V[m])) vals.push(V[m]);
+  vals.sort((a, b) => a - b);
+  if (!vals.length) return;
+  vmin = vals[Math.floor(0.02 * (vals.length - 1))];
+  vmax = vals[Math.floor(0.98 * (vals.length - 1))];
+  if (vmax <= vmin) { vmax = vals[vals.length - 1]; vmin = vals[0]; if (vmax <= vmin) vmax = vmin + 1; }
+  const l0 = GRID.plows[0], l1 = GRID.plows[nc - 1], i0 = GRID.pints[0], i1 = GRID.pints[nr - 1];
+  const tx = v => R.x + (v - l0) / (l1 - l0 || 1) * R.w;
+  const ty = v => R.y + R.h - (v - i0) / (i1 - i0 || 1) * R.h;
+  const cw = R.w / nc, ch = R.h / nr;
+  for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) {
+    const v = V[i * nc + j];
+    if (!isFinite(v)) continue;
+    ctx.fillStyle = vir((v - vmin) / (vmax - vmin));
+    ctx.fillRect(R.x + j * cw, R.y + R.h - (i + 1) * ch, cw + 0.6, ch + 0.6);
+  }
+  // DOE-feasible boundary (Pu>=95 && Re>=90)
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.6;
+  const feas = m => isFinite(GRID.Pu[m]) && GRID.Pu[m] >= 95 && GRID.Re[m] >= 90;
+  for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) {
+    if (!feas(i * nc + j)) continue;
+    const x = R.x + j * cw, y = R.y + R.h - (i + 1) * ch;
+    if (j === 0 || !feas(i * nc + j - 1)) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + ch); ctx.stroke(); }
+    if (j === nc - 1 || !feas(i * nc + j + 1)) { ctx.beginPath(); ctx.moveTo(x + cw, y); ctx.lineTo(x + cw, y + ch); ctx.stroke(); }
+    if (i === nr - 1 || !feas((i + 1) * nc + j)) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cw, y); ctx.stroke(); }
+    if (i === 0 || !feas((i - 1) * nc + j)) { ctx.beginPath(); ctx.moveTo(x, y + ch); ctx.lineTo(x + cw, y + ch); ctx.stroke(); }
+  }
+  // 1 bar: above it the blowdown/evacuation gas leaves without a vacuum pump
+  if (i0 < 1 && i1 > 1) {
+    const y1 = ty(1);
+    ctx.save();
+    ctx.strokeStyle = "#fff"; ctx.globalAlpha = 0.85; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(R.x, y1); ctx.lineTo(R.x + R.w, y1); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#fff"; ctx.font = "9.5px -apple-system, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText("1 bar — vacuum work only below", R.x + 4, y1 - 4);
+    ctx.restore();
+  }
+  // axes on top
+  ctx.strokeStyle = css("--border"); ctx.lineWidth = 1; ctx.strokeRect(R.x, R.y, R.w, R.h);
+  ctx.fillStyle = css("--muted"); ctx.font = "10.5px -apple-system, sans-serif";
+  for (const v of niceTicks(l0, l1, 5)) { ctx.textAlign = "center"; ctx.fillText(+v.toPrecision(4), tx(v), R.y + R.h + 13); }
+  for (const v of niceTicks(i0, i1, 5)) { ctx.textAlign = "right"; ctx.fillText(+v.toPrecision(4), R.x - 5, ty(v) + 3.5); }
+  ctx.textAlign = "center"; ctx.fillText("P_LOW [bar]", R.x + R.w / 2, R.y + R.h + 27);
+  ctx.save(); ctx.translate(R.x - 40, R.y + R.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("P_INT [bar]", 0, 0); ctx.restore();
+  // colorbar
+  const bx = R.x + R.w + 12, bw = 12;
+  for (let k = 0; k < R.h; k++) {
+    ctx.fillStyle = vir(1 - k / R.h);
+    ctx.fillRect(bx, R.y + k, bw, 1.5);
+  }
+  ctx.strokeStyle = css("--border"); ctx.strokeRect(bx, R.y, bw, R.h);
+  ctx.fillStyle = css("--muted"); ctx.textAlign = "left";
+  ctx.fillText(fmt(vmax, st.qty === "WC" ? 0 : 1), bx + bw + 3, R.y + 8);
+  ctx.fillText(fmt(vmin, st.qty === "WC" ? 0 : 1), bx + bw + 3, R.y + R.h);
+  // current design point
+  ctx.fillStyle = css("--danger");
+  ctx.beginPath(); ctx.arc(tx(st.Plow), ty(st.Pint), 4.5, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(tx(st.Plow), ty(st.Pint), 4.5, 0, 7); ctx.stroke();
+  c._map = { tx, ty, l0, l1, i0, i1, R };
+}
+function drawPareto() {
+  const { ctx, W, H } = cnv("ba-pareto", 260);
+  const R = { x: 52, y: 10, w: W - 66, h: H - 52 };
+  if (!PARETO) { ctx.fillStyle = css("--muted"); ctx.fillText("computing…", R.x + 10, R.y + 20); return; }
+  let reMin = 100, puMin = 100;
+  for (const cv of PARETO.curves) for (const p of cv.pts) { reMin = Math.min(reMin, p[0]); puMin = Math.min(puMin, p[1]); }
+  const xr = { a: Math.max(0, Math.floor(reMin - 4)), b: 100 }, yr = { a: Math.max(0, Math.floor(puMin - 4)), b: 100.5 };
+  const M = axes(ctx, R, { ...xr, log: false }, yr, "recovery ReCO₂ [%]", "purity PuCO₂ [%]");
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+  // DOE target lines + r_cut arc
+  ctx.strokeStyle = css("--muted"); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(M.tx(90), R.y); ctx.lineTo(M.tx(90), R.y + R.h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(R.x, M.ty(95)); ctx.lineTo(R.x + R.w, M.ty(95)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = css("--danger"); ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  let started = false;
+  for (let a = 0; a <= 90; a += 1) {
+    const re = 124.5 * Math.cos(a * Math.PI / 180), pu = 124.5 * Math.sin(a * Math.PI / 180);
+    if (re > xr.b + 10 || pu > yr.b + 10) continue;
+    const x = M.tx(re), y = M.ty(pu);
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  PARETO.curves.forEach((cv, k) => {
+    poly(ctx, cv.pts.map(p => [M.tx(p[0]), M.ty(p[1])]), vir(0.15 + 0.7 * k / Math.max(PARETO.curves.length - 1, 1)), 2);
+  });
+  ctx.restore();
+  // legend (bottom-left, above the cutoff note — curves hug the top edge)
+  ctx.font = "10px -apple-system, sans-serif"; ctx.textAlign = "left";
+  const ly0 = R.y + R.h - 22 - 13 * PARETO.curves.length;
+  PARETO.curves.forEach((cv, k) => {
+    const y = ly0 + 13 * k;
+    ctx.strokeStyle = vir(0.15 + 0.7 * k / Math.max(PARETO.curves.length - 1, 1));
+    ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(R.x + 8, y - 3); ctx.lineTo(R.x + 26, y - 3); ctx.stroke();
+    ctx.fillStyle = css("--muted");
+    ctx.fillText("P_LOW = " + fmt(cv.plow, 3) + " bar", R.x + 30, y);
+  });
+  ctx.fillStyle = css("--danger");
+  ctx.fillText("r = 124.5 (e-BAAM DOE cutoff)", R.x + 8, R.y + R.h - 8);
+}
+
+/* ---------------- schematic ---------------- */
+function drawScheme() {
+  const svg = $("ba-scheme");
+  const isLPP = st.cycle === "LPP";
+  const cmp = st.PH > 1 ? " (compressed)" : "";
+  const steps = [
+    { id: "ADS",  lab: "Adsorption", col: css("--ads"),  p: `P = ${fmt(st.PH, 2)} bar`, sIn: "feed" + cmp + " →", sOut: "→ raffinate (N₂)" },
+    { id: "BLO",  lab: "Blowdown",  col: css("--blo"),  p: `${fmt(st.PH, 2)} → ${fmt(st.Pint, 3)} bar`, sOut: "→ N₂-rich" },
+    { id: "EVAC", lab: "Evacuation", col: css("--evac"), p: `${fmt(st.Pint, 3)} → ${fmt(st.Plow, 3)} bar`, sOut: "→ CO₂ product" },
+    { id: isLPP ? "LPP" : "FP", lab: isLPP ? "Light-product press." : "Feed press.",
+      col: css("--lpp"), p: `${fmt(st.Plow, 3)} → ${fmt(st.PH, 2)} bar`, sIn: isLPP ? "raffinate →" : "feed" + cmp + " →" },
+  ];
+  const letters = ["δ", "α", "β", "γ", "δ"];  // state before each box (cycle order ADS first)
+  const bw = 128, bh = 56, gap = 42, x0 = 26, y0 = 46;
+  const Wt = x0 * 2 + steps.length * bw + (steps.length - 1) * gap;
+  let s = "";
+  steps.forEach((sp, k) => {
+    const x = x0 + k * (bw + gap);
+    s += `<rect x="${x}" y="${y0}" width="${bw}" height="${bh}" rx="10" fill="none" stroke="${sp.col}" stroke-width="2.2"/>`;
+    s += `<text x="${x + bw / 2}" y="${y0 + 22}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${sp.col}">${sp.lab}</text>`;
+    s += `<text x="${x + bw / 2}" y="${y0 + 40}" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.75">${sp.p}</text>`;
+    if (sp.sIn) s += `<text x="${x + bw / 2}" y="${y0 - 18}" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.6">${sp.sIn}</text>`
+      + `<line x1="${x + bw / 2}" y1="${y0 - 14}" x2="${x + bw / 2}" y2="${y0 - 2}" stroke="currentColor" opacity="0.5" marker-end="url(#ba-arr)"/>`;
+    if (sp.sOut) s += `<text x="${x + bw / 2}" y="${y0 + bh + 24}" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.6">${sp.sOut}</text>`
+      + `<line x1="${x + bw / 2}" y1="${y0 + bh + 2}" x2="${x + bw / 2}" y2="${y0 + bh + 13}" stroke="currentColor" opacity="0.5" marker-end="url(#ba-arr)"/>`;
+    if (k < steps.length - 1) {
+      const xa = x + bw + 4, xb = x + bw + gap - 5;
+      s += `<line x1="${xa}" y1="${y0 + bh / 2}" x2="${xb}" y2="${y0 + bh / 2}" stroke="currentColor" opacity="0.6" stroke-width="1.6" marker-end="url(#ba-arr)"/>`;
+      s += `<text x="${(xa + xb) / 2}" y="${y0 + bh / 2 - 7}" text-anchor="middle" font-size="13" font-style="italic" font-family="Georgia" fill="currentColor">${letters[k + 1]}</text>`;
+    }
+  });
+  s += `<text x="${x0 - 9}" y="${y0 + bh / 2 - 7}" text-anchor="middle" font-size="13" font-style="italic" font-family="Georgia" fill="currentColor">${letters[0]}</text>`;
+  s += `<path d="M ${x0 + steps.length * bw + (steps.length - 1) * gap} ${y0 + bh / 2} h 12 v ${bh / 2 + 26} H ${x0 - 14} V ${y0 + bh / 2} h 8"
+        fill="none" stroke="currentColor" opacity="0.35" stroke-dasharray="5 4" marker-end="url(#ba-arr)"/>`;
+  svg.setAttribute("viewBox", `0 0 ${Wt} 168`);
+  svg.setAttribute("width", Math.min(Wt, 760)); svg.setAttribute("height", 168 * Math.min(Wt, 760) / Wt);
+  svg.innerHTML = `<defs><marker id="ba-arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+    <path d="M0,0 L8,4 L0,8 z" fill="currentColor" opacity="0.6"/></marker></defs>` + s;
+}
+
+/* ---------------- KPI + classification render ---------------- */
+function renderKPIs() {
+  const k = KPI;
+  const host = $("ba-kpis");
+  if (!k) { host.innerHTML = `<div class="kpi"><div class="kl">error</div><div class="kv">–</div></div>`; return; }
+  const enFull = k.En * E.BA_EN_SCALE_EBAAM;
+  host.innerHTML = `
+    <div class="kpi"><div class="kl">CO₂ purity</div><div class="kv">${fmt(k.Pu)}%</div>
+      <div class="kd">evac product, dry basis</div></div>
+    <div class="kpi"><div class="kl">CO₂ recovery</div><div class="kv">${fmt(k.Re)}%</div>
+      <div class="kd">vs CO₂ fed${st.cycle === "FP" ? " (ADS+FP)" : ""}</div></div>
+    <div class="kpi"><div class="kl">Energy</div><div class="kv">${fmt(k.En, 1)}</div>
+      <div class="kd">kWh<sub>e</sub>/t CO₂ · BLO ${fmt(k.EnBLO, 1)} + EVAC ${fmt(k.EnEVAC, 1)}${k.EnADS ? ` + comp ${fmt(k.EnADS + k.EnPR, 1)}` : ""}</div></div>
+    <div class="kpi"><div class="kl">Full-model energy est.</div><div class="kv">${fmt(enFull, 1)}</div>
+      <div class="kd">×${E.BA_EN_SCALE_EBAAM} e-BAAM calibration</div></div>
+    <div class="kpi"><div class="kl">Working capacity</div><div class="kv">${fmt(k.WC, 0)}</div>
+      <div class="kd">mol CO₂ / m³ adsorbent</div></div>
+    <div class="kpi"><div class="kl">Mole balance</div><div class="kv">${fmte(Math.abs(k.mbal))}</div>
+      <div class="kd">% closure error</div></div>`;
+  const etaC = st.etaMode === "maruyama" ? 0.8 * 19.55 / (1 + 19.55) : 0.72;
+  $("ba-enote").innerHTML = st.PH > 1
+    ? `P<sub>H</sub> &gt; 1 bar (PVSA): the feed${st.cycle === "FP" ? " and the feed-pressurization gas are" : " is"} compressed
+       1&nbsp;&rarr;&nbsp;${fmt(st.PH, 2)} bar at &eta;(1&nbsp;bar) = ${fmt(etaC, 3)}, contributing
+       <b>${fmt(k.EnADS + k.EnPR, 1)} kWh<sub>e</sub>/t</b>. Depressurization above 1 bar is free &mdash; only the
+       sub-atmospheric part of blowdown and evacuation is charged to a vacuum pump.`
+    : `All depressurization is sub-atmospheric here, so the whole energy is vacuum work
+       (blowdown ${fmt(k.EnBLO, 1)} + evacuation ${fmt(k.EnEVAC, 1)} kWh<sub>e</sub>/t).`;
+  $("ba-states").innerHTML = k ? `States: y<sub>β</sub> = ${fmt(PATH.y[E.baIdx(PATH, st.Pint)], 4)},
+    y<sub>γ</sub> = ${fmt(k.ygam, 4)}, y<sub>δ</sub> = ${fmt(k.ydel, 4)} ·
+    N<sub>${st.cycle}</sub> = ${fmt(k.Npr, 3)} mol, N<sub>feed</sub> = ${fmt(k.Nfeed, 2)} mol,
+    N<sub>raff</sub> = ${fmt(k.Nraff, 2)} mol (per kg adsorbent)` : "";
+}
+function renderClass() {
+  const el = $("ba-class");
+  if (!GRID) { el.innerHTML = "Scanning design space…"; return; }
+  const { rmax } = E.rMax(GRID);
+  const pass = rmax >= E.BA_RCUT_EBAAM;
+  let enMin = Infinity, enCell = null;
+  const nc = GRID.plows.length;
+  for (let m = 0; m < GRID.Pu.length; m++) {
+    if (isFinite(GRID.Pu[m]) && GRID.Pu[m] >= 95 && GRID.Re[m] >= 90 && GRID.En[m] < enMin) {
+      enMin = GRID.En[m]; enCell = m;
+    }
+  }
+  let s = `<b>Design-space verdict</b> (scan window P<sub>LOW</sub> ∈ [${fmt(st.g.l0, 3)}, ${fmt(st.g.l1, 3)}] bar):
+    r<sub>max</sub> = max√(Pu²+Re²) = <b>${fmt(rmax, 1)}</b> →
+    <b style="color:${pass ? "var(--ok)" : "var(--danger)"}">${pass ? "likely to meet" : "unlikely to meet"}</b>
+    the US-DOE 95%-purity / 90%-recovery target (e-BAAM linear-SVM cutoff r<sub>cut</sub> = ${E.BA_RCUT_EBAAM}, 82% accuracy, calibrated on a 4-step LPP PVSA with η(P)).`;
+  if (enCell !== null) {
+    const i = Math.floor(enCell / nc), j = enCell % nc;
+    s += `<br>Minimum energy among scanned points meeting 95/90: <b>${fmt(enMin, 1)} kWh<sub>e</sub>/t</b>
+      at P<sub>LOW</sub> = ${fmt(GRID.plows[j], 3)}, P<sub>INT</sub> = ${fmt(GRID.pints[i], 3)} bar
+      (full-model estimate ×${E.BA_EN_SCALE_EBAAM}: <b>${fmt(enMin * E.BA_EN_SCALE_EBAAM, 1)} kWh<sub>e</sub>/t</b>).`;
+  } else {
+    s += `<br>No scanned (P<sub>INT</sub>, P<sub>LOW</sub>) meets Pu ≥ 95% and Re ≥ 90% simultaneously.`;
+  }
+  if (st.etaMode === "const") s += `<br><span style="font-size:0.74rem">Note: the e-BAAM calibration (r<sub>cut</sub>, ×1.58) was built with the pressure-dependent η(P); with constant η the energy comparison is indicative only. The 2019 paper's VSA calibration (r<sub>95-90</sub> = ${E.BA_RCUT_2019}, E<sub>full</sub> = ${E.BA_EN_SCALE_2019[0]}·E + ${E.BA_EN_SCALE_2019[1]} kWh<sub>e</sub>/t) applies to 15% CO₂ feed, P<sub>H</sub> = 1 bar, η = 72%.</span>`;
+  el.innerHTML = s;
+}
+
+/* ============ figure exports & report (v2.1) ====================== *
+ * The five figures register with the shared report core, which owns the
+ * PNG/CSV buttons and the report.  The CSV bodies below are the app's
+ * own — they export more than the plotted series (the composition path
+ * carries the cumulative inventories and vacuum work) — but they now
+ * return tables instead of writing files, so one code path feeds both
+ * the buttons and the report.
+ * ------------------------------------------------------------------- */
+const BA_VERSION = "v2.1";
+
+/* --- MathML builders (named ML: `E` is already the engine handle) ---- */
+const ML = {
+  i: s => `<mi>${s}</mi>`,
+  n: s => `<mn>${s}</mn>`,
+  o: s => `<mo>${s}</mo>`,
+  t: s => `<mtext>${s}</mtext>`,
+  sub: (a, b) => `<msub>${a}${b}</msub>`,
+  sup: (a, b) => `<msup>${a}${b}</msup>`,
+  ss: (a, b, c) => `<msubsup>${a}${b}${c}</msubsup>`,
+  frac: (a, b) => `<mfrac>${a}${b}</mfrac>`,
+  row: (...x) => `<mrow>${x.join("")}</mrow>`,
+  par: (...x) => `<mrow><mo>(</mo>${x.join("")}<mo>)</mo></mrow>`,
+  brk: (...x) => `<mrow><mo>[</mo>${x.join("")}<mo>]</mo></mrow>`,
+  sum: idx => `<munder><mo>&#8721;</mo><mi>${idx}</mi></munder>`,
+  eq: (...x) => `<math display="block"><mrow>${x.join("")}</mrow></math>`
+};
+const MI = "<mo>&#8722;</mo>", ME = "<mo>=</mo>", MP = "<mo>+</mo>",
+      MD = "<mo>&#8290;</mo>", MC = "<mo>,</mo>";
+
+/* ---------------------- CSV tables per figure ---------------------- */
+function baMeta() {
+  return [`BAAM ${BA_VERSION} — batch adsorber analogue model`,
+    `adsorbent preset: ${st.preset}, mixture route: ${st.mode}, cycle: ${st.cycle}`,
+    `T = ${st.T} K, P_H = ${st.PH} bar, y_F = ${st.yF}, P_INT = ${st.Pint} bar, ` +
+    `P_LOW = ${st.Plow} bar, eps = ${st.eps}, rho = ${st.rho} kg/m3, eta = ${st.etaMode}`];
+}
+function tblPath() {
+  if (!PATH) return null;
+  const step = Math.max(1, Math.floor(PATH.P.length / 4000));
+  const rows = [];
+  for (let i = 0; i < PATH.P.length; i += step)
+    rows.push([PATH.P[i], PATH.y[i], PATH.q1[i], PATH.q2[i],
+               PATH.N[i], PATH.N1[i], PATH.W[i]]);
+  return { head: ["P [bar]", "y CO2", "q CO2 [mol/kg]", "q N2 [mol/kg]",
+                  "N removed [mol]", "N CO2 removed [mol]", "W [J]"],
+           rows,
+           notes: step > 1 ? [`path decimated by ${step} (${PATH.P.length} solver points)`] : [] };
+}
+function tblIso(which) {
+  const fam = famCurves(which);
+  if (!fam || !fam.length) return null;
+  const rows = [];
+  for (let k = 0; k < fam[0].pts.length; k++)
+    rows.push([fam[0].pts[k][0], ...fam.map(f => f.pts[k][1])]);
+  return { head: ["P [bar]", ...fam.map(f => `q at y=${f.y} [mol/kg]`)],
+           rows,
+           notes: [`competitive ${which === 1 ? "CO2" : "N2"} loading at constant gas composition`] };
+}
+function tblMap() {
+  if (!GRID) return null;
+  const nc = GRID.plows.length, rows = [];
+  for (let i = 0; i < GRID.pints.length; i++) for (let j = 0; j < nc; j++) {
+    const m = i * nc + j;
+    if (!isFinite(GRID.Pu[m])) continue;
+    rows.push([GRID.plows[j], GRID.pints[i], GRID.Pu[m], GRID.Re[m], GRID.En[m], GRID.WC[m]]);
+  }
+  return { head: ["P_LOW [bar]", "P_INT [bar]", "purity [%]", "recovery [%]",
+                  "energy [kWh_e/t]", "working capacity [mol/m3]"],
+           rows,
+           notes: [`${GRID.pints.length} × ${nc} grid; infeasible combinations (P_INT ≤ P_LOW ` +
+                   `or ≥ P_H) are omitted`] };
+}
+function tblPar() {
+  if (!PARETO) return null;
+  const rows = [];
+  for (const cv of PARETO.curves)
+    for (const p of cv.pts) rows.push([cv.plow, p[2], p[0], p[1]]);
+  return { head: ["P_LOW [bar]", "P_INT [bar]", "recovery [%]", "purity [%]"], rows, notes: [] };
+}
+
+Report.init({
+  app: "BAAM — Batch Adsorber Analogue Model",
+  version: BA_VERSION,
+  filePrefix: "baam",
+  redraw: () => drawAll(),
+  meta: baMeta
+});
+
+Report.figure({ id: "ba-isoA", file: "isotherms_co2", title: "CO₂ loading — cycle transitions",
+  ready: () => !!MIX, csv: () => tblIso(1),
+  caption: "Competitive CO₂ loading against pressure over a family of constant gas " +
+    "compositions, with the cycle transitions α → β → γ → δ superimposed. The path " +
+    "leaves the feed composition during blowdown and evacuation as the more strongly " +
+    "held component is progressively enriched in the gas phase." });
+Report.figure({ id: "ba-isoB", file: "isotherms_n2", title: "N₂ loading — cycle transitions",
+  ready: () => !!MIX, csv: () => tblIso(2),
+  caption: "Competitive N₂ loading on the same basis and over the same cycle " +
+    "transitions as the preceding figure." });
+Report.figure({ id: "ba-ypath", file: "composition_path", title: "Composition path y(P)",
+  ready: () => !!PATH, csv: tblPath,
+  caption: "Gas-phase CO₂ mole fraction along the depressurization path, obtained by " +
+    "integrating the composition ODE from the high pressure down to the evacuation " +
+    "pressure. The intermediate and low pressures divide this path into the blowdown " +
+    "and evacuation steps." });
+Report.figure({ id: "ba-map", file: "design_space", title: "Design space",
+  ready: () => !!GRID, csv: tblMap,
+  caption: "Selected performance indicator over the (P_LOW, P_INT) design space at the " +
+    "chosen high pressure. The outlined region satisfies the US-DOE targets of 95 % " +
+    "purity and 90 % recovery; for a PVSA the 1 bar line marks the boundary above " +
+    "which no vacuum work is charged." });
+Report.figure({ id: "ba-pareto", file: "pareto", title: "Purity–recovery Pareto",
+  ready: () => !!PARETO, csv: tblPar,
+  caption: "Purity–recovery trade-off traced by the intermediate pressure, one curve " +
+    "per evacuation pressure. The classification radius of the e-BAAM linear support " +
+    "vector machine is drawn for reference." });
+
+Report.content({
+  title: "Rapid screening of a four-step VSA/PVSA cycle by the batch adsorber analogue model",
+  author: "Research Apps suite · University of Alberta",
+
+  intro:
+    "<p>Screening adsorbents for post-combustion CO<sub>2</sub> capture by detailed " +
+    "process simulation is expensive: each material requires a full cyclic-steady-state " +
+    "optimization of a spatially distributed model. The batch adsorber analogue model " +
+    "(BAAM) replaces that calculation with a single pass through an idealised cycle, and " +
+    "reproduces the ranking that the detailed model would give at a small fraction of the " +
+    "cost.</p>" +
+    "<p>The adsorber is represented as a well-mixed, isothermal batch vessel holding one " +
+    "kilogram of adsorbent at bed voidage ε, in which gas and adsorbed phases are in " +
+    "equilibrium at all times. The cycle comprises four steps — adsorption, blowdown to an " +
+    "intermediate pressure, evacuation to a low pressure, and pressurization — and, because " +
+    "no spatial profile is carried between steps, it closes exactly in one pass. There is " +
+    "no cyclic-steady-state iteration.</p>" +
+    "<p>This report documents one such screening calculation. The formulation follows " +
+    "Subramanian Balashankar <i>et al.</i> [1]; the feed-pressurization cycle, the " +
+    "pressure-dependent vacuum-pump efficiency, operation above atmospheric pressure with " +
+    "the attendant feed-compression work, and the classification and energy calibration " +
+    "against detailed-model results are the extensions of Liske and Rajendran [2].</p>",
+
+  objectives:
+    "<p>The calculation reported here was configured to determine, for the adsorbent and " +
+    "operating conditions tabulated in the Conditions section:</p><ol>" +
+    "<li>the composition path followed by the gas phase during depressurization, and the " +
+    "cycle transitions it produces on the competitive isotherms;</li>" +
+    "<li>the purity and recovery of the CO<sub>2</sub> recovered in the evacuation step;</li>" +
+    "<li>the specific energy demand, resolved into blowdown, evacuation, feed-compression " +
+    "and pressurization contributions;</li>" +
+    "<li>the working capacity per unit volume of adsorbent;</li>" +
+    "<li>the extent of the design space, in the intermediate and low pressures, that meets " +
+    "the US-DOE purity and recovery targets; and</li>" +
+    "<li>the resulting classification of the adsorbent, together with the minimum energy " +
+    "attainable within the feasible region.</li></ol>",
+
+  model: [
+    { heading: "Inventory and the composition path",
+      html: "<p>The inventory of each species in the vessel comprises the gas held in the " +
+        "voids and the adsorbed phase in equilibrium with it, {{eq:inv}}. During blowdown " +
+        "and evacuation the vessel is closed to the feed and gas is withdrawn; requiring " +
+        "that the withdrawn stream have the composition of the well-mixed gas yields a " +
+        "single ordinary differential equation for that composition along the pressure " +
+        "path, {{eq:ode}}. The coefficients are assembled from the partial derivatives of " +
+        "the competitive isotherm with respect to pressure and composition, so the same " +
+        "equation serves any equilibrium model for which those derivatives can be " +
+        "evaluated.</p>",
+      eqs: [
+        { id: "inv",
+          ml: ML.eq(ML.sub(ML.i("N"), ML.i("i")), ME,
+            ML.frac(ML.row(ML.i("P"), MD, ML.sub(ML.i("y"), ML.i("i")), MD, ML.i("V"),
+                           MD, "<mi>&#949;</mi>"),
+                    ML.row(ML.sub(ML.i("R"), ML.i("g")), ML.i("T"))), MP,
+            ML.i("w"), MD, ML.ss(ML.i("q"), ML.i("i"), ML.o("&#8727;")),
+            ML.par(ML.i("P"), MC, ML.sub(ML.i("y"), ML.i("i")))),
+          where: "<i>w</i> = 1 kg of adsorbent, <i>V</i> the vessel volume" },
+        { id: "ode",
+          ml: ML.eq(ML.frac(ML.row(ML.i("d"), ML.i("y")), ML.row(ML.i("d"), ML.i("P"))), ME,
+            ML.frac(ML.row(ML.sub(ML.i("a"), ML.n("1")), ML.i("y"), MI,
+                           ML.sub(ML.i("a"), ML.n("2"))),
+                    ML.row(ML.sub(ML.i("f"), ML.n("2")), MI,
+                           ML.sub(ML.i("f"), ML.n("1")), ML.i("y")))) }
+      ],
+      after: "<p>Pressurization — with raffinate in the light-product-pressurization cycle, " +
+        "or with feed in the feed-pressurization cycle — and the adsorption step itself are " +
+        "algebraic balances rather than differential equations. The raffinate leaves at the " +
+        "composition prevailing before adsorption begins, which makes the adsorption balance " +
+        "linear once that composition is known.</p>" },
+
+    { heading: "Equilibrium",
+      html: "<p>Two routes to the competitive equilibrium are available. The route of the " +
+        "source papers is an extended dual-site Langmuir isotherm written on a " +
+        "concentration basis, {{eq:dsl}}, whose partial derivatives are analytic. " +
+        "Alternatively the mixture may be obtained by ideal adsorbed solution theory from " +
+        "any pair of pure-component isotherms, in which case the same partial derivatives " +
+        "are formed by finite differences and fed to the identical composition ODE. The " +
+        "affinity constants carry the usual van 't Hoff temperature dependence, " +
+        "{{eq:vhoff}}.</p>",
+      eqs: [
+        { id: "dsl",
+          ml: ML.eq(ML.ss(ML.i("q"), ML.i("i"), ML.o("&#8727;")), ME,
+            ML.frac(ML.row(ML.sub(ML.i("q"), ML.row(ML.i("s"), ML.i("b"), MC, ML.i("i"))),
+                           MD, ML.sub(ML.i("b"), ML.i("i")), ML.sub(ML.i("c"), ML.i("i"))),
+                    ML.row(ML.n("1"), MP, ML.sum("j"),
+                           ML.sub(ML.i("b"), ML.i("j")), ML.sub(ML.i("c"), ML.i("j")))), MP,
+            ML.frac(ML.row(ML.sub(ML.i("q"), ML.row(ML.i("s"), ML.i("d"), MC, ML.i("i"))),
+                           MD, ML.sub(ML.i("d"), ML.i("i")), ML.sub(ML.i("c"), ML.i("i"))),
+                    ML.row(ML.n("1"), MP, ML.sum("j"),
+                           ML.sub(ML.i("d"), ML.i("j")), ML.sub(ML.i("c"), ML.i("j"))))) },
+        { id: "vhoff",
+          ml: ML.eq(ML.sub(ML.i("b"), ML.i("i")), ME,
+            ML.sub(ML.i("b"), ML.row(ML.n("0"), MC, ML.i("i"))), MD,
+            ML.i("exp"), ML.brk(MI,
+              ML.frac(ML.row("<mi mathvariant='normal'>&#916;</mi>",
+                             ML.sub(ML.i("U"), ML.i("i"))),
+                      ML.row(ML.sub(ML.i("R"), ML.i("g")), ML.i("T"))))),
+          where: "<i>c</i><sub>i</sub> = <i>P y</i><sub>i</sub>/<i>R</i><sub>g</sub><i>T</i>, " +
+            "the concentration basis used in the source papers" }
+      ] },
+
+    { heading: "Energy",
+      html: "<p>Work is charged only where gas is actually moved against a pressure " +
+        "difference. Below atmospheric pressure, blowdown and evacuation are charged as " +
+        "adiabatic vacuum-pump work over the pressure slices of the path, {{eq:wvac}}. " +
+        "Above atmospheric pressure no vacuum work arises; instead the feed — and, in the " +
+        "feed-pressurization cycle, the pressurization gas — is charged adiabatic " +
+        "compression work from ambient pressure to the high pressure, {{eq:wcomp}}. The " +
+        "pump efficiency is either a constant or the pressure-dependent form of " +
+        "{{eq:eta}}; compression is evaluated at the efficiency prevailing at one bar, " +
+        "which is the convention that reproduces the published worked example.</p>",
+      eqs: [
+        { id: "wvac",
+          ml: ML.eq(ML.sub(ML.i("W"), ML.t("vac")), ME,
+            ML.sum("k"), ML.frac(ML.row("<mi>&#947;</mi>"), ML.row("<mi>&#947;</mi>", MI, ML.n("1"))),
+            MD, ML.frac(ML.row(ML.sub(ML.i("R"), ML.i("g")), ML.i("T"),
+                               "<mi mathvariant='normal'>&#916;</mi>", ML.sub(ML.i("N"), ML.i("k"))),
+                        "<mi>&#951;</mi>", ),
+            ML.brk(ML.sup(ML.par(ML.frac(ML.sub(ML.i("P"), ML.t("atm")), ML.sub(ML.i("P"), ML.i("k")))),
+              ML.frac(ML.row("<mi>&#947;</mi>", MI, ML.n("1")), "<mi>&#947;</mi>")), MI, ML.n("1"))) },
+        { id: "wcomp",
+          ml: ML.eq(ML.sub(ML.i("W"), ML.t("comp")), ME,
+            ML.frac(ML.row("<mi>&#947;</mi>"), ML.row("<mi>&#947;</mi>", MI, ML.n("1"))), MD,
+            ML.frac(ML.row(ML.i("N"), ML.sub(ML.i("R"), ML.i("g")), ML.i("T")),
+                    ML.row("<mi>&#951;</mi>", ML.par(ML.n("1"), ML.t(" bar")))), MD,
+            ML.brk(ML.sup(ML.par(ML.frac(ML.sub(ML.i("P"), ML.i("H")), ML.sub(ML.i("P"), ML.t("atm")))),
+              ML.frac(ML.row("<mi>&#947;</mi>", MI, ML.n("1")), "<mi>&#947;</mi>")), MI, ML.n("1"))) },
+        { id: "eta",
+          ml: ML.eq("<mi>&#951;</mi>", ML.par(ML.i("P")), ME, ML.n("0.8"), MD,
+            ML.frac(ML.row(ML.n("19.55"), ML.i("P")),
+                    ML.row(ML.n("1"), MP, ML.n("19.55"), ML.i("P")))),
+          where: "the Maruyama correlation; the alternative is a constant η = 72 %" }
+      ] },
+
+    { heading: "Performance indicators and classification",
+      html: "<p>Purity and recovery are referred to the evacuation stream, {{eq:pure}}, " +
+        "which is the product of this cycle. The specific energy is the total work per " +
+        "tonne of CO<sub>2</sub> recovered and the working capacity is referred to the " +
+        "volume of adsorbent, {{eq:wc}}. An adsorbent is classified by the largest radius " +
+        "attained in the purity–recovery plane over the scanned design space, {{eq:rmax}}, " +
+        "compared against the cutoff of a linear support vector machine trained on " +
+        "detailed-model outcomes. Because the analogue model systematically understates " +
+        "the energy of the detailed cycle, a calibration factor is applied when the " +
+        "energy is quoted on a detailed-model basis.</p>",
+      eqs: [
+        { id: "pure",
+          ml: ML.eq(ML.t("Purity"), ME,
+            ML.frac(ML.sub(ML.i("n"), ML.t("CO2,evac")), ML.sub(ML.i("n"), ML.t("evac"))),
+            "<mo>,</mo><mspace width='1.4em'/>", ML.t("Recovery"), ME,
+            ML.frac(ML.sub(ML.i("n"), ML.t("CO2,evac")), ML.sub(ML.i("n"), ML.t("CO2,fed")))) },
+        { id: "wc",
+          ml: ML.eq(ML.t("WC"), ME,
+            ML.frac(ML.sub(ML.i("n"), ML.t("CO2,evac")),
+                    ML.row(ML.i("V"), ML.par(ML.n("1"), MI, "<mi>&#949;</mi>")))) },
+        { id: "rmax",
+          ml: ML.eq(ML.sub(ML.i("r"), ML.t("max")), ME, ML.t("max"),
+            "<msqrt><mrow>" + ML.sup(ML.t("Pu"), ML.n("2")) + MP +
+            ML.sup(ML.t("Re"), ML.n("2")) + "</mrow></msqrt>") }
+      ] }
+  ],
+
+  nomenclature: [
+    ["<i>b</i>, <i>d</i>", "dual-site Langmuir affinity constants", "m³ mol⁻¹"],
+    ["<i>c</i><sub>i</sub>", "gas-phase concentration of species <i>i</i>", "mol m⁻³"],
+    ["<i>N</i><sub>i</sub>", "inventory of species <i>i</i> in the vessel", "mol"],
+    ["<i>P</i><sub>H</sub>, <i>P</i><sub>INT</sub>, <i>P</i><sub>LOW</sub>", "high, intermediate and low pressures", "bar"],
+    ["<i>q</i><sub>i</sub><sup>∗</sup>", "equilibrium loading", "mol kg⁻¹"],
+    ["<i>q</i><sub>s</sub>", "saturation capacity of a site", "mol kg⁻¹"],
+    ["<i>R</i><sub>g</sub>", "gas constant", "J mol⁻¹ K⁻¹"],
+    ["<i>T</i>", "temperature (isothermal throughout)", "K"],
+    ["<i>V</i>", "vessel volume per kilogram of adsorbent", "m³"],
+    ["<i>w</i>", "adsorbent mass (basis)", "kg"],
+    ["<i>y</i>", "gas-phase CO₂ mole fraction", "–"],
+    ["ΔU", "internal energy of adsorption", "kJ mol⁻¹"],
+    ["ε", "bed voidage", "–"],
+    ["γ", "heat-capacity ratio of the gas", "–"],
+    ["η", "vacuum-pump or compressor efficiency", "–"],
+    ["ρ", "adsorbent density", "kg m⁻³"]
+  ],
+
+  method:
+    "<p>The composition ODE is integrated by fixed-step fourth-order Runge–Kutta on a " +
+    "uniform pressure grid of spacing ΔP. The grid spacing is deliberately <i>not</i> " +
+    "scaled with the high pressure: the vacuum work is a first-order sum over pressure " +
+    "slices, so a rescaled grid shifts it and moves the design pressures off the grid " +
+    "points. Holding ΔP fixed keeps every slider value exactly on a grid point.</p>" +
+    "<p>The pressurization and adsorption balances are solved algebraically and are " +
+    "independent of the intermediate pressure, so they are computed once per composition " +
+    "path and reused across the whole design-space scan; this memoization is what makes " +
+    "the scan tractable when the mixture equilibrium is obtained by ideal adsorbed " +
+    "solution theory. Each grid point of the scan is an independent evaluation of the " +
+    "complete cycle.</p>" +
+    "<p>The implementation is verified against the authors' original MATLAB program, run " +
+    "at tightened integration tolerances to provide converged anchors, and against an " +
+    "independent Python reference. Table 2 of the source paper is reproduced to the " +
+    "displayed digits for all four of its adsorbents. Cycle indicators agree with the " +
+    "converged MATLAB results to within 5·10<sup>−5</sup> relative, the pressurized cases " +
+    "agree with the Python reference to 2·10<sup>−8</sup>, the two mixture-equilibrium " +
+    "routes agree to 10<sup>−4</sup> where they should coincide, the energy contributions " +
+    "sum to the total to machine precision, and the cycle mole balance closes to better " +
+    "than 10<sup>−8</sup> per cent.</p>",
+
+  condIntro:
+    "<p>The following tables record every input of the calculation, including the " +
+    "isotherm parameters actually used by the solver.</p>",
+
+  conditions: () => {
+    const G = [];
+    const eA = st.e.A, eB = st.e.B;
+    G.push({ title: "Adsorbent", head: ["Property", "Value", "Unit"], rows: [
+      ["Preset", st.preset === "custom" ? "custom (edited)" : st.preset, ""],
+      ["Mixture-equilibrium route", st.mode === "edsl"
+        ? "extended dual-site Langmuir (concentration basis)"
+        : "ideal adsorbed solution theory", ""],
+      ["Density ρ", fmt(st.rho, 1), "kg m⁻³"],
+      ["Bed voidage ε", fmt(st.eps, 3), "–"],
+      ["Temperature T", fmt(st.T, 2), "K"]
+    ] });
+    if (st.mode === "edsl") {
+      G.push({ title: "Extended dual-site Langmuir parameters",
+        head: ["Parameter", "CO₂", "N₂"], rows: [
+          ["q<sub>s,b</sub> [mol kg⁻¹]", fmt(eA.qsb, 4), fmt(eB.qsb, 4)],
+          ["b₀ [m³ mol⁻¹]", fmte(eA.b0), fmte(eB.b0)],
+          ["−ΔU<sub>b</sub> [kJ mol⁻¹]", fmt(eA.dUb, 3), fmt(eB.dUb, 3)],
+          ["q<sub>s,d</sub> [mol kg⁻¹]", fmt(eA.qsd, 4), fmt(eB.qsd, 4)],
+          ["d₀ [m³ mol⁻¹]", fmte(eA.d0), fmte(eB.d0)],
+          ["−ΔU<sub>d</sub> [kJ mol⁻¹]", fmt(eA.dUd, 3), fmt(eB.dUd, 3)]
+        ] });
+    } else {
+      G.push({ title: "Pure-component isotherms (IAST route)",
+        head: ["Component", "Model", "Parameters"], rows: [
+          ["CO₂", st.i.m1, st.i.m1 === "custom" ? st.i.e1 : JSON.stringify(st.i.p1)],
+          ["N₂", st.i.m2, st.i.m2 === "custom" ? st.i.e2 : JSON.stringify(st.i.p2)]
+        ], note: "Mixture loadings follow from ideal adsorbed solution theory; the " +
+          "partial derivatives entering the composition ODE are formed by finite differences." });
+    }
+    G.push({ title: "Cycle and feed", head: ["Quantity", "Value", "Unit"], rows: [
+      ["Cycle", st.cycle === "LPP" ? "light-product pressurization" : "feed pressurization", ""],
+      ["Feed CO₂ mole fraction y<sub>F</sub>", fmt(st.yF, 4), "–"],
+      ["High pressure P<sub>H</sub>", fmt(st.PH, 4), "bar"],
+      ["Intermediate pressure P<sub>INT</sub>", fmt(st.Pint, 4), "bar"],
+      ["Low pressure P<sub>LOW</sub>", fmt(st.Plow, 4), "bar"],
+      ["Pump efficiency", st.etaMode === "const"
+        ? "constant, 72 %" : "pressure dependent, 0.8·19.55P/(1+19.55P)", ""],
+      ["Operation", st.PH > 1 ? "PVSA (feed compression charged)" : "VSA", ""]
+    ] });
+    G.push({ title: "Numerical settings", head: ["Quantity", "Value", "Unit"], rows: [
+      ["Pressure step ΔP", fmte(st.dP), "bar"],
+      ["Design-space P<sub>LOW</sub> range", `${fmt(st.g.l0, 3)} – ${fmt(st.g.l1, 3)}`, "bar"],
+      ["Design-space grid", `${st.g.nl} × ${st.g.ni}`, "points"]
+    ] });
+    return G;
+  },
+
+  results: () => {
+    if (!KPI) return null;
+    const G = [];
+    G.push({ title: "Cycle performance", head: ["Indicator", "Value", "Unit"], rows: [
+      ["Purity", fmt(KPI.Pu, 3), "%"],
+      ["Recovery", fmt(KPI.Re, 3), "%"],
+      ["Working capacity", fmt(KPI.WC, 3), "mol m⁻³ of adsorbent"],
+      ["Mole-balance closure", fmte(KPI.mbal), "%"]
+    ] });
+    G.push({ title: "Specific energy", head: ["Contribution", "Value", "Unit"], rows: [
+      ["Blowdown", fmt(KPI.EnBLO, 2), "kWh_e t⁻¹"],
+      ["Evacuation", fmt(KPI.EnEVAC, 2), "kWh_e t⁻¹"],
+      ["Feed compression", fmt(KPI.EnADS, 2), "kWh_e t⁻¹"],
+      ["Pressurization", fmt(KPI.EnPR, 2), "kWh_e t⁻¹"],
+      ["Total", fmt(KPI.En, 2), "kWh_e t⁻¹"],
+      ["Calibrated to the detailed model", fmt(KPI.En * BA_EN_SCALE_EBAAM, 2), "kWh_e t⁻¹"]
+    ], note: "The calibration factor of " + BA_EN_SCALE_EBAAM + " converts the analogue " +
+       "model's energy to the detailed-model basis (e-BAAM, Figure 9a)." });
+    G.push({ title: "Cycle state", head: ["Quantity", "Value", "Unit"], rows: [
+      ["Composition at the end of adsorption y<sub>δ</sub>", fmt(KPI.ydel, 5), "–"],
+      ["Composition at the end of blowdown y<sub>γ</sub>", fmt(KPI.ygam, 5), "–"],
+      ["Feed charged", fmt(KPI.Nfeed, 4), "mol"],
+      ["Raffinate withdrawn", fmt(KPI.Nraff, 4), "mol"],
+      ["Gas withdrawn in evacuation", fmt(KPI.nevac, 4), "mol"],
+      ["CO₂ withdrawn in evacuation", fmt(KPI.n1evac, 4), "mol"]
+    ] });
+    if (GRID) {
+      let best = Infinity, bestAt = null, nFeas = 0;
+      const nc = GRID.plows.length;
+      for (let i = 0; i < GRID.pints.length; i++) for (let j = 0; j < nc; j++) {
+        const m = i * nc + j;
+        if (!isFinite(GRID.Pu[m])) continue;
+        if (GRID.Pu[m] >= 95 && GRID.Re[m] >= 90) {
+          nFeas++;
+          if (GRID.En[m] < best) { best = GRID.En[m]; bestAt = [GRID.plows[j], GRID.pints[i]]; }
+        }
+      }
+      let rmax = 0;
+      for (let m = 0; m < GRID.Pu.length; m++)
+        if (isFinite(GRID.Pu[m]))
+          rmax = Math.max(rmax, Math.hypot(GRID.Pu[m], GRID.Re[m]));
+      G.push({ title: "Design space and classification",
+        head: ["Quantity", "Value", "Unit"], rows: [
+          ["Points scanned", String(GRID.Pu.length), ""],
+          ["Points meeting the DOE targets", String(nFeas), ""],
+          ["Minimum energy within the feasible region",
+           isFinite(best) ? fmt(best, 2) : "—", "kWh_e t⁻¹"],
+          ["…at (P<sub>LOW</sub>, P<sub>INT</sub>)",
+           bestAt ? `${fmt(bestAt[0], 4)}, ${fmt(bestAt[1], 4)}` : "—", "bar"],
+          ["Classification radius r<sub>max</sub>", fmt(rmax, 2), ""],
+          ["Verdict against the e-BAAM cutoff (" + BA_RCUT_EBAAM + ")",
+           rmax >= BA_RCUT_EBAAM ? "likely to meet the US-DOE targets"
+                                 : "unlikely to meet the US-DOE targets", ""]
+        ], note: "The cutoff is that of a linear support vector machine trained on " +
+          "detailed-model outcomes, reported at 82 % classification accuracy." });
+    }
+    return { html: "<p>The indicators below are those of the cycle at the design " +
+      "pressures stated in the Conditions section. The product is the evacuation " +
+      "stream; the raffinate withdrawn during adsorption is the light product and is " +
+      "not counted towards recovery.</p>", groups: G };
+  },
+
+  references: [
+    "V. Subramanian Balashankar, A. K. Rajagopalan, R. de Pauw, A. M. Avila, " +
+    "A. Rajendran, “Analysis of a Batch Adsorber Analogue for Rapid Screening of " +
+    "Adsorbents for Postcombustion CO<sub>2</sub> Capture”, <i>Industrial &amp; " +
+    "Engineering Chemistry Research</i> <b>58</b> (2019) 3314–3328.",
+    "G. Liske, A. Rajendran, “Extended Batch Adsorber Analogue Model (e-BAAM) for " +
+    "Rapid Screening of PSA Cycles for CO<sub>2</sub> Capture”, <i>Canadian Journal " +
+    "of Chemical Engineering</i> (2026), doi:10.1002/cjce.70453.",
+    "A. L. Myers, J. M. Prausnitz, “Thermodynamics of mixed-gas adsorption”, " +
+    "<i>AIChE Journal</i> <b>11</b> (1965) 121–127."
+  ],
+
+  footer: "<p>Formulation after Subramanian Balashankar <i>et al.</i>, with the " +
+    "extensions of Liske and Rajendran. The implementation is verified against the " +
+    "authors' original MATLAB program at converged tolerances and against an " +
+    "independent Python reference.</p>"
+});
+
+/* ---------------- redraw + recompute orchestration ---------------- */
+function drawAll() {
+  drawIsoPlot(1); drawIsoPlot(2); drawYPath(); drawMap(); drawPareto(); drawScheme();
+  renderKPIs(); renderClass();
+  $("ba-PintV").textContent = fmt(st.Pint, 3) + " bar";
+  $("ba-PlowV").textContent = fmt(st.Plow, 3) + " bar";
+  Report.refresh();      // enable/disable the per-figure export buttons
+}
+let hvTimer = null;
+function onHeavy() {              // mixture/T/PH/yF/eta/dP changed
+  clearTimeout(hvTimer);
+  hvTimer = setTimeout(() => {
+    const err = $("ba-err");
+    try {
+      pullLight();
+      buildMix();
+      computePath(); computeKPI();
+      err.classList.remove("show");
+      drawAll();
+      computeGridAsync(() => { drawMap(); drawPareto(); renderClass(); Report.refresh(); });
+      save();
+    } catch (ex) {
+      err.textContent = String(ex); err.classList.add("show");
+    }
+  }, 250);
+}
+function onLight() {              // Pint/Plow moved
+  pullLight();
+  if (st.Plow < PATH.P[PATH.P.length - 1]) { onHeavy(); return; }
+  computeKPI();
+  drawIsoPlot(1); drawIsoPlot(2); drawYPath(); drawMap(); drawScheme(); renderKPIs();
+  $("ba-PintV").textContent = fmt(st.Pint, 3) + " bar";
+  $("ba-PlowV").textContent = fmt(st.Plow, 3) + " bar";
+  save();
+}
+/* strict ordering PH > PINT > PLOW is enforced here and nowhere else: the
+   slider min/max attributes are rewritten on every pull, so a value that would
+   violate it is clamped by the range element itself. */
+function pullLight() {
+  st.T = +$("ba-T").value || 298.15;
+  st.PH = Math.min(Math.max(+$("ba-PH").value || 1, BA_PH_MIN), BA_PH_MAX);
+  st.yF = Math.min(Math.max(+$("ba-yF").value || 0.15, 0.005), 0.95);
+  st.rho = +$("ba-rho").value || 1000;
+  st.eps = Math.min(Math.max(+$("ba-eps").value || 0.37, 0.05), 0.9);
+  st.cycle = $("ba-cycle").value;
+  st.etaMode = $("ba-eta").value;
+  st.dP = Math.min(Math.max(+$("ba-dP").value || 1e-4, 1e-5), 0.01);
+  const gcap = st.PH - 0.03;
+  st.g.l0 = Math.min(Math.max(+$("ba-gl0").value || 0.03, 0.005), gcap - 0.005);
+  st.g.l1 = Math.min(Math.max(+$("ba-gl1").value || 0.10, st.g.l0 + 0.005), gcap);
+  st.g.nl = Math.round(+$("ba-gnl").value) || 15;
+  st.g.ni = Math.round(+$("ba-gni").value) || 48;
+  const pint = $("ba-Pint"), plow = $("ba-Plow");
+  plow.min = 0.01; plow.max = Math.min(0.9, st.PH - 0.03).toFixed(3);
+  st.Plow = Math.min(Math.max(+plow.value, +plow.min), +plow.max);
+  pint.min = (st.Plow + 0.01).toFixed(3); pint.max = (st.PH - 0.01).toFixed(3);
+  st.Pint = Math.min(Math.max(+pint.value, +pint.min), +pint.max);
+  $("ba-PHs").value = st.PH;
+  $("ba-dPeff").textContent =
+    `${Math.round((st.PH - pathPlowMin()) / dPeff()).toLocaleString()} ODE steps` +
+    (dPeff() > st.dP * 1.0000001 ? ` (ΔP raised to ${fmte(dPeff())} bar)` : "");
+}
+
+/* ---------------- event wiring ---------------- */
+function wire() {
+  $("ba-preset").addEventListener("change", e => { applyPreset(e.target.value); onHeavy(); });
+  $("ba-mode").addEventListener("change", e => { st.mode = e.target.value; st.preset = "custom"; $("ba-preset").value = "custom"; syncModeVisibility(); onHeavy(); });
+  for (const k of ["A", "B"]) for (const f of ["qsb", "b0", "dUb", "qsd", "d0", "dUd"])
+    $(`ba-${k}-${f}`).addEventListener("input", () => { pullEdslFields(); st.preset = "custom"; $("ba-preset").value = "custom"; onHeavy(); });
+  for (const k of [1, 2]) {
+    $("ba-i" + k + "m").addEventListener("change", e => { st.i["m" + k] = e.target.value; st.preset = "custom"; $("ba-preset").value = "custom"; buildIastParams(k); onHeavy(); });
+    $("ba-i" + k + "e").addEventListener("input", e => { st.i["e" + k] = e.target.value; onHeavy(); });
+  }
+  for (const id of ["ba-T", "ba-PH", "ba-yF", "ba-rho", "ba-eps", "ba-dP", "ba-gl0", "ba-gl1", "ba-gnl", "ba-gni"])
+    $(id).addEventListener("input", onHeavy);
+  for (const id of ["ba-cycle", "ba-eta"]) $(id).addEventListener("change", onHeavy);
+  $("ba-PHs").addEventListener("input", e => { $("ba-PH").value = e.target.value; onHeavy(); });
+  $("ba-Pint").addEventListener("input", onLight);
+  $("ba-Plow").addEventListener("input", onLight);
+  document.querySelectorAll(".chip[data-yf]").forEach(b => b.addEventListener("click", () => { $("ba-yF").value = b.dataset.yf; onHeavy(); }));
+  for (const [segId, key] of [["ba-axA", "axA"], ["ba-axB", "axB"]])
+    $(segId).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      $(segId).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+      st[key] = b.dataset.m; save(); drawIsoPlot(segId === "ba-axA" ? 1 : 2);
+    }));
+  $("ba-qty").addEventListener("change", e => { st.qty = e.target.value; save(); drawMap(); });
+  // isotherm plots: live crosshair with loadings on every composition curve
+  for (const [id, which] of [["ba-isoA", 1], ["ba-isoB", 2]]) {
+    const c = $(id);
+    const clear = () => {
+      if (which === 1) hovA = null; else hovB = null;
+      $(which === 1 ? "ba-infoA" : "ba-infoB").textContent = "";
+      drawCross(which, null);
+    };
+    c.style.cursor = "crosshair";
+    c.addEventListener("mousemove", ev => {
+      if (!c._map) return;
+      const r = c.getBoundingClientRect();
+      const x = ev.clientX - r.left, y = ev.clientY - r.top;
+      const { R, xr, yr } = c._map;
+      if (x < R.x || x > R.x + R.w || y < R.y || y > R.y + R.h) { clear(); return; }
+      const P = xr.log ? Math.pow(10, Math.log10(xr.a) + (x - R.x) / R.w * (Math.log10(xr.b) - Math.log10(xr.a)))
+                       : xr.a + (x - R.x) / R.w * (xr.b - xr.a);
+      const q = yr.a + (1 - (y - R.y) / R.h) * (yr.b - yr.a);
+      if (which === 1) hovA = { P, q }; else hovB = { P, q };
+      $(which === 1 ? "ba-infoA" : "ba-infoB").textContent =
+        `P = ${fmt(P, 4)} bar · cursor q = ${fmt(q, 3)} mol/kg`;
+      drawCross(which, P, q);
+    });
+    c.addEventListener("mouseleave", clear);
+  }
+  // design-space map: hover readout + click to set design point
+  const mapC = $("ba-map");
+  function mapPos(ev) {
+    if (!mapC._map || !GRID) return null;
+    const r = mapC.getBoundingClientRect();
+    const x = ev.clientX - r.left, y = ev.clientY - r.top;
+    const { R, l0, l1, i0, i1 } = mapC._map;
+    if (x < R.x || x > R.x + R.w || y < R.y || y > R.y + R.h) return null;
+    return { plow: l0 + (x - R.x) / R.w * (l1 - l0), pint: i0 + (1 - (y - R.y) / R.h) * (i1 - i0) };
+  }
+  mapC.addEventListener("mousemove", ev => {
+    const p = mapPos(ev);
+    if (!p) { $("ba-mapinfo").textContent = ""; return; }
+    const nc = GRID.plows.length;
+    let bj = 0, bi = 0;
+    for (let j = 0; j < nc; j++) if (Math.abs(GRID.plows[j] - p.plow) < Math.abs(GRID.plows[bj] - p.plow)) bj = j;
+    for (let i = 0; i < GRID.pints.length; i++) if (Math.abs(GRID.pints[i] - p.pint) < Math.abs(GRID.pints[bi] - p.pint)) bi = i;
+    const m = bi * nc + bj;
+    $("ba-mapinfo").textContent = isFinite(GRID.Pu[m])
+      ? `Plow ${fmt(GRID.plows[bj], 3)} · Pint ${fmt(GRID.pints[bi], 3)} → Pu ${fmt(GRID.Pu[m], 1)}% · Re ${fmt(GRID.Re[m], 1)}% · En ${fmt(GRID.En[m], 1)} · WC ${fmt(GRID.WC[m], 0)}`
+      : "";
+  });
+  mapC.addEventListener("click", ev => {
+    const p = mapPos(ev);
+    if (!p) return;
+    $("ba-Plow").value = Math.round(p.plow * 200) / 200;
+    $("ba-Pint").value = Math.round(p.pint * 200) / 200;
+    onLight();
+  });
+  mapC.style.cursor = "crosshair";
+  window.addEventListener("resize", () => { if (PATH) drawAll(); });
+}
+
+/* ---------------- boot ---------------- */
+restore();
+applyImport();
+fillPresetSelect();
+fillIastModelSelects();
+buildIastParams(1); buildIastParams(2);
+if (st.preset !== "custom" && PRESETS[st.preset]) applyPreset(st.preset);
+else { pushEdslFields(); syncModeVisibility(); }
+$("ba-mode").value = st.mode;
+$("ba-T").value = st.T; $("ba-PH").value = st.PH; $("ba-PHs").value = st.PH; $("ba-yF").value = st.yF;
+$("ba-cycle").value = st.cycle; $("ba-eta").value = st.etaMode; $("ba-dP").value = st.dP;
+$("ba-Pint").value = st.Pint; $("ba-Plow").value = st.Plow;
+$("ba-gl0").value = st.g.l0; $("ba-gl1").value = st.g.l1; $("ba-gnl").value = st.g.nl; $("ba-gni").value = st.g.ni;
+$("ba-qty").value = st.qty;
+document.querySelectorAll("#ba-axA button").forEach(b => b.classList.toggle("on", b.dataset.m === st.axA));
+document.querySelectorAll("#ba-axB button").forEach(b => b.classList.toggle("on", b.dataset.m === st.axB));
+syncModeVisibility();
+wire();
+Report.mount();          // insert the PNG/CSV buttons into the figure cards
+onHeavy();
+globalThis.__ba = { st, get PATH() { return PATH; }, get KPI() { return KPI; }, get GRID() { return GRID; }, get MIX() { return MIX; } };
+</script>
+</body>
+</html>
